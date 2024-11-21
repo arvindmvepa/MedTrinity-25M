@@ -32,32 +32,58 @@ def eval_model(args):
     disable_torch_init()
     model_path = os.path.expanduser(args.model_path)
     model_name = get_model_name_from_path(model_path)
-    tokenizer, model, image_processor, context_len = load_pretrained_model(model_path, args.model_base, model_name)
+    tokenizer, model, image_processor, context_len = load_pretrained_model(model_path, model_name, model_name, args.projector_name)
 
-    questions = json.load(open(os.path.expanduser(args.question_file), "r"))
+    if args.question_file.endswith('.jsonl'):
+        with open(args.question_file, 'r') as f:
+            questions = []
+            for line in f:
+                try:
+                    questions.append(json.loads(line))
+                except json.JSONDecodeError:
+                    print(f"Warning: Skipping invalid JSON line: {line.strip()}")
+                    continue
+    elif args.question_file.endswith('.json'):
+        questions = [q for q in json.load(open(os.path.expanduser(args.question_file), "r")) if (not q.get("q_lang")) or (q.get("q_lang") == "en")]
     questions = get_chunk(questions, args.num_chunks, args.chunk_idx)
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
     ans_file = open(answers_file, "w")
-    for line in tqdm(questions):
-        idx = line["id"]
-
-        try:
-            question = line["conversations"][0] # ['value'].split('\n')[0]       
-        except:
-            question = line["conversatons"][0] # ['value'].split('\n')[0] 
-
-        qs = question['value']
-
-        qs = qs.replace('<image>', '').strip()
-        
-        cur_prompt = qs
-        image_file = line["image"]
-        if os.path.exists(os.path.join(args.image_folder, image_file)): 
-            image = Image.open(os.path.join(args.image_folder, image_file))
+    print("args ", args)
+    print("Processing", len(questions), "questions")
+    for question in tqdm(questions):
+        idx = question.get("qid")
+        if idx is None:
+            idx = question.get("id")
+        if idx is None:
+            raise ValueError("No question id provided")
+        if 'prompt' in question:
+            qs = question['prompt']
+        elif 'question' in question:
+            qs = question['question']
         else:
+            raise ValueError("No question text provided")
+        if 'caption' in question:
+            caption = question['caption']
+        elif 'answer' in question:
+            caption = question['answer']
+        elif 'Answers' in question:
+            caption = question['Answers']
+        elif 'conversations' in question:
+            caption = question['conversations']
+        else:
+            raise ValueError("No caption provided")
+        qs = qs.replace('<image>', '').strip()
+        cur_prompt = qs
+        image_name = question.get("image_name") or question.get("img_name")
+        full_file_path = question.get("full_file_path")
+        if image_name:
+            image_path = os.path.join(args.image_folder, image_name)
+        elif full_file_path:
+            image_path = full_file_path
+        else:
+            print("No image path provided")
             continue
-        image_tensor = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
         cur_prompt = cur_prompt + '\n' + '<image>'
         if model.config.mm_use_im_start_end:
             qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
@@ -71,13 +97,13 @@ def eval_model(args):
 
         input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
 
-        image = Image.open(os.path.join(args.image_folder, image_file)).convert('RGB')
+        image = Image.open(image_path).convert('RGB')
         image_tensor = process_images([image], image_processor, model.config)[0]
-
+        image_tensor = image_tensor.unsqueeze(0).half().cuda()
         with torch.inference_mode():
             output_ids = model.generate(
                 input_ids,
-                images=image_tensor.unsqueeze(0).half().cuda(),
+                images=image_tensor,
                 image_sizes=[image.size],
                 do_sample=True if args.temperature > 0 else False,
                 temperature=args.temperature,
@@ -88,21 +114,26 @@ def eval_model(args):
                 use_cache=True)
 
         outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
-        
+
         ans_id = shortuuid.uuid()
         ans_file.write(json.dumps({"question_id": idx,
                                    "prompt": cur_prompt,
                                    "text": outputs,
+                                   "caption": caption,
                                    "answer_id": ans_id,
                                    "model_id": model_name,
                                    "metadata": {}}) + "\n")
         ans_file.flush()
+        print("Question:", cur_prompt)
+        print("Original Prompt:", prompt)
+        print("Answer:", outputs)
     ans_file.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default="facebook/opt-350m")
     parser.add_argument("--model-base", type=str, default=None)
+    parser.add_argument("--projector-name", type=str, default=None)
     parser.add_argument("--image-folder", type=str, default="")
     parser.add_argument("--question-file", type=str, default="tables/question.jsonl")
     parser.add_argument("--answers-file", type=str, default="answer.jsonl")

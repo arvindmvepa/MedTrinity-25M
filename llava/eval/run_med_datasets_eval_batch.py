@@ -10,11 +10,13 @@ def parse_args():
     parser.add_argument("--image-folder", type=str, default="")
     parser.add_argument("--question-file", type=str, default="tables/question.json")
     parser.add_argument("--answers-file", type=str, default="answer.jsonl")
+    parser.add_argument("--projector-name", type=str, default=None)
     parser.add_argument("--mm-projector", type=str, default=None)
     parser.add_argument("--vision-tower", type=str, default=None)
     parser.add_argument("--conv-mode", type=str, default="simple")
     parser.add_argument("--answer-prompter", action="store_true")
     parser.add_argument('--num-chunks', type=int, default=1, help='Number of chunks (default: 1).')
+    parser.add_argument('--device', type=int, default=7, help='Device (default: 7).')
     parser.add_argument("--chunk-idx", type=int, default=0)
     args = parser.parse_args()
 
@@ -48,8 +50,9 @@ def parse_args():
 
 def run_job(chunk_idx, args):
 
-    cmd = ("CUDA_VISIBLE_DEVICES={chunk_idx} python llava/eval/model_vqa.py "
+    cmd = ("CUDA_VISIBLE_DEVICES={device} python llava/eval/model_vqa.py "
            "--model-path {model_name} "
+           "--projector-name {projector_name} "
            "--question-file {question_file} "
            "--image-folder {image_folder} "
            "--answers-file {experiment_name_with_split}-chunk{chunk_idx}.jsonl "
@@ -57,16 +60,18 @@ def run_job(chunk_idx, args):
            "--conv-mode {conv_mode} "
            "--chunk-idx {chunk_idx} "
            "--temperature {temperature} ").format(
+                device=args.device,
                 chunk_idx=chunk_idx,
                 chunks=args.num_chunks,
                 model_name=args.model_name,
+                projector_name=args.projector_name,
                 question_file=args.question_file,
                 image_folder=args.image_folder,
                 conv_mode="llama3",
                 experiment_name_with_split=args.experiment_name_with_split,
-                temperature=0.1
+                temperature=0.0
+                #temperature=0.1
             )
-
     print(cmd)
 
     subprocess.run(cmd, shell=True, check=True)

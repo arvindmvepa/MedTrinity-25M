@@ -42,7 +42,14 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, index):
         line = self.questions[index]
-        image_file = line["image"]
+        image_name = line.get("image")
+        file_path = line.get("full_file_path")
+        if image_name:
+            image_path = os.path.join(args.image_folder, image_name)
+        elif file_path:
+            image_path = file_path
+        else:
+            raise ValueError("No image path provided")
         qs = line["text"]
         qs = qs.replace('<image>', '').strip()
         if self.model_config.mm_use_im_start_end:
@@ -54,7 +61,7 @@ class CustomDataset(Dataset):
         conv.append_message(conv.roles[0], qs)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
-        image = Image.open(os.path.join(self.image_folder, image_file)).convert('RGB')
+        image = Image.open(image_path).convert('RGB')
         image_tensor = process_images([image], self.image_processor, self.model_config)[0]
 
         input_ids = tokenizer_image_token(prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt')
@@ -71,7 +78,7 @@ class DataCollatorForVisualTextGeneration(object):
 
     def pad_sequence(self, input_ids, batch_first, padding_value):
         if self.tokenizer.padding_side == "left":
-            input_ids = [torch.flip(_input_ids, [0]) for _input_ids in input_ids] 
+            input_ids = [torch.flip(_input_ids, [0]) for _input_ids in input_ids]
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids,
             batch_first=batch_first,
@@ -92,6 +99,7 @@ class DataCollatorForVisualTextGeneration(object):
 
 # DataLoader
 def create_data_loader(questions, image_folder, tokenizer, image_processor, model_config, batch_size=1, num_workers=4):
+    questions = [q for q in questions if q.get('full_file_path') is not None or q.get('image') is not None]
     dataset = CustomDataset(questions, image_folder, tokenizer, image_processor, model_config)
     collator = DataCollatorForVisualTextGeneration(tokenizer=tokenizer)
     data_loader = DataLoader(dataset, collate_fn=collator, batch_size=batch_size, num_workers=num_workers, shuffle=False)
@@ -121,8 +129,8 @@ def eval_model(args):
                     questions.append(json.loads(line))
                 except json.JSONDecodeError:
                     print(f"Warning: Skipping invalid JSON line: {line.strip()}")
-                    continue                
-            
+                    continue
+
     elif args.question_file.endswith('.json'):
         questions = [q for q in json.load(open(os.path.expanduser(args.question_file), "r"))]
     answers_file = os.path.expanduser(args.answers_file)
@@ -137,12 +145,12 @@ def eval_model(args):
                     parsed_line = safe_json_loads(line)
                     if parsed_line is not None and "question_id" in parsed_line:
                         answered_ids.add(parsed_line["question_id"])
-        
+
         id_name = "id" if "id" in questions[0] else "question_id"
-        
+
         questions = [q for q in questions if q[id_name] not in answered_ids]
         print(f"already answered question num: {len(answered_ids)}, origin question num: {origin_q_num}, now question num: {len(questions)}")
-            
+
     questions = get_chunk(questions, args.num_chunks, args.chunk_idx)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
     ans_file = open(answers_file, "a")
@@ -161,13 +169,13 @@ def eval_model(args):
         num_workers=args.num_workers,
     )
     data_loader_iter = iter(data_loader)
-    data_loader_length = len(data_loader)    
-    with tqdm(total=data_loader_length) as pbar:    
+    data_loader_length = len(data_loader)
+    with tqdm(total=data_loader_length) as pbar:
         while True:
             try:
                 # 获取下一个 batch
                 indices, input_ids, image_tensor, image_sizes = next(data_loader_iter)
-                
+
                 with torch.inference_mode():
                     output_ids = model.generate(
                         input_ids.to(device='cuda', non_blocking=True),
@@ -196,7 +204,7 @@ def eval_model(args):
                         "model_id": model_name
                     }) + "\n")
                 ans_file.flush()
-                pbar.update(1)                
+                pbar.update(1)
             except StopIteration:
                 # 如果迭代器结束，则退出循环
                 break
