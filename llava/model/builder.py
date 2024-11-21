@@ -18,15 +18,17 @@
 import os
 import warnings
 import shutil
+import json
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, BitsAndBytesConfig
 import torch
+from safetensors.torch import load_file
 from llava.model import *
 from llava.constants import DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from llava.train.train import smart_tokenizer_and_embedding_resize
 
 
-def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
+def load_pretrained_model(model_path, model_base, model_name, projector_name, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
     kwargs = {"device_map": device_map, **kwargs}
 
     if device != "cuda":
@@ -68,7 +70,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                 tokenizer=tokenizer,
                 model=model,
             )
-            
+
             token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
             if model.lm_head.weight.shape[0] != token_num:
                 model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
@@ -111,10 +113,6 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path)
                 model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)
-
-            mm_projector_weights = torch.load(os.path.join(model_path, 'mm_projector.bin'), map_location='cpu')
-            mm_projector_weights = {k: v.to(torch.float16) for k, v in mm_projector_weights.items()}
-            model.load_state_dict(mm_projector_weights, strict=False)
         else:
             if 'mpt' in model_name.lower():
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
@@ -180,9 +178,37 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             vision_tower.to(device=device_map, dtype=torch.float16)
         image_processor = vision_tower.image_processor
 
+        if projector_name is not None:
+            projector_index_file = os.path.join(projector_name, "model.safetensors.index.json")
+            with open(projector_index_file, "r") as f:
+                index_data = json.load(f)
+            state_dict = {}
+            # Load each part and populate the state_dict
+            for tensor_name, tensor_file in index_data["weight_map"].items():
+                part_path = os.path.join(projector_name, tensor_file)
+                tensor_dict = load_file(part_path)  # Load this part
+                state_dict[tensor_name] = tensor_dict[tensor_name]
+            state_dict = convert_meta_to_tensor(state_dict, device="cuda" if torch.cuda.is_available() else "cpu")
+            projector_state_dict = {k.replace("model.mm_projector.", ""): v for k,v in state_dict.items() if "project" in k}
+            # Check if the weights exist in the state_dict
+            if projector_state_dict is not None:
+                # Load the projection weights into the model
+                model.get_model().mm_projector.load_state_dict(projector_state_dict)
+                print("Projection matrix weights loaded successfully.")
+            else:
+                print("Projection matrix weights not found in the state dictionary.")
+
     if hasattr(model.config, "max_sequence_length"):
         context_len = model.config.max_sequence_length
     else:
         context_len = 2048
 
     return tokenizer, model, image_processor, context_len
+
+
+def convert_meta_to_tensor(state_dict, device='cpu'):
+    for key, param in state_dict.items():
+        if param.is_meta:
+            # Replace meta tensor with an actual tensor on the specified device
+            state_dict[key] = torch.zeros_like(param, device=device)
+    return state_dict

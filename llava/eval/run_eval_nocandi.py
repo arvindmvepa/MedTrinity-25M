@@ -21,23 +21,23 @@ def load_jsonl(path):
     with open(path, 'r', encoding='utf-8') as reader:
         for line in reader:
             data.append(json.loads(line))
-    return data 
+    return data
 
 def align_dict_lists(gt, pred):
-    gt_ids = {item['id'] for item in gt}
+    gt_ids = {item['qid'] for item in gt}
     pred_ids = {item['question_id'] for item in pred}
 
     common_ids = gt_ids & pred_ids
 
-    gt_aligned = [item for item in gt if item['id'] in common_ids]
+    gt_aligned = [item for item in gt if item['qid'] in common_ids]
     pred_aligned = [item for item in pred if item['question_id'] in common_ids]
 
-    gt_aligned.sort(key=lambda x: x['id'])
+    gt_aligned.sort(key=lambda x: x['qid'])
     pred_aligned.sort(key=lambda x: x['question_id'])
 
     return gt_aligned, pred_aligned
 
-def evaluate(gt, pred):    
+def evaluate(gt, pred):
     gt, pred = align_dict_lists(gt, pred)
     assert len(gt) == len(pred), "the length of gt is the same as pred"
     scores = collections.defaultdict(list)
@@ -69,7 +69,7 @@ def evaluate(gt, pred):
                 bleu_score = sentence_bleu([gt_value.split()], pred_value.split(), weights=w, smoothing_function=SmoothingFunction().method1)
                 bleu_scores.append(bleu_score)
             scores['bleu_scores'].append(bleu_scores)
-            
+
 
         #calculate 'yes/no accuracy'
         elif answer_type == 'CLOSED':
@@ -99,7 +99,7 @@ def evaluate(gt, pred):
         closed_f1_score_avg = sum(closed_scores['f1']) / len(closed_scores['f1'])
         closed_precision_avg = sum(closed_scores['precision']) / len(closed_scores['precision'])
         closed_recall_avg = sum(closed_scores['recall']) / len(closed_scores['recall'])
-    
+
         # Generate evaluation summary
         results_table = tabulate(
             [
@@ -107,7 +107,7 @@ def evaluate(gt, pred):
                 ['F1 Score', f1_score_avg*100],
                 ['Precision', precision_avg*100],
                 ['Recall', recall_avg*100],
-                ['BLEU Score', bleu_scores_avg[0]*100], 
+                ['BLEU Score', bleu_scores_avg[0]*100],
                 ['BLEU Score (Weight 1)', bleu_scores_avg[1]*100],
                 ['BLEU Score (Weight 2)', bleu_scores_avg[2]*100],
                 ['BLEU Score (Weight 3)', bleu_scores_avg[3]*100],
@@ -126,7 +126,7 @@ def evaluate(gt, pred):
                 ['F1 Score', f1_score_avg*100],
                 ['Precision', precision_avg*100],
                 ['Recall', recall_avg*100],
-                ['BLEU Score', bleu_scores_avg[0]*100], 
+                ['BLEU Score', bleu_scores_avg[0]*100],
                 ['BLEU Score (Weight 1)', bleu_scores_avg[1]*100],
                 ['BLEU Score (Weight 2)', bleu_scores_avg[2]*100],
                 ['BLEU Score (Weight 3)', bleu_scores_avg[3]*100],
