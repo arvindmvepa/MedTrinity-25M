@@ -62,15 +62,20 @@ def load_pretrained_model(model_path, model_base, model_name, projector_name, lo
             print('Loading LLaVA from base model...')
             lora_cfg_pretrained.pad_token_id = None
             lora_cfg_pretrained.vocab_size = lora_cfg_pretrained.vocab_size - 1
-
-            model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, **kwargs)
+            if 'mistral' in model_name.lower():
+                model = LlavaMistralForCausalLM.from_pretrained(
+                    model_base,
+                    low_cpu_mem_usage=True,
+                    **kwargs
+                )
+            else:
+                model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, **kwargs)
             print(f"Adding pad token as '<pad>'")
             smart_tokenizer_and_embedding_resize(
                 special_tokens_dict=dict(pad_token="<pad>"),
                 tokenizer=tokenizer,
                 model=model,
             )
-
             token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
             if model.lm_head.weight.shape[0] != token_num:
                 model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
@@ -109,6 +114,13 @@ def load_pretrained_model(model_path, model_base, model_name, projector_name, lo
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=True)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
                 model = LlavaMptForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)
+            elif 'mistral' in model_name.lower():
+                tokenizer = AutoTokenizer.from_pretrained(model_base)
+                model = LlavaMistralForCausalLM.from_pretrained(
+                    model_base,
+                    low_cpu_mem_usage=True,
+                    **kwargs
+                )
             else:
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path)

@@ -17,6 +17,7 @@
 #    limitations under the License.
 
 import os
+import traceback
 import copy
 from dataclasses import dataclass, field
 import json
@@ -105,7 +106,7 @@ class TrainingArguments(transformers.TrainingArguments):
         default=16,
         metadata={"help": "How many bits to use."}
     )
-    lora_enable: bool = False
+    lora_enable: bool = True
     lora_r: int = 64
     lora_alpha: int = 16
     lora_dropout: float = 0.05
@@ -629,7 +630,6 @@ def preprocess_llama3(
             return_tensors="pt",
             padding="longest",
             max_length=tokenizer.model_max_length,
-            truncation=True,
         ).input_ids
 
     targets = input_ids.clone()
@@ -866,9 +866,17 @@ class LazySupervisedDataset(Dataset):
             list_data_dict = [json.loads(line) for line in open(data_path, "r")]
         else:
             raise ValueError("Unsupported data format")
-
+        for index in range(len(list_data_dict)):
+            data = list_data_dict[index]
+            if "conversations" not in data:
+                question_text = data["question"]
+                answer_text = data["answer"]
+                data["conversations"] = [{"from": "human", "value": question_text + DEFAULT_IMAGE_TOKEN},
+                                         {"from": "gpt", "value": answer_text}]
         rank0_print("Formatting inputs...Skip in lazy mode")
         self.tokenizer = tokenizer
+        if tokenizer.pad_token is None:
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         self.list_data_dict = list_data_dict
         self.data_args = data_args
 
@@ -895,14 +903,14 @@ class LazySupervisedDataset(Dataset):
                 print(sample['conversations'])
         return length_list
 
- 
+
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         sources = self.list_data_dict[i]
         if isinstance(i, int):
             sources = [sources]
         assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
-        if 'image' in sources[0]:
-            image_file = self.list_data_dict[i]['image']
+        if 'img_name' in sources[0]:
+            image_file = self.list_data_dict[i]['img_name']
             image_folder = self.data_args.image_folder
             processor = self.data_args.image_processor
             image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
@@ -1080,7 +1088,7 @@ def train(attn_implementation=None):
                 model.to(torch.bfloat16)
             if training_args.fp16:
                 model.to(torch.float16)
-        rank0_print("Adding LoRA adapters...")
+        rank0_print(f"Adding LoRA adapters... r:{training_args.lora_r}, lora_alpha:{training_args.lora_alpha}")
         model = get_peft_model(model, lora_config)
 
     if 'mpt' in model_args.model_name_or_path:
@@ -1192,21 +1200,23 @@ def train(attn_implementation=None):
                            tokenizer=tokenizer,
                            args=training_args,
                            **data_module)
-    
     # print the weights need to be trained
     if local_rank == 0:
         for name, param in trainer.model.model.named_parameters():
             if param.requires_grad:
                 print(name)
-
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
     else:
-        trainer.train()
+        try:
+            trainer.train()
+        except Exception as e:
+            print("An error occurred during training:", e)
+            traceback.print_exc()
+            raise
     trainer.save_state()
 
     model.config.use_cache = True
-
     if training_args.lora_enable:
         state_dict = get_peft_state_maybe_zero_3(
             model.named_parameters(), training_args.lora_bias

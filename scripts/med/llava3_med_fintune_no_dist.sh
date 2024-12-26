@@ -1,7 +1,6 @@
 #!/bin/bash
 
-CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=5 TORCH_USE_CUDA_DSA=1 torchrun --nnodes=1 --nproc_per_node=8 --master_port=25001 llava/train/train_mem.py \
-    --deepspeed ./scripts/zero3.json \
+CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=5 TORCH_USE_CUDA_DSA=1 python llava/train/train_mem.py \
     --model_name_or_path /local2/amvepa91/MedTrinity-25M/MBZUAI/LLaVA-Meta-Llama-3-8B-Instruct-FT-S2 \
     --version llama3 \
     --data_path /local2/amvepa91/Slake1.0/train.json \
@@ -16,7 +15,7 @@ CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=5 TORCH_USE_CUDA_DSA=1 torchrun --nn
     --group_by_modality_length True \
     --bf16 True \
     --output_dir ./checkpoints/llava-llama-med-8b-finetune \
-    --num_train_epochs 1 \
+    --num_train_epochs 10 \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 8 \
@@ -30,8 +29,10 @@ CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=5 TORCH_USE_CUDA_DSA=1 torchrun --nn
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
     --tf32 True \
-    --model_max_length 4096 \
+    --model_max_length 512 \
+    --lora_r 16 \
+    --lora_alpha 32 \
     --gradient_checkpointing True \
-    --dataloader_num_workers 4 \
+    --dataloader_num_workers 1 \
     --lazy_preprocess True \
     --report_to wandb
