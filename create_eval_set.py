@@ -65,6 +65,26 @@ def create_test_file(ann_dir='/local2/shared_data/MedTrinity-25M-repo/25M_full',
     sampled_image_ann_df.to_json(f"{test_file_name}_num_samples{num_samples}_prompt_type{prompt_type}_test.jsonl", orient="records", lines=True)
 
 
+# TODO: split the dataset by train and val based on what is contained in each folder
+def create_brats_gt_file(ann_dir='/local2/shared_data/MedTrinity-25M-repo/25M_full', source="brats_24",
+                            base_image_dir='/local2/shared_data/MedTrinity-25M-repo/25M_accessible_unzipped',
+                            test_file_name="brats_gli", modality='t1c', base_slice_num=33, slice_increment=10):
+    ann_df = get_df_from_parquet_files(ann_dir)
+    image_ann_df = ann_df[ann_df["source"] == source]
+    image_ann_df['volume_name'] = image_ann_df['file_name'].apply(lambda x: x[:15])
+    image_ann_df['modality'] = image_ann_df['file_name'].apply(lambda x: x[20:23])
+    # for now only use t1c modality
+    image_ann_df = image_ann_df[image_ann_df['modality'] == modality]
+    image_ann_df['slice_string'] = image_ann_df['file_name'].str.extract(r'slice_(.*?)\.png')
+    image_ann_df['slice_num'] = image_ann_df['file_name'].str.extract(r'slice_(\d+)_y\.png')
+    image_ann_df['slice_num'] = image_ann_df['slice_num'].apply(lambda x: int(x))
+    # filter based on 10 slices in the middle of the imaging (starting from 30) ~ corresponds to about 10,000 slices
+    image_ann_df = image_ann_df.loc[(image_ann_df['slice_num'] >= base_slice_num) & (image_ann_df['slice_num'] <= base_slice_num + slice_increment)]
+    image_ann_df["full_file_path"] = image_ann_df["file_name"].apply(lambda x: get_full_file_path(x, base_image_dir))
+    image_ann_df.to_csv(f"{test_file_name}_base_slice_num_{base_slice_num}_slice_increment_{slice_increment}_gt.csv", index=False)
+    image_ann_df.to_json(f"{test_file_name}_base_slice_num_{base_slice_num}_slice_increment_{slice_increment}_gt.jsonl", orient="records", lines=True)
+
+
 def get_full_file_path(image_file, base_image_dir='/local2/shared_data/MedTrinity-25M-repo/25M_accessible_unzipped'):
     possible_image_dir = os.path.join(base_image_dir, "*", "*", "*", "*", "*", "*")
     possible_image_file_path = glob(os.path.join(possible_image_dir, image_file))
@@ -150,9 +170,10 @@ if __name__ == '__main__':
     print(f"Creating test file for {test_file_name}")
     create_test_file(ann_dir=ann_dir, source=source, base_image_dir=base_image_dir, num_samples=num_samples,
                      test_file_name=test_file_name, prompt_type=prompt_type, seed=seed)
-    """
     # third generated annotation file
     # create_test_file_from_vqa_rad_json(prompt_type="q1.1")
     # fourth generated annotation file
     create_test_file_from_path_vqa_json(prompt_type="q1.6", num_samples=100)
+    """
+    create_brats_gt_file(slice_increment=30)
 
