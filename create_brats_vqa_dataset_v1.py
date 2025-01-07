@@ -109,7 +109,7 @@ if __name__ == "__main__":
         print(f"Processing image: {os.path.basename(img_file)}")
         seg_file = "/local2/amvepa91/MedTrinity-25M/output_pngs/BraTS-GLI-02358-101/BraTS-GLI-02358-101_seg_slice_100_y.png"
 
-        image_t1ce = Image.open(img_file)
+        image = np.array(Image.open(img_file))
         seg_map_2d = load_color_seg_png_as_labels(seg_file)
 
         # Similarly, create dummy masks:
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
         # Process segmentation:
         results = process_segmentation(
-            image=image_t1ce,
+            image=image,
             mask_non_enh=mask_non_enh,
             mask_enh=mask_enh,
             mask_flair=mask_flair,
