@@ -282,7 +282,8 @@ def summarize_vqa_data(all_vqa_questions):
             min_seg_id_counts = min(seg_id_counts)
             max_seg_id_counts = max(seg_id_counts)
             lines.append(
-                f"\nEmpty counts per seg_id (over 5 questions for 5 organs and 2 questions for 4 relationships. total=33):\n"
+                f"\nEmpty counts per seg_id (over 4 image types with 1 modality question and 5 questions for 5 organs and 2 questions for 4 relationships. total=136):\n"
+                #f"\nEmpty counts per seg_id (over 5 questions for 5 organs and 2 questions for 4 relationships. total=33):\n"
                 #f"  Removing seg_ids with empty counts: " + ", ".join([str(k) for k in remove_empty_counts]) + "\n"
                 f"  Max # of seg_ids: {max_seg_id}\n"
                 f"  Seg_id Count: {len(empty_count_map)}\n"
@@ -422,6 +423,8 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
                                                 total_pixels=total_pixels,
                                                 abs_intensity_diff_thresh=abs_intensity_diff_thresh)
         vqa_questions = []
+        modality_question = generate_modality_question(modality)
+        vqa_questions.extend(modality_question)
         # get single label questions
         for summ in label_summaries:
             label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
