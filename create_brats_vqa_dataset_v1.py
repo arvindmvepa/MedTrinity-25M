@@ -1,9 +1,103 @@
 import os.path
-
 import numpy as np
 from PIL import Image
-from scipy.ndimage import binary_dilation, generate_binary_structure
+from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
 from create_brats_imaging_dataset import load_color_seg_png_as_labels
+
+
+def extract_label_intensity_components(
+    image: np.ndarray,
+    mask: np.ndarray,
+    abs_intensity_diff_thresh: float,
+    dilation_iterations: int = 2
+):
+    """
+    Given an MR image (e.g. T1CE) and a segmentation mask (possibly with multiple
+    connected components), this function:
+      1) Identifies connected components in the mask.
+      2) For each connected component, computes:
+         - the average intensity within that component.
+         - the average intensity in the local 'surrounding' region (via dilation).
+         - checks if the absolute difference is above abs_intensity_diff_thresh.
+      3) Returns a final mask that is the UNION of all connected components that
+         pass the threshold criterion, as well as a boolean flag indicating if
+         there is at least one component meeting the criterion.
+
+    :param image: 3D numpy array (or 2D) of the MR modality
+    :param mask:  3D (or 2D) binary segmentation mask
+    :param abs_intensity_diff_thresh: Threshold by which each connected component
+                                      must differ from its surroundings
+    :param dilation_iterations: Number of iterations for the surrounding dilation
+    :return: kept_mask, label_is_present, avg_intensities, avg_surroundings
+             where:
+                 - kept_mask is a binary mask containing only those components
+                   whose difference from surrounding is >= threshold.
+                 - label_is_present is True if any component meets the criterion.
+                 - avg_intensities is a list of average intensities for each
+                   connected component (in the order of component labels).
+                 - avg_surroundings is a list of average surrounding intensities
+                   for each connected component (same order).
+    """
+
+    # 1) Label the connected components in the mask
+    labeled_mask, num_components = label_(mask)
+    if num_components == 0:
+        # No components at all
+        return np.zeros_like(mask, dtype=bool), False, [], []
+
+    # Prepare outputs
+    kept_components = []
+    avg_intensities = []
+    avg_surroundings = []
+
+    # Define the structure for dilation
+    structure = generate_binary_structure(rank=mask.ndim, connectivity=1)
+
+    # 2) Iterate over each connected component
+    for comp_idx in range(1, num_components + 1):
+        component_mask = (labeled_mask == comp_idx)
+
+        # (a) Average intensity in this component
+        component_intensities = image[component_mask]
+        if component_intensities.size == 0:
+            # Should not happen if label() found a component, but just in case
+            avg_intensity = 0.0
+        else:
+            avg_intensity = component_intensities.mean()
+
+        # (b) Average intensity of the surrounding region
+        dilated_mask = binary_dilation(
+            component_mask,
+            structure=structure,
+            iterations=dilation_iterations
+        )
+        surrounding_mask = np.logical_and(dilated_mask, np.logical_not(component_mask))
+
+        surrounding_intensities = image[surrounding_mask]
+        if surrounding_intensities.size == 0:
+            # If there's no valid surrounding, skip or treat as failing threshold
+            avg_surrounding_intensity = 0.0
+        else:
+            avg_surrounding_intensity = surrounding_intensities.mean()
+
+        # Store these for reference
+        avg_intensities.append(avg_intensity)
+        avg_surroundings.append(avg_surrounding_intensity)
+
+        # (c) Check if this component's difference meets threshold
+        if abs(avg_intensity - avg_surrounding_intensity) >= abs_intensity_diff_thresh:
+            kept_components.append(comp_idx)
+
+    # 3) Construct the union mask of all kept connected components
+    if len(kept_components) == 0:
+        kept_mask = np.zeros_like(mask, dtype=bool)
+        label_is_present = False
+    else:
+        # Create a binary mask that is True where the component label is in kept_components
+        kept_mask = np.isin(labeled_mask, kept_components)
+        label_is_present = True
+
+    return kept_mask, label_is_present, avg_intensities, avg_surroundings
 
 
 def extract_label_intensity(
@@ -86,12 +180,14 @@ def process_segmentation(
     }
 
     for label_name, label_mask in labels.items():
-        present, avg_int, avg_sur_int = extract_label_intensity(
+        kept_mask, present, avg_int, avg_sur_int = extract_label_intensity_components(
             image=image,
             mask=label_mask,
             abs_intensity_diff_thresh=abs_intensity_diff_thresh,
         )
         results[label_name] = {
+            'old_mask_count': np.sum(label_mask),
+            'new_mask_count': np.sum(kept_mask),
             'is_present': present,
             'avg_intensity': avg_int,
             'avg_surrounding_intensity': avg_sur_int
