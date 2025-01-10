@@ -1,5 +1,5 @@
 import os.path
-
+from glob import glob
 import numpy as np
 from PIL import Image
 from joblib import Parallel, delayed
@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 import json
 import re
 from create_brats_imaging_dataset import load_color_seg_png_as_labels
-from vqa_utils import label_names, analyze_label_relationship, analyze_label_summary, get_seg_ids_empty_counts
+from vqa_utils import label_names, analyze_label_relationship, analyze_label_summary, get_seg_ids_empty_counts, extract_label_intensity_components
 
 
 def generate_train_val_test_splits(all_vqa_questions, seed=0, train_frac=0.8, val_frac=0.1,
@@ -39,16 +39,18 @@ def generate_train_val_test_splits(all_vqa_questions, seed=0, train_frac=0.8, va
 
     return train_questions, val_questions, test_questions
 
-def postprocess_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100, modality="t1c",
-                         save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
+def postprocess_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100,
+                         default_modality="t1c", save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
     filtered_vqa_questions = filter_seg_ids_from_vqa_data(all_vqa_questions,
                                                           max_num_of_seg_ids_per_empty_count=max_num_of_seg_ids_per_empty_count,
                                                           seed=seed)
     for index in range(len(filtered_vqa_questions)):
-        filtered_vqa_questions[index]["img_id"] = filtered_vqa_questions[index]["seg_id"]
-        base_img_file = os.path.basename(filtered_vqa_questions[index]["seg_file"]).replace("seg", modality)
-        base_dir = os.path.basename(os.path.dirname(filtered_vqa_questions[index]["seg_file"]))
-        filtered_vqa_questions[index]["img_name"] = os.path.join(base_dir, base_img_file)
+        question = filtered_vqa_questions[index]
+        question["img_id"] = filtered_vqa_questions[index]["seg_id"]
+        if "img_name" not in question:
+            base_img_file = os.path.basename(question["seg_file"]).replace("seg", default_modality)
+            base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
+            question["img_name"] = os.path.join(base_dir, base_img_file)
         assert "question" in filtered_vqa_questions[index]
         assert "answer" in filtered_vqa_questions[index]
         filtered_vqa_questions[index]["q_lang"] = "en"
@@ -65,8 +67,6 @@ def postprocess_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=1
         json.dump(filtered_vqa_questions, f, indent=2)
 
     return filtered_vqa_questions
-
-
 
 
 def filter_seg_ids_from_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100, seed=0):
@@ -298,6 +298,13 @@ def summarize_vqa_data(all_vqa_questions):
     return "\n".join(lines)
 
 
+def generate_modality_question(modality):
+    question = f"What is the modality of the brain image?"
+    answer = modality
+    question_dict = {"question": question, "answer": answer, "type": "modality", "label_name": "NA"}
+    return [question_dict]
+
+
 def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True, include_extent=True,
                                  include_solidity=True):
     vqa_questions = []
@@ -345,7 +352,8 @@ def generate_single_relationship_vqa_questions(label1_name, label2_name, mask1, 
     return vqa_questions
 
 
-def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pixels, include_nonenh_vs_enh=True,
+def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pixels, image=None,
+                                            abs_intensity_diff_thresh=10, include_nonenh_vs_enh=True,
                                             include_flair_vs_core=True, include_rec_vs_core=True,
                                             include_rec_vs_flair=True):
     label1_mask = (seg_map_2d == 1)  # Non-Enh
@@ -353,6 +361,18 @@ def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pix
     label3_mask = (seg_map_2d == 3)  # Enh
     label4_mask = (seg_map_2d == 4)  # Resection cavity
     label5_mask = np.logical_or(label1_mask, label3_mask)  # Tumor Core (Non-Enh + Enh)
+    if image is not None:
+        if image is not None:
+            label1_mask, _, _, _ = extract_label_intensity_components(image=image, mask=label1_mask,
+                                                                      abs_intensity_diff_thresh=abs_intensity_diff_thresh)
+            label2_mask, _, _, _ = extract_label_intensity_components(image=image, mask=label2_mask,
+                                                                      abs_intensity_diff_thresh=abs_intensity_diff_thresh)
+            label3_mask, _, _, _ = extract_label_intensity_components(image=image, mask=label3_mask,
+                                                                      abs_intensity_diff_thresh=abs_intensity_diff_thresh)
+            label4_mask, _, _, _ = extract_label_intensity_components(image=image, mask=label4_mask,
+                                                                      abs_intensity_diff_thresh=abs_intensity_diff_thresh)
+            label5_mask, _, _, _ = extract_label_intensity_components(image=image, mask=label5_mask,
+                                                                      abs_intensity_diff_thresh=abs_intensity_diff_thresh)
 
     vqa_questions = []
     if include_nonenh_vs_enh:
@@ -371,6 +391,56 @@ def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pix
         question_dict = generate_single_relationship_vqa_questions(label_names.get(4), label_names.get(2), label4_mask,
                                                                    label2_mask, total_pixels, height, width)
         vqa_questions.extend(question_dict)
+    return vqa_questions
+
+
+def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, include_quadrant=False,
+                                           include_bbox=True, include_extent=True, include_solidity=True,
+                                           include_nonenh_vs_enh=True, include_flair_vs_core=True,
+                                           include_rec_vs_core=True, include_rec_vs_flair=True, abs_intensity_diff_thresh=10):
+    """
+    Master function to produce a textual report combining:
+      - Label summaries (area %, quadrant, bounding box, extent-based compactness)
+        with subjective interpretations.
+      - Non-Enh vs Enh tumor adjacency info.
+      - FLAIR vs Tumor Core adjacency info.
+      - Resection cavity vs tumor core & FLAIR.
+    """
+    seg_map_2d = load_color_seg_png_as_labels(seg_file)
+
+    height, width = seg_map_2d.shape
+    total_pixels = seg_map_2d.size
+
+    vqa_questions = []
+    # extract labels per mri sequence
+    for modality in ["t1c", "t1n", "t2w", "t2f"]:
+        img_file = seg_file.replace("seg", modality)
+        image = np.array(Image.open(img_file))
+
+        # Summaries of labels
+        label_summaries = analyze_label_summary(seg_map_2d=seg_map_2d, image=image, height=height, width=width,
+                                                total_pixels=total_pixels,
+                                                abs_intensity_diff_thresh=abs_intensity_diff_thresh)
+
+        # get single label questions
+        for summ in label_summaries:
+            label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
+                                                               include_quadrant=include_quadrant, include_bbox=include_bbox,
+                                                               include_extent=include_extent,
+                                                               include_solidity=include_solidity)
+            vqa_questions.extend(label_vqa_questions)
+        # get label relationship questions
+        relationship_vqa_questions = generate_all_relationship_vqa_questions(seg_map_2d=seg_map_2d, height=height,
+                                                                             width=width, total_pixels=total_pixels,
+                                                                             include_nonenh_vs_enh=include_nonenh_vs_enh,
+                                                                             include_flair_vs_core=include_flair_vs_core,
+                                                                             include_rec_vs_core=include_rec_vs_core,
+                                                                             include_rec_vs_flair=include_rec_vs_flair)
+        vqa_questions.extend(relationship_vqa_questions)
+    for q in vqa_questions:
+        q['img_name'] = img_file
+        q["seg_id"] = seg_id
+        q["seg_file"] = seg_file
     return vqa_questions
 
 
@@ -461,7 +531,8 @@ def generate_vqa_data_from_seg_file_joblib(
     # Wrap Parallel execution with tqdm_joblib for the progress bar:
     with tqdm_joblib(desc="Processing segmentation files", total=len(seg_files)):
         results = Parallel(n_jobs=n_jobs)(
-            delayed(generate_vqa_from_seg_map)(
+            #delayed(generate_vqa_from_seg_map)(
+            delayed(generate_vqa_from_seg_map_and_sequence)(
                 seg_file,
                 seg_id,
                 include_area,
@@ -502,13 +573,12 @@ if __name__ == "__main__":
         report = analyze_segmentation_map(seg_map_2d)
         print(report)
     """
-    #vqa_file = "brats_gli_vqa_data.json"
-    vqa_file = "/local2/amvepa91/MedTrinity-25M/brats_gli_vqa_val.json"
-    #slice_idx = 120
-    #seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    #vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
-    #with open(vqa_file, 'w') as f:
-    #    json.dump(vqa_data_, f, indent=2)
+    vqa_file = "brats_gli_vqa_data_v1.json"
+    slice_idx = 120
+    seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
+    with open(vqa_file, 'w') as f:
+        json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
     print(summarize_vqa_data(vqa_data))
