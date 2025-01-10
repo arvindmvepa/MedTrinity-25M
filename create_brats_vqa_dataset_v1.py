@@ -43,7 +43,7 @@ def extract_label_intensity_components(
     labeled_mask, num_components = label_(mask)
     if num_components == 0:
         # No components at all
-        return np.zeros_like(mask, dtype=bool), False, [], []
+        return np.zeros_like(mask, dtype=bool), False, 0.0, 0.0
 
     # Prepare outputs
     kept_components = []
