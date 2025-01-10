@@ -228,6 +228,8 @@ if __name__ == "__main__":
         for label, stats in results.items():
             print(f"Label: {label}")
             print(f"  Is Present: {stats['is_present']}")
+            print(f"  Old Mask Count: {stats['old_mask_count']}")
+            print(f"  New Mask Count: {stats['new_mask_count']}")
             print(f"  Avg Intensity: {stats['avg_intensity']:.2f}")
             print(f"  Avg Surrounding Intensity: {stats['avg_surrounding_intensity']:.2f}")
             print()
