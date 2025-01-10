@@ -411,7 +411,7 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
     height, width = seg_map_2d.shape
     total_pixels = seg_map_2d.size
 
-    vqa_questions = []
+    all_vqa_questions = []
     # extract labels per mri sequence
     for modality in ["t1c", "t1n", "t2w", "t2f"]:
         img_file = seg_file.replace("seg", modality)
@@ -421,7 +421,7 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
         label_summaries = analyze_label_summary(seg_map_2d=seg_map_2d, image=image, height=height, width=width,
                                                 total_pixels=total_pixels,
                                                 abs_intensity_diff_thresh=abs_intensity_diff_thresh)
-
+        vqa_questions = []
         # get single label questions
         for summ in label_summaries:
             label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
@@ -437,11 +437,13 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
                                                                              include_rec_vs_core=include_rec_vs_core,
                                                                              include_rec_vs_flair=include_rec_vs_flair)
         vqa_questions.extend(relationship_vqa_questions)
-    for q in vqa_questions:
-        q['img_name'] = img_file
-        q["seg_id"] = seg_id
-        q["seg_file"] = seg_file
-    return vqa_questions
+        for q in vqa_questions:
+            q['img_name'] = img_file
+            q['modality'] = modality
+            q["seg_id"] = seg_id
+            q["seg_file"] = seg_file
+        all_vqa_questions.extend(vqa_questions)
+    return all_vqa_questions
 
 
 def generate_vqa_from_seg_map(seg_file, seg_id, include_area=True, include_quadrant=True, include_bbox=True,
