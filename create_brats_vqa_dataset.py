@@ -90,7 +90,8 @@ def filter_seg_ids_from_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty
     return [q for q in all_vqa_questions if q["seg_id"] in final_seg_ids]
 
 
-def summarize_vqa_data(all_vqa_questions):
+def summarize_vqa_data(all_vqa_questions,
+                       max_seg_id_list=(10, 20, 25, 30, 40, 50, 70, 77, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200)):
     """
     Summarize basic statistics about the generated VQA data:
       - Count total questions
@@ -249,13 +250,11 @@ def summarize_vqa_data(all_vqa_questions):
     lines.append(f"# of seg maps: {len(completely_empty_map)}, seg maps that are empty: {sum(list(completely_empty_map.values()))}, seg maps without tumor core: {sum(list(no_tumor_core_map.values()))}")
 
     if empty_count_map is not None:
-        """
-        for remove_empty_counts in [[], [33, 28], [33, 28, 26]]:
-            for empty_count in remove_empty_counts:
-                empty_count_map = {seg_id: count for seg_id, count in list(empty_count_map.items()) if count != empty_count}
-        """
+        #for remove_empty_counts in [[], [33, 28], [33, 28, 26]]:
+        #    for empty_count in remove_empty_counts:
+        #        empty_count_map = {seg_id: count for seg_id, count in list(empty_count_map.items()) if count != empty_count}
         empty_count_map_ = empty_count_map.copy()
-        for max_seg_id in [10, 20, 25, 30, 40, 50, 70, 77, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]:
+        for max_seg_id in max_seg_id_list:
             empty_count_tracker = dict()
             empty_count_map = dict()
             for seg_id, count in list(empty_count_map_.items()):
@@ -295,7 +294,6 @@ def summarize_vqa_data(all_vqa_questions):
                 f"  Seg_id 25-50-75: [{q1_seg_id_counts:.2f}, {q2_seg_id_counts:.2f}, {q3_seg_id_counts:.2f}]\n"
                 f"  Seg_id Range: [{min_seg_id_counts:.2f}, {max_seg_id_counts:.2f}]\n"
             )
-
     return "\n".join(lines)
 
 
@@ -307,11 +305,14 @@ def generate_modality_question(modality):
 
 
 def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True, include_extent=True,
-                                 include_solidity=True):
+                                 include_solidity=True, subjective_only=False):
     vqa_questions = []
     if include_area:
-        question = f"What is the area covered by {summ['name']}?"
-        answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
+        question = f"How large is the area covered by {summ['name']}?"
+        if subjective_only:
+            answer = f"{summ['area_interp']}"
+        else:
+            answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
         question_dict = {"question": question, "answer": answer, "type": "area", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     if include_quadrant:
@@ -326,24 +327,34 @@ def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True,
         vqa_questions.append(question_dict)
     if include_extent:
         question = f"Within the smallest bounding box surrounding {summ['name']}, to what extent is the bounding box region filled?"
-        answer = f"{summ['extent_value']:.1f}, which is {summ['extent_interp']}"
+        if subjective_only:
+            answer = f"{summ['extent_interp']}"
+        else:
+            answer = f"{summ['extent_value']:.1f}, which is {summ['extent_interp']}"
         question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     if include_solidity:
         question = f"Within the smallest bounding box surrounding {summ['name']}, how solid is the region?"
-        answer = f"{summ['solidity_value']:.1f}, which is {summ['solidity_interp']}"
+        if subjective_only:
+            answer = f"{summ['solidity_interp']}"
+        else:
+            answer = f"{summ['solidity_value']:.1f}, which is {summ['solidity_interp']}"
         question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     return vqa_questions
 
 
-def generate_single_relationship_vqa_questions(label1_name, label2_name, mask1, mask2, total_pixels, height, width):
+def generate_single_relationship_vqa_questions(label1_name, label2_name, mask1, mask2, total_pixels, height, width,
+                                               subjective_only=False):
     relation_str = f"{label1_name}_vs_{label2_name}"
     relation_dict = analyze_label_relationship(mask1, mask2, total_pixels, height, width)
 
     vqa_questions = []
-    question = f"What percentage of the {label1_name} is adjacent to {label2_name}?"
-    answer = f"{relation_dict['adjacent_percentage']:.1f}%, which is {relation_dict['adjacent_interpretation']}"
+    question = f"How large is the area covered by {label1_name} adjacent to {label2_name}?"
+    if subjective_only:
+        answer = f"{relation_dict['adjacent_area_interp']}"
+    else:
+        answer = f"{relation_dict['adjacent_percentage']:.1f}%, which is {relation_dict['adjacent_interpretation']}"
     question_dict = {"question": question, "answer": answer, "type": "adj_area", "label_name": relation_str}
     vqa_questions.append(question_dict)
     question = f"For the region of {label1_name} which is adjacent to {label2_name}, what quadrant(s) is it in?"
@@ -356,7 +367,7 @@ def generate_single_relationship_vqa_questions(label1_name, label2_name, mask1, 
 def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pixels, image=None,
                                             abs_intensity_diff_thresh=10, include_nonenh_vs_enh=True,
                                             include_flair_vs_core=True, include_rec_vs_core=True,
-                                            include_rec_vs_flair=True):
+                                            include_rec_vs_flair=True, subjective_only=False):
     label1_mask = (seg_map_2d == 1)  # Non-Enh
     label2_mask = (seg_map_2d == 2)  # FLAIR
     label3_mask = (seg_map_2d == 3)  # Enh
@@ -378,19 +389,23 @@ def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pix
     vqa_questions = []
     if include_nonenh_vs_enh:
         question_dict = generate_single_relationship_vqa_questions(label_names.get(1), label_names.get(3), label1_mask,
-                                                                   label3_mask, total_pixels, height, width)
+                                                                   label3_mask, total_pixels, height, width,
+                                                                   subjective_only=subjective_only)
         vqa_questions.extend(question_dict)
     if include_flair_vs_core:
         question_dict = generate_single_relationship_vqa_questions(label_names.get(2), label_names.get(5), label2_mask,
-                                                                   label5_mask, total_pixels, height, width)
+                                                                   label5_mask, total_pixels, height, width,
+                                                                   subjective_only=subjective_only)
         vqa_questions.extend(question_dict)
     if include_rec_vs_core:
         question_dict = generate_single_relationship_vqa_questions(label_names.get(4), label_names.get(5), label4_mask,
-                                                                   label5_mask, total_pixels, height, width)
+                                                                   label5_mask, total_pixels, height, width,
+                                                                   subjective_only=subjective_only)
         vqa_questions.extend(question_dict)
     if include_rec_vs_flair:
         question_dict = generate_single_relationship_vqa_questions(label_names.get(4), label_names.get(2), label4_mask,
-                                                                   label2_mask, total_pixels, height, width)
+                                                                   label2_mask, total_pixels, height, width,
+                                                                   subjective_only=subjective_only)
         vqa_questions.extend(question_dict)
     return vqa_questions
 
@@ -398,7 +413,8 @@ def generate_all_relationship_vqa_questions(seg_map_2d, height, width, total_pix
 def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, include_quadrant=False,
                                            include_bbox=True, include_extent=True, include_solidity=True,
                                            include_nonenh_vs_enh=True, include_flair_vs_core=True,
-                                           include_rec_vs_core=True, include_rec_vs_flair=True, abs_intensity_diff_thresh=10):
+                                           include_rec_vs_core=True, include_rec_vs_flair=True, subjective_only=False,
+                                           abs_intensity_diff_thresh=10):
     """
     Master function to produce a textual report combining:
       - Label summaries (area %, quadrant, bounding box, extent-based compactness)
@@ -428,9 +444,11 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
         # get single label questions
         for summ in label_summaries:
             label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
-                                                               include_quadrant=include_quadrant, include_bbox=include_bbox,
+                                                               include_quadrant=include_quadrant,
+                                                               include_bbox=include_bbox,
                                                                include_extent=include_extent,
-                                                               include_solidity=include_solidity)
+                                                               include_solidity=include_solidity,
+                                                               subjective_only=subjective_only)
             vqa_questions.extend(label_vqa_questions)
         # get label relationship questions
         relationship_vqa_questions = generate_all_relationship_vqa_questions(seg_map_2d=seg_map_2d, height=height,
@@ -438,7 +456,8 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
                                                                              include_nonenh_vs_enh=include_nonenh_vs_enh,
                                                                              include_flair_vs_core=include_flair_vs_core,
                                                                              include_rec_vs_core=include_rec_vs_core,
-                                                                             include_rec_vs_flair=include_rec_vs_flair)
+                                                                             include_rec_vs_flair=include_rec_vs_flair,
+                                                                             subjective_only=subjective_only)
         vqa_questions.extend(relationship_vqa_questions)
         for q in vqa_questions:
             q['img_name'] = img_file
@@ -451,7 +470,8 @@ def generate_vqa_from_seg_map_and_sequence(seg_file, seg_id, include_area=True, 
 
 def generate_vqa_from_seg_map(seg_file, seg_id, include_area=True, include_quadrant=True, include_bbox=True,
                               include_extent=True, include_solidity=True, include_nonenh_vs_enh=True,
-                              include_flair_vs_core=True, include_rec_vs_core=True, include_rec_vs_flair=True):
+                              include_flair_vs_core=True, include_rec_vs_core=True, include_rec_vs_flair=True,
+                              subjective_only=False):
     """
     Master function to produce a textual report combining:
       - Label summaries (area %, quadrant, bounding box, extent-based compactness)
@@ -473,7 +493,8 @@ def generate_vqa_from_seg_map(seg_file, seg_id, include_area=True, include_quadr
         label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
                                                            include_quadrant=include_quadrant, include_bbox=include_bbox,
                                                            include_extent=include_extent,
-                                                           include_solidity=include_solidity)
+                                                           include_solidity=include_solidity,
+                                                           subjective_only=subjective_only)
         vqa_questions.extend(label_vqa_questions)
     # get label relationship questions
     relationship_vqa_questions = generate_all_relationship_vqa_questions(seg_map_2d=seg_map_2d, height=height,
@@ -481,7 +502,8 @@ def generate_vqa_from_seg_map(seg_file, seg_id, include_area=True, include_quadr
                                                                          include_nonenh_vs_enh=include_nonenh_vs_enh,
                                                                          include_flair_vs_core=include_flair_vs_core,
                                                                          include_rec_vs_core=include_rec_vs_core,
-                                                                         include_rec_vs_flair=include_rec_vs_flair)
+                                                                         include_rec_vs_flair=include_rec_vs_flair,
+                                                                         subjective_only=subjective_only)
     vqa_questions.extend(relationship_vqa_questions)
     for q in vqa_questions:
         q["seg_id"] = seg_id
@@ -516,7 +538,9 @@ def generate_vqa_data_from_seg_file_joblib(
     include_nonenh_vs_enh=True,
     include_flair_vs_core=True,
     include_rec_vs_core=True,
-    include_rec_vs_flair=True
+    include_rec_vs_flair=True,
+    subjective_only=False,
+    abs_intensity_diff_thresh=10
 ):
     """
     Parallelized version of generating VQA data from a list of seg_files,
@@ -548,7 +572,9 @@ def generate_vqa_data_from_seg_file_joblib(
                 include_nonenh_vs_enh,
                 include_flair_vs_core,
                 include_rec_vs_core,
-                include_rec_vs_flair
+                include_rec_vs_flair,
+                subjective_only,
+                abs_intensity_diff_thresh
             )
             for seg_id, seg_file in enumerate(seg_files)
         )
@@ -581,11 +607,11 @@ if __name__ == "__main__":
     vqa_file = "brats_gli_vqa_data_v1.json"
     slice_idx = 120
     seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
-    with open(vqa_file, 'w') as f:
-        json.dump(vqa_data_, f, indent=2)
+    #vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
+    #with open(vqa_file, 'w') as f:
+    #    json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
-    print(summarize_vqa_data(vqa_data))
+    print(summarize_vqa_data(vqa_data, max_seg_id_list=()))
     #processed_vqa_data = postprocess_vqa_data(vqa_data)
     #generate_train_val_test_splits(processed_vqa_data)

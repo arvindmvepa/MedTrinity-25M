@@ -627,11 +627,11 @@ def interpret_extent(value):
     elif value < 0.5:
         return "somewhat scattered"
     elif value < 0.8:
-        return "partially filling"
+        return "partially filled"
     elif value < 0.95:
-        return "nearly filling"
+        return "nearly filled"
     else:
-        return "almost fully filling"
+        return "almost fully filled"
 
 
 def measure_solidity(mask):
