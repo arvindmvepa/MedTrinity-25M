@@ -97,7 +97,7 @@ def extract_label_intensity_components(
         kept_mask = np.isin(labeled_mask, kept_components)
         label_is_present = True
 
-    return kept_mask, label_is_present, avg_intensities, avg_surroundings
+    return kept_mask, label_is_present, np.mean(avg_intensities), np.mean(avg_surroundings)
 
 
 def extract_label_intensity(
