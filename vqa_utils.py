@@ -395,8 +395,8 @@ def vqa_round(value):
 
 label_names = {
             1: "Non-Enhancing Tumor",
-            2: "FLAIR Hyperintensity",
-            3: "Enhancing Tumor",
+            2: "Surrounding Non-enhancing FLAIR hyperintensity",
+            3: "Enhancing Tissue",
             4: "Resection Cavity",
             5: "Tumor Core"}
 

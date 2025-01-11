@@ -647,6 +647,6 @@ if __name__ == "__main__":
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
-    print(summarize_vqa_data(vqa_data, max_seg_id_list=()))
+    print(summarize_vqa_data(vqa_data))
     #processed_vqa_data = postprocess_vqa_data(vqa_data)
     #generate_train_val_test_splits(processed_vqa_data)
