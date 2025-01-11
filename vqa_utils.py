@@ -612,7 +612,7 @@ def measure_extent_compactness(mask):
     if bbox_area == 0:
         return 0.0, "none"
 
-    extent = area / bbox_area
+    extent = (area / bbox_area) * 100
     interpretation = interpret_extent(extent)
     return extent, interpretation
 
@@ -622,13 +622,13 @@ def interpret_extent(value):
     """
     if value == 0.0:
         return "none"
-    elif value < 0.2:
+    elif value < 20.0:
         return "very sparse"
-    elif value < 0.5:
+    elif value < 50.0:
         return "somewhat scattered"
-    elif value < 0.8:
+    elif value < 80.0:
         return "partially filled"
-    elif value < 0.95:
+    elif value < 95.0:
         return "nearly filled"
     else:
         return "almost fully filled"
@@ -641,7 +641,7 @@ def measure_solidity(mask):
     convex_hull = convex_hull_image(mask)
     region_area = mask.sum()
     convex_area = convex_hull.sum()
-    solidity = vqa_round(region_area / convex_area) if convex_area > 0 else 0.0
+    solidity = vqa_round(region_area / convex_area) * 100 if convex_area > 0 else 0.0
     return solidity, interpret_solidity(solidity)
 
 
@@ -651,9 +651,9 @@ def interpret_solidity(value):
     """
     if value == 0.0:
         return "none"
-    elif value < 0.5:
+    elif value < 50.0:
         return "highly irregular and scattered"
-    elif value < 0.8:
+    elif value < 80.0:
         return "somewhat compact but irregular"
     else:
         return "mostly compact"

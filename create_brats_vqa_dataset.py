@@ -365,7 +365,7 @@ def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True,
         if subjective_only:
             answer = f"{summ['extent_interp']}"
         else:
-            answer = f"{summ['extent_value']:.1f}, which is {summ['extent_interp']}"
+            answer = f"{summ['extent_value']:.1f}%, which is {summ['extent_interp']}"
         question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     if include_solidity:
@@ -373,7 +373,7 @@ def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True,
         if subjective_only:
             answer = f"{summ['solidity_interp']}"
         else:
-            answer = f"{summ['solidity_value']:.1f}, which is {summ['solidity_interp']}"
+            answer = f"{summ['solidity_value']:.1f}%, which is {summ['solidity_interp']}"
         question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     return vqa_questions
@@ -642,9 +642,9 @@ if __name__ == "__main__":
     vqa_file = "brats_gli_vqa_data_v1.json"
     slice_idx = 120
     seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    #vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
-    #with open(vqa_file, 'w') as f:
-    #    json.dump(vqa_data_, f, indent=2)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
+    with open(vqa_file, 'w') as f:
+        json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
     print(summarize_vqa_data(vqa_data, max_seg_id_list=()))
