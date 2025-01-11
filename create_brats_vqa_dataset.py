@@ -16,7 +16,7 @@ def generate_train_val_test_splits(all_vqa_questions, seed=0, train_frac=0.8, va
                                    train_file="brats_gli_vqa_train.json", val_file="brats_gli_vqa_val.json",
                                    test_file="brats_gli_vqa_test.json"):
     random_state = np.random.RandomState(seed)
-    study_names = list({q["study_name"] for q in all_vqa_questions})
+    study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
     random_state.shuffle(study_names)
     total_studies = len(study_names)
     train_end = int(total_studies * train_frac)
