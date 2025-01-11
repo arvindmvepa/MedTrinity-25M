@@ -116,6 +116,9 @@ def summarize_vqa_data(all_vqa_questions,
     zero_area_count = 0
     none_area_count = 0
 
+    extent_percentages = []
+    solidity_percentages = []
+
     # We'll also check how often bounding box = "none" or quadrant = "none"
     # in quadrant-related or bbox-related questions
     none_quadrant_count = 0
@@ -188,6 +191,10 @@ def summarize_vqa_data(all_vqa_questions,
 
         # Check quadrant questions
         if q_type == "extent":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                extent_val = float(match.group(1))
+                extent_percentages.append(extent_val)
             # Typical answer format: "top-left" or "none"
             if "none" in answer.lower():
                 none_extent_count += 1
@@ -195,6 +202,10 @@ def summarize_vqa_data(all_vqa_questions,
 
         # Check quadrant questions
         if q_type == "solidity":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                solidity_val = float(match.group(1))
+                solidity_percentages.append(solidity_val)
             # Typical answer format: "top-left" or "none"
             if "none" in answer.lower():
                 none_solidity_count += 1
@@ -215,31 +226,22 @@ def summarize_vqa_data(all_vqa_questions,
 
     # Summaries of adjacency values
     if adjacency_percentages:
-        avg_adj = sum(adjacency_percentages) / len(adjacency_percentages)
-        min_adj = min(adjacency_percentages)
-        max_adj = max(adjacency_percentages)
-        lines.append(
-            f"\nAdjacency questions:\n"
-            f"  Count: {len(adjacency_percentages)}\n"
-            f"  Avg:   {avg_adj:.2f}%\n"
-            f"  Range: [{min_adj:.2f}%, {max_adj:.2f}%]\n"
-            f"  # with 0% adjacency: {zero_adjacency_count}\n"
-            f"  # with zero adjacency quadrants: {none_adj_quadrant_count}"
-        )
+        lines.append(get_descriptive_statistics(list_of_scores=adjacency_percentages,
+                                                zero_score_count=zero_adjacency_count,
+                                                none_score_count=none_adj_quadrant_count, metric_name="adjacency_area"))
 
     # Summaries of area values
     if area_percentages:
-        avg_area = sum(area_percentages) / len(area_percentages)
-        min_area = min(area_percentages)
-        max_area = max(area_percentages)
-        lines.append(
-            f"\nArea questions:\n"
-            f"  Count: {len(area_percentages)}\n"
-            f"  Avg:   {avg_area:.2f}%\n"
-            f"  Range: [{min_area:.2f}%, {max_area:.2f}%]\n"
-            f"  # with 0% area: {zero_area_count}\n"
-            f"  # with none area: {none_area_count}\n"
-        )
+        lines.append(get_descriptive_statistics(list_of_scores=area_percentages, zero_score_count=zero_area_count,
+                                                none_score_count=none_area_count, metric_name="area"))
+
+    if extent_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=extent_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_extent_count, metric_name="extent"))
+
+    if solidity_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=solidity_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_solidity_count, metric_name="solidity"))
 
     # Summaries of "none" answers for quadrant and bounding box
     lines.append(f"\n# of questions that returned 'none' quadrant: {none_quadrant_count}")
@@ -295,6 +297,39 @@ def summarize_vqa_data(all_vqa_questions,
                 f"  Seg_id Range: [{min_seg_id_counts:.2f}, {max_seg_id_counts:.2f}]\n"
             )
     return "\n".join(lines)
+
+
+def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
+    lines = []
+    avg_score = sum(list_of_scores) / len(list_of_scores)
+    q1_score = np.quantile(list_of_scores, 0.25)
+    q2_score = np.quantile(list_of_scores, 0.5)
+    q3_score = np.quantile(list_of_scores, 0.75)
+    min_score = min(list_of_scores)
+    max_score = max(list_of_scores)
+
+    # add non-zero scores
+    non_zero_scores = [p for p in list_of_scores if p != 0.0]
+    non_zero_avg_score = sum(non_zero_scores) / len(non_zero_scores)
+    non_zero_q1_score = np.quantile(non_zero_scores, 0.25)
+    non_zero_q2_score = np.quantile(non_zero_scores, 0.5)
+    non_zero_q3_score = np.quantile(non_zero_scores, 0.75)
+    non_zero_min_score = min(non_zero_scores)
+    non_zero_max_score = max(non_zero_scores)
+
+    return (f"\n{metric_name} questions:\n"
+            f"  Count: {len(list_of_scores)}\n"
+            f"  Avg:   {avg_score:.2f}%\n"
+            f"  25-50-75: [{q1_score:.2f}, {q2_score:.2f}, {q3_score:.2f}]\n"
+            f"  Range: [{min_score:.2f}%, {max_score:.2f}%]\n"
+            f"  # with 0% {metric_name}: {zero_score_count}\n"
+            f"  # with none {metric_name}: {none_score_count}\n"
+
+            f"\n (non-zero) {metric_name} questions:\n"
+            f"  Count: {len(non_zero_scores)}\n"
+            f"  Avg:   {non_zero_avg_score:.2f}%\n"
+            f"  25-50-75: [{non_zero_q1_score:.2f}, {non_zero_q2_score:.2f}, {non_zero_q3_score:.2f}]\n"
+            f"  Range: [{non_zero_min_score:.2f}%, {non_zero_max_score:.2f}%]\n")
 
 
 def generate_modality_question(modality):
