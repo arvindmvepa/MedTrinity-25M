@@ -450,13 +450,13 @@ def interpret_area_percentage(pct):
         return "almost negligible"
     elif pct < 0.5:
         return "tiny fraction"
-    elif pct < 2:
+    elif pct < 1:
         return "very small fraction"
-    elif pct < 5:
+    elif pct < 2:
         return "small portion"
-    elif pct < 10:
+    elif pct < 5:
         return "moderate portion"
-    elif pct < 20:
+    elif pct < 12:
         return "significant portion"
     elif pct < 40:
         return "large portion"

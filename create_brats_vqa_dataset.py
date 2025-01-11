@@ -639,10 +639,10 @@ if __name__ == "__main__":
         report = analyze_segmentation_map(seg_map_2d)
         print(report)
     """
-    vqa_file = "brats_gli_vqa_data_v1.json"
+    vqa_file = "brats_gli_vqa_data_v2.json"
     slice_idx = 120
     seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, n_jobs=8)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, include_quadrant=False, n_jobs=8)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
