@@ -46,22 +46,23 @@ def postprocess_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=1
                                                           seed=seed)
     for index in range(len(filtered_vqa_questions)):
         question = filtered_vqa_questions[index]
+        base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
         question["img_id"] = filtered_vqa_questions[index]["seg_id"]
         if "img_name" not in question:
             base_img_file = os.path.basename(question["seg_file"]).replace("seg", default_modality)
-            base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
             question["img_name"] = os.path.join(base_dir, base_img_file)
         assert "question" in filtered_vqa_questions[index]
         assert "answer" in filtered_vqa_questions[index]
-        filtered_vqa_questions[index]["q_lang"] = "en"
-        filtered_vqa_questions[index]["qid"] = index
-        filtered_vqa_questions[index]["location"] = "Brain"
-        filtered_vqa_questions[index]["modality"] = "t1c"
-        filtered_vqa_questions[index]["answer_type"] = "OPEN"
-        filtered_vqa_questions[index]["base_type"] = "VQA"
-        filtered_vqa_questions[index]["content_type"] = filtered_vqa_questions[index]["type"]
-        filtered_vqa_questions[index]["qid"] = index
-        filtered_vqa_questions[index]["study_name"] = "-".join(base_dir.split("-")[:-1])
+        question["q_lang"] = "en"
+        question["qid"] = index
+        question["location"] = "Brain"
+        if "modality" not in question:
+            question["modality"] = default_modality
+        question["answer_type"] = "OPEN"
+        question["base_type"] = "VQA"
+        question["content_type"] = question["type"]
+        question["qid"] = index
+        question["study_name"] = "-".join(base_dir.split("-")[:-1])
 
     with open(save_vqa_file, 'w') as f:
         json.dump(filtered_vqa_questions, f, indent=2)
@@ -639,14 +640,21 @@ if __name__ == "__main__":
         report = analyze_segmentation_map(seg_map_2d)
         print(report)
     """
-    vqa_file = "brats_gli_vqa_data_v2.json"
+    subjective_only = False
+    vqa_file = f"brats_gli_vqa_subj{subjective_only}_data_v2.json"
+    clean_vqa_file = f"brats_gli_vqa_subj{subjective_only}_clean_data_v2.json"
+    train_file = f"brats_gli_vqa_subj{subjective_only}_train_v2.json"
+    val_file = f"brats_gli_vqa_subj{subjective_only}_val_v2.json"
+    test_file = f"brats_gli_vqa_subj{subjective_only}_test_v2.json"
     slice_idx = 120
     seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, include_quadrant=False, n_jobs=8)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, subjective_only=False, include_quadrant=False,
+                                                       n_jobs=8)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
     print(summarize_vqa_data(vqa_data))
-    #processed_vqa_data = postprocess_vqa_data(vqa_data)
-    #generate_train_val_test_splits(processed_vqa_data)
+    processed_vqa_data = postprocess_vqa_data(vqa_data, max_num_of_seg_ids_per_empty_count=10, save_vqa_file=clean_vqa_file)
+    generate_train_val_test_splits(processed_vqa_data, train_file=train_file, val_file=val_file, test_file=test_file)
+
