@@ -16,9 +16,9 @@ def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), 
                                    train_frac=0.8, val_frac=0.1, train_file="brats_gli_vqa_train.json",
                                    val_file="brats_gli_vqa_val.json", test_file="brats_gli_vqa_test.json"):
     if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
-        train_questions = [q for q in all_vqa_questions if q["seg_ids"] in train_seg_ids]
-        val_questions = [q for q in all_vqa_questions if q["seg_ids"] in val_seg_ids]
-        test_questions = [q for q in all_vqa_questions if q["seg_ids"] in test_seg_ids]
+        train_questions = [q for q in all_vqa_questions if q["seg_id"] in train_seg_ids]
+        val_questions = [q for q in all_vqa_questions if q["seg_id"] in val_seg_ids]
+        test_questions = [q for q in all_vqa_questions if q["seg_id"] in test_seg_ids]
     else:
         random_state = np.random.RandomState(seed)
         study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
