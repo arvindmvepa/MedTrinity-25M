@@ -12,21 +12,26 @@ from create_brats_imaging_dataset import load_color_seg_png_as_labels
 from vqa_utils import label_names, analyze_label_relationship, analyze_label_summary, get_seg_ids_empty_counts, extract_label_intensity_components
 
 
-def generate_train_val_test_splits(all_vqa_questions, seed=0, train_frac=0.8, val_frac=0.1,
-                                   train_file="brats_gli_vqa_train.json", val_file="brats_gli_vqa_val.json",
-                                   test_file="brats_gli_vqa_test.json"):
-    random_state = np.random.RandomState(seed)
-    study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
-    random_state.shuffle(study_names)
-    total_studies = len(study_names)
-    train_end = int(total_studies * train_frac)
-    val_end = int(total_studies * (train_frac + val_frac))
-    train_studies = study_names[:train_end]
-    val_studies = study_names[train_end:val_end]
-    test_studies = study_names[val_end:]
-    train_questions = [q for q in all_vqa_questions if q["study_name"] in train_studies]
-    val_questions = [q for q in all_vqa_questions if q["study_name"] in val_studies]
-    test_questions = [q for q in all_vqa_questions if q["study_name"] in test_studies]
+def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
+                                   train_frac=0.8, val_frac=0.1, train_file="brats_gli_vqa_train.json",
+                                   val_file="brats_gli_vqa_val.json", test_file="brats_gli_vqa_test.json"):
+    if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
+        train_questions = [q for q in all_vqa_questions if q["seg_ids"] in train_seg_ids]
+        val_questions = [q for q in all_vqa_questions if q["seg_ids"] in val_seg_ids]
+        test_questions = [q for q in all_vqa_questions if q["seg_ids"] in test_seg_ids]
+    else:
+        random_state = np.random.RandomState(seed)
+        study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
+        random_state.shuffle(study_names)
+        total_studies = len(study_names)
+        train_end = int(total_studies * train_frac)
+        val_end = int(total_studies * (train_frac + val_frac))
+        train_studies = study_names[:train_end]
+        val_studies = study_names[train_end:val_end]
+        test_studies = study_names[val_end:]
+        train_questions = [q for q in all_vqa_questions if q["study_name"] in train_studies]
+        val_questions = [q for q in all_vqa_questions if q["study_name"] in val_studies]
+        test_questions = [q for q in all_vqa_questions if q["study_name"] in test_studies]
     print(f"Train studies: {len(train_studies)}, Val studies: {len(val_studies)}, Test studies: {len(test_studies)}")
     print(f"Train questions: {len(train_questions)}, Val questions: {len(val_questions)}, Test questions: {len(test_questions)}")
 
@@ -39,11 +44,14 @@ def generate_train_val_test_splits(all_vqa_questions, seed=0, train_frac=0.8, va
 
     return train_questions, val_questions, test_questions
 
-def postprocess_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100,
+def postprocess_vqa_data(all_vqa_questions, seg_id_list=(), max_num_of_seg_ids_per_empty_count=100,
                          default_modality="t1c", save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
-    filtered_vqa_questions = filter_seg_ids_from_vqa_data(all_vqa_questions,
-                                                          max_num_of_seg_ids_per_empty_count=max_num_of_seg_ids_per_empty_count,
-                                                          seed=seed)
+    if seg_id_list:
+        filtered_vqa_questions = [q for q in all_vqa_questions if q["seg_id"] in seg_id_list]
+    elif max_num_of_seg_ids_per_empty_count is not None:
+        filtered_vqa_questions = filter_seg_ids_from_vqa_data(all_vqa_questions,
+                                                              max_num_of_seg_ids_per_empty_count=max_num_of_seg_ids_per_empty_count,
+                                                              seed=seed)
     for index in range(len(filtered_vqa_questions)):
         question = filtered_vqa_questions[index]
         base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
@@ -641,6 +649,12 @@ if __name__ == "__main__":
         report = analyze_segmentation_map(seg_map_2d)
         print(report)
     """
+    # reference vqa files to line up seg_ids and train/val/test splits
+    ref_vqa_file = "brats_gli_vqa_subjFalse_clean_data_v2.json"
+    ref_train_vqa_file = "brats_gli_vqa_subjFalse_train_v2.json"
+    ref_val_vqa_file = "brats_gli_vqa_subjFalse_val_v2.json"
+    ref_test_vqa_file = "brats_gli_vqa_subjFalse_test_v2.json"
+    # rest of the parameters
     subjective_only = True
     vqa_file = f"brats_gli_vqa_subj{subjective_only}_data_v2_1.json"
     clean_vqa_file = f"brats_gli_vqa_subj{subjective_only}_clean_data_v2_1.json"
@@ -656,6 +670,24 @@ if __name__ == "__main__":
     with open(vqa_file, 'r') as f:
         vqa_data = json.load(f)
     print(summarize_vqa_data(vqa_data))
-    processed_vqa_data = postprocess_vqa_data(vqa_data, max_num_of_seg_ids_per_empty_count=10, save_vqa_file=clean_vqa_file)
-    generate_train_val_test_splits(processed_vqa_data, train_file=train_file, val_file=val_file, test_file=test_file)
+    if ref_vqa_file is not None:
+        with open(ref_vqa_file, 'r') as f:
+            ref_vqa_data = json.load(f)
+            ref_seg_ids = [q["seg_id"] for q in ref_vqa_data]
+        processed_vqa_data = postprocess_vqa_data(vqa_data, seg_id_list=ref_seg_ids, save_vqa_file=clean_vqa_file)
+        with open(ref_train_vqa_file, 'r') as f:
+            ref_train_vqa_data = json.load(f)
+            ref_train_seg_ids = [q["seg_id"] for q in ref_train_vqa_data]
+        with open(ref_val_vqa_file, 'r') as f:
+            ref_val_vqa_data = json.load(f)
+            ref_val_seg_ids = [q["seg_id"] for q in ref_val_vqa_data]
+        with open(ref_test_vqa_file, 'r') as f:
+            ref_test_vqa_data = json.load(f)
+            ref_test_seg_ids = [q["seg_id"] for q in ref_test_vqa_data]
+        generate_train_val_test_splits(processed_vqa_data, train_seg_ids=ref_train_seg_ids, val_seg_ids=ref_val_seg_ids,
+                                       test_seg_ids=ref_test_seg_ids, train_file=train_file, val_file=val_file,
+                                       test_file=test_file)
+    else:
+        processed_vqa_data = postprocess_vqa_data(vqa_data, max_num_of_seg_ids_per_empty_count=10, save_vqa_file=clean_vqa_file)
+        generate_train_val_test_splits(processed_vqa_data, train_file=train_file, val_file=val_file, test_file=test_file)
 
