@@ -160,6 +160,7 @@ def summarize_vqa_data(all_vqa_questions,
         if q_type == "area":
             # Typical answer format: "25.0%, which is a small portion"
             match = re.search(r'([\d.]+)%,', answer)
+            area_val = None
             if match:
                 area_val = float(match.group(1))
                 area_percentages.append(area_val)
