@@ -640,15 +640,15 @@ if __name__ == "__main__":
         report = analyze_segmentation_map(seg_map_2d)
         print(report)
     """
-    subjective_only = False
-    vqa_file = f"brats_gli_vqa_subj{subjective_only}_data_v2.json"
-    clean_vqa_file = f"brats_gli_vqa_subj{subjective_only}_clean_data_v2.json"
-    train_file = f"brats_gli_vqa_subj{subjective_only}_train_v2.json"
-    val_file = f"brats_gli_vqa_subj{subjective_only}_val_v2.json"
-    test_file = f"brats_gli_vqa_subj{subjective_only}_test_v2.json"
+    subjective_only = True
+    vqa_file = f"brats_gli_vqa_subj{subjective_only}_data_v2_1.json"
+    clean_vqa_file = f"brats_gli_vqa_subj{subjective_only}_clean_data_v2_1.json"
+    train_file = f"brats_gli_vqa_subj{subjective_only}_train_v2_1.json"
+    val_file = f"brats_gli_vqa_subj{subjective_only}_val_v2_1.json"
+    test_file = f"brats_gli_vqa_subj{subjective_only}_test_v2_1.json"
     slice_idx = 120
     seg_files_ = sorted(list(glob(f'/local2/amvepa91/MedTrinity-25M/output_pngs/*/*seg_slice_{slice_idx}_y.png')))
-    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, subjective_only=False, include_quadrant=False,
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(seg_files_, subjective_only=subjective_only, include_quadrant=False,
                                                        n_jobs=8)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
