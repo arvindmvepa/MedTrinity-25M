@@ -19,6 +19,9 @@ def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), 
         train_questions = [q for q in all_vqa_questions if q["seg_id"] in train_seg_ids]
         val_questions = [q for q in all_vqa_questions if q["seg_id"] in val_seg_ids]
         test_questions = [q for q in all_vqa_questions if q["seg_id"] in test_seg_ids]
+        train_studies = list({q["study_name"] for q in train_questions})
+        val_studies = list({q["study_name"] for q in val_questions})
+        test_studies = list({q["study_name"] for q in test_questions})
     else:
         random_state = np.random.RandomState(seed)
         study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
