@@ -388,7 +388,7 @@ def generate_single_relationship_vqa_questions(label1_name, label2_name, mask1, 
     vqa_questions = []
     question = f"How large is the area covered by {label1_name} adjacent to {label2_name}?"
     if subjective_only:
-        answer = f"{relation_dict['adjacent_area_interp']}"
+        answer = f"{relation_dict['adjacent_interpretation']}"
     else:
         answer = f"{relation_dict['adjacent_percentage']:.1f}%, which is {relation_dict['adjacent_interpretation']}"
     question_dict = {"question": question, "answer": answer, "type": "adj_area", "label_name": relation_str}
