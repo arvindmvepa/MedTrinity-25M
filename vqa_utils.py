@@ -828,7 +828,7 @@ def measure_extent_compactness(mask):
 
 
 def measure_3d_extent_compactness(mask):
-    bbox = compute_bounding_box(mask)
+    bbox = compute_3d_bounding_box(mask)
     area = mask.sum()
     if not bbox:
         return 0.0, "none"
