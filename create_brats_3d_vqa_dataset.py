@@ -137,14 +137,14 @@ if __name__ == "__main__":
     ref_test_vqa_file = None
     # rest of the parameters
     subjective_only = True
-    vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_temp.json"
-    clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data.json"
-    train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train.json"
-    val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val.json"
-    test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test.json"
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))[:10]
+    vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v1.json"
+    clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data_v1.json"
+    train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v1.json"
+    val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v1.json"
+    test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v1.json"
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
-                                                       include_quadrant=False, n_jobs=8)
+                                                       include_quadrant=False, include_solidity=False, n_jobs=8)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:

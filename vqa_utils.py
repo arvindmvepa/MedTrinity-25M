@@ -523,9 +523,9 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
             t7 = time.time()
             print(f"Extent computation took {t7 - t6} seconds")
-            solidity_value, solidity_interp = measure_3d_solidity(mask)
-            t8 = time.time()
-            print(f"Solidity computation took {t8 - t7} seconds")
+            #solidity_value, solidity_interp = measure_3d_solidity(mask)
+            #t8 = time.time()
+            #print(f"Solidity computation took {t8 - t7} seconds")
 
         label_summaries.append({
             "label": lbl,
@@ -537,8 +537,8 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             "bbox_str": bounding_box_str,
             "extent_value": extent_value,
             "extent_interp": extent_interp,
-            "solidity_value": solidity_value,
-            "solidity_interp": solidity_interp
+            #"solidity_value": solidity_value,
+            #"solidity_interp": solidity_interp
         })
     return label_summaries
 
