@@ -7,7 +7,6 @@ import json
 from scipy.ndimage import center_of_mass
 from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
 from collections import Counter, defaultdict
-import time
 
 
 def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
@@ -489,10 +488,7 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
         mask = seg_map_3d == lbl
 
         label_name = label_names.get(lbl, f"Label {lbl}")
-        t0 = time.time()
         area_pct = compute_area_percentage(mask, total_pixels)
-        t1 = time.time()
-        print(f"Area computation took {t1 - t0} seconds")
         area_interp = interpret_3d_area_percentage(area_pct)
 
         if area_interp == "none":
@@ -505,26 +501,16 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             solidity_value = 0.0
             solidity_interp = "none"
         else:
-            t2 = time.time()
             centroid = center_of_mass(mask)
-            t3 = time.time()
-            print(f"Centroid computation took {t3 - t2} seconds")
             quadrant = get_3d_quadrant(centroid, height, width, depth)
 
-            t4 = time.time()
             bbox = compute_3d_bounding_box(mask)
-            t5 = time.time()
-            print(f"Bounding box computation took {t5 - t4} seconds")
             bounding_box_quads = get_3d_bounding_box_quadrants(bbox, height, width, depth)
             bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
 
             # Extent-based compactness
-            t6 = time.time()
             extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
-            t7 = time.time()
-            print(f"Extent computation took {t7 - t6} seconds")
             #solidity_value, solidity_interp = measure_3d_solidity(mask)
-            #t8 = time.time()
             #print(f"Solidity computation took {t8 - t7} seconds")
 
         label_summaries.append({

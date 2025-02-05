@@ -3,7 +3,6 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from tqdm_joblib import tqdm_joblib
 import json
-import time
 from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, \
     load_lab_map_from_nifti
 from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_labal_vqa_questions, \
@@ -21,10 +20,7 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
       - Resection cavity vs tumor core & FLAIR.
     """
     nii_seg_file = get_nifti_seg_file_from_dir(volume_file_dir)
-    t0 = time.time()
     seg_map_3d = load_lab_map_from_nifti(nii_seg_file)
-    t1 = time.time()
-    print(f"Loaded segmentation map from {nii_seg_file} in {t1 - t0:.2f} seconds.")
 
     height, width, depth = seg_map_3d.shape
     total_pixels = seg_map_3d.size
