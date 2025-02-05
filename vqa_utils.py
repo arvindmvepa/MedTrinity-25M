@@ -2,9 +2,43 @@ from skimage.morphology import convex_hull_image
 from skimage.measure import label
 import numpy as np
 import re
-from collections import defaultdict
 from scipy.ndimage import center_of_mass
 from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
+from collections import Counter, defaultdict
+
+
+def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
+    lines = []
+    avg_score = sum(list_of_scores) / len(list_of_scores)
+    q1_score = np.quantile(list_of_scores, 0.25)
+    q2_score = np.quantile(list_of_scores, 0.5)
+    q3_score = np.quantile(list_of_scores, 0.75)
+    min_score = min(list_of_scores)
+    max_score = max(list_of_scores)
+
+    # add non-zero scores
+    non_zero_scores = [p for p in list_of_scores if p != 0.0]
+    non_zero_avg_score = sum(non_zero_scores) / len(non_zero_scores)
+    non_zero_q1_score = np.quantile(non_zero_scores, 0.25)
+    non_zero_q2_score = np.quantile(non_zero_scores, 0.5)
+    non_zero_q3_score = np.quantile(non_zero_scores, 0.75)
+    non_zero_min_score = min(non_zero_scores)
+    non_zero_max_score = max(non_zero_scores)
+
+    return (f"\n{metric_name} questions:\n"
+            f"  Count: {len(list_of_scores)}\n"
+            f"  Avg:   {avg_score:.2f}%\n"
+            f"  25-50-75: [{q1_score:.2f}, {q2_score:.2f}, {q3_score:.2f}]\n"
+            f"  Range: [{min_score:.2f}%, {max_score:.2f}%]\n"
+            f"  # with 0% {metric_name}: {zero_score_count}\n"
+            f"  # with none {metric_name}: {none_score_count}\n"
+
+            f"\n (non-zero) {metric_name} questions:\n"
+            f"  Count: {len(non_zero_scores)}\n"
+            f"  Avg:   {non_zero_avg_score:.2f}%\n"
+            f"  25-50-75: [{non_zero_q1_score:.2f}, {non_zero_q2_score:.2f}, {non_zero_q3_score:.2f}]\n"
+            f"  Range: [{non_zero_min_score:.2f}%, {non_zero_max_score:.2f}%]\n")
+
 
 
 def extract_label_intensity(
@@ -301,6 +335,62 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
     return label_summaries
 
 
+def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4, 5)):
+    """
+    For each label (1..4), compute:
+      - area percentage + subjective interpretation
+      - centroid quadrant
+      - bounding box quadrants
+      - extent-based "compactness" measure
+    """
+    label_summaries = []
+
+    for lbl in labels_order:
+        mask = seg_map_3d == lbl
+
+        label_name = label_names.get(lbl, f"Label {lbl}")
+
+        area_pct = compute_area_percentage(mask, total_pixels)
+        area_interp = interpret_3d_area_percentage(area_pct)
+
+        if area_interp == "none":
+            centroid = None
+            quadrant = "none"
+            bounding_box_quads = None
+            bounding_box_str = "none"
+            extent_value = 0.0
+            extent_interp = "none"
+            solidity_value = 0.0
+            solidity_interp = "none"
+        else:
+            centroid = center_of_mass(mask)
+            quadrant = get_3d_quadrant(centroid, height, width, depth)
+
+            bbox = compute_3d_bounding_box(mask)
+            bounding_box_quads = get_3d_bounding_box_quadrants(bbox, height, width, depth)
+            bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
+
+            # Extent-based compactness
+            extent_value, extent_interp = measure_3d_extent_compactness(mask)
+            solidity_value, solidity_interp = measure_3d_solidity(mask)
+
+        label_summaries.append({
+            "label": lbl,
+            "name": label_name,
+            "area_pct": area_pct,
+            "area_interp": area_interp,
+            "centroid_quadrant": quadrant,
+            "bbox_quadrants": bounding_box_quads,
+            "bbox_str": bounding_box_str,
+            "extent_value": extent_value,
+            "extent_interp": extent_interp,
+            "solidity_value": solidity_value,
+            "solidity_interp": solidity_interp
+        })
+    return label_summaries
+
+
+
 def analyze_segmentation_map(seg_map_2d):
     """
     Master function to produce a textual report combining:
@@ -413,6 +503,20 @@ def compute_bounding_box(mask):
     min_c, max_c = coords[1].min(), coords[1].max() + 1
     return (min_r, min_c, max_r, max_c)
 
+
+def compute_3d_bounding_box(mask):
+    """
+    Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
+    If `mask` is empty, returns None.
+    """
+    coords = np.where(mask)
+    if coords[0].size == 0:
+        return None
+    min_r, max_r = coords[0].min(), coords[0].max() + 1
+    min_c, max_c = coords[1].min(), coords[1].max() + 1
+    min_d, max_d = coords[2].min(), coords[2].max() + 1
+    return (min_r, min_c, max_r, max_c, min_d, max_d)
+
 def compute_area_percentage(mask, total_pixels):
     """
     Returns the percentage of 'mask' pixels relative to the total segmentation size.
@@ -430,6 +534,43 @@ def compute_adj_percentage(adj_mask, orig_mask):
 
 
 def interpret_area_percentage(pct):
+    """
+    Subjective interpretation of area percentage, tuned for smaller values.
+    Example thresholds (you can tweak these to your liking):
+      - 0.0%:    "none"
+      - <0.1%:   "almost negligible"
+      - <0.5%:   "tiny fraction"
+      - <2%:     "very small fraction"
+      - <5%:     "small portion"
+      - <10%:    "moderate portion"
+      - <20%:    "significant portion"
+      - <40%:    "large portion"
+      - <70%:    "major portion"
+      - >=70%:   "the vast majority"
+    """
+    if pct == 0.0:
+        return "none"
+    elif pct < 0.1:
+        return "almost negligible"
+    elif pct < 0.5:
+        return "tiny fraction"
+    elif pct < 1:
+        return "very small fraction"
+    elif pct < 2:
+        return "small portion"
+    elif pct < 5:
+        return "moderate portion"
+    elif pct < 12:
+        return "significant portion"
+    elif pct < 40:
+        return "large portion"
+    elif pct < 70:
+        return "major portion"
+    else:
+        return "the vast majority"
+
+
+def interpret_3d_area_percentage(pct):
     """
     Subjective interpretation of area percentage, tuned for smaller values.
     Example thresholds (you can tweak these to your liking):
@@ -499,6 +640,43 @@ def get_quadrant(centroid, height, width):
         else:
             return "bottom-right"
 
+
+def get_3d_quadrant(centroid, height, width, depth):
+    """
+    Maps a (row, col) centroid to one of 9 quadrants (top-left to bottom-right).
+    """
+    if not centroid or np.isnan(centroid[0]) or np.isnan(centroid[1]):
+        return "none"
+
+    row, col, d = centroid
+    third_height = height / 3
+    third_width = width / 3
+    third_depth = depth / 3
+    quadrant_string = ""
+    # add row string
+    if row < third_height:
+        quadrant_string += "top-"
+    elif row < 2 * third_height:
+        quadrant_string += "center-"
+    else:
+        quadrant_string += "bottom-"
+    # add col string
+    if col < third_width:
+        quadrant_string += "left-"
+    elif col < 2 * third_width:
+        quadrant_string += "center-"
+    else:
+        quadrant_string += "right-"
+    # add depth string
+    if d < third_depth:
+        quadrant_string += "front"
+    elif d < 2 * third_depth:
+        quadrant_string += "middle"
+    else:
+        quadrant_string += "back"
+    return quadrant_string
+
+
 def get_bounding_box_quadrants(bbox, height, width):
     """
     Determine which quadrants are affected by a bounding box
@@ -519,6 +697,38 @@ def get_bounding_box_quadrants(bbox, height, width):
     ]
     for (r, c) in corners:
         quadrant = get_quadrant((r, c), height, width)
+        if quadrant != "none":
+            affected_quadrants.add(quadrant)
+    if len(affected_quadrants) == 0:
+        return "none"
+    affected_quadrants_str = ", ".join(sorted(affected_quadrants))
+    return affected_quadrants_str
+
+
+def get_3d_bounding_box_quadrants(bbox, height, width, depth):
+    """
+    Determine which quadrants are affected by a bounding box
+    by sampling corners of the bounding box.
+    """
+    if not bbox:
+        return "none"
+
+    min_r, min_c, min_d, max_r, max_c, max_d = bbox
+    affected_quadrants = set()
+
+    # We check the eight corners
+    corners = [
+        (min_r, min_c, min_d),
+        (min_r, max_c - 1, min_d),
+        (max_r - 1, min_c, min_d),
+        (max_r - 1, max_c - 1, min_d),
+        (min_r, min_c, max_d - 1),
+        (min_r, max_c - 1, max_d - 1),
+        (max_r - 1, min_c, max_d - 1),
+        (max_r - 1, max_c - 1, max_d - 1),
+    ]
+    for (r, c, d) in corners:
+        quadrant = get_3d_quadrant((r, c, d), height, width, depth)
         if quadrant != "none":
             affected_quadrants.add(quadrant)
     if len(affected_quadrants) == 0:
@@ -616,7 +826,45 @@ def measure_extent_compactness(mask):
     interpretation = interpret_extent(extent)
     return extent, interpretation
 
+
+def measure_3d_extent_compactness(mask):
+    bbox = compute_bounding_box(mask)
+    area = mask.sum()
+    if not bbox:
+        return 0.0, "none"
+
+    min_r, min_c, min_d, max_r, max_c, max_d = bbox
+    bbox_h = max_r - min_r
+    bbox_w = max_c - min_c
+    bbox_d = max_d - min_d
+
+    bbox_area = bbox_h * bbox_w * bbox_d
+    if bbox_area == 0:
+        return 0.0, "none"
+
+    extent = (area / bbox_area) * 100
+    interpretation = interpret_3d_extent(extent)
+    return extent, interpretation
+
 def interpret_extent(value):
+    """
+    Subjective interpretation of how well the region fills its bounding box.
+    """
+    if value == 0.0:
+        return "none"
+    elif value < 20.0:
+        return "very sparse"
+    elif value < 50.0:
+        return "somewhat scattered"
+    elif value < 80.0:
+        return "partially filled"
+    elif value < 95.0:
+        return "nearly filled"
+    else:
+        return "almost fully filled"
+
+
+def interpret_3d_extent(value):
     """
     Subjective interpretation of how well the region fills its bounding box.
     """
@@ -645,7 +893,32 @@ def measure_solidity(mask):
     return solidity, interpret_solidity(solidity)
 
 
+def measure_3d_solidity(mask):
+    """
+    Computes Solidity = area / convex_hull_area.
+    """
+    convex_hull = convex_hull_image(mask)
+    region_area = mask.sum()
+    convex_area = convex_hull.sum()
+    solidity = vqa_round(region_area / convex_area) * 100 if convex_area > 0 else 0.0
+    return solidity, interpret_3d_solidity(solidity)
+
+
 def interpret_solidity(value):
+    """
+    Subjective interpretation of solidity.
+    """
+    if value == 0.0:
+        return "none"
+    elif value < 50.0:
+        return "highly irregular and scattered"
+    elif value < 80.0:
+        return "somewhat compact but irregular"
+    else:
+        return "mostly compact"
+
+
+def interpret_3d_solidity(value):
     """
     Subjective interpretation of solidity.
     """
@@ -681,3 +954,421 @@ def interpret_relationship_percentage(pct):
     else:
         return "the vast majority"
 
+def summarize_vqa_data(all_vqa_questions,
+                       max_seg_id_list=(10, 20, 25, 30, 40, 50, 70, 77, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200)):
+    """
+    Summarize basic statistics about the generated VQA data:
+      - Count total questions
+      - Distribution of question types
+      - Distribution of label names
+      - Parse adjacency and area percentages for min/max/avg
+      - Count occurrences where we have 'none' labels or 0% adjacency
+    """
+    total_questions = len(all_vqa_questions)
+    question_type_counts = Counter(q.get("type", "unknown") for q in all_vqa_questions)
+    label_name_counts = Counter(q.get("label_name", "unknown") for q in all_vqa_questions)
+
+    # We'll try to parse numeric percentages for adjacency (adj_area) questions:
+    adjacency_percentages = []
+    # Keep track of how many adjacency questions are effectively 0% => "none" adjacency
+    zero_adjacency_count = 0
+    none_adj_quadrant_count = 0
+
+    # We'll do the same for area questions:
+    area_percentages = []
+    # Keep track of how many times area=0% => "none" label
+    zero_area_count = 0
+    none_area_count = 0
+
+    extent_percentages = []
+    solidity_percentages = []
+
+    # We'll also check how often bounding box = "none" or quadrant = "none"
+    # in quadrant-related or bbox-related questions
+    none_quadrant_count = 0
+    none_bbox_count = 0
+    none_extent_count = 0
+    none_solidity_count = 0
+
+    completely_empty_map = dict()
+    empty_count_map = defaultdict(int)
+    no_tumor_core_map = dict()
+
+    for q in all_vqa_questions:
+        q_type = q.get("type", "unknown")
+        answer = q.get("answer", "")
+        seg_id = q.get("seg_id", "unknown")
+        label_name = q.get("label_name", "unknown")
+        empty_count_map[seg_id]
+
+        # Parse adjacency area questions
+        if q_type == "adj_area":
+            # Typical answer format: "25.0%, which is the majority"
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                adj_val = float(match.group(1))
+                adjacency_percentages.append(adj_val)
+                if adj_val == 0.0:
+                    zero_adjacency_count += 1
+                    empty_count_map[seg_id] += 1
+
+        # Parse adjacency quadrant questions
+        if q_type == "adj_quadrants":
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_adj_quadrant_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Parse area questions
+        if q_type == "area":
+            # Typical answer format: "25.0%, which is a small portion"
+            match = re.search(r'([\d.]+)%,', answer)
+            area_val = None
+            if match:
+                area_val = float(match.group(1))
+                area_percentages.append(area_val)
+                if area_val == 0.0:
+                    zero_area_count += 1
+                    empty_count_map[seg_id] += 1
+                    completely_empty_map[seg_id] = completely_empty_map[seg_id] and True if seg_id in completely_empty_map else True
+                    if "tumor core" in label_name.lower():
+                        no_tumor_core_map[seg_id] = True
+                else:
+                    completely_empty_map[seg_id] = False
+            if "none" in answer.lower():
+                none_area_count += 1
+            if "none" not in answer.lower() and area_val == 0.0:
+                print("Anomaly: ", answer)
+
+        # Check bounding box questions
+        if q_type == "bbox":
+            # Typical answer format: "top-left, bottom-right" or "none"
+            if "none" in answer.lower():
+                none_bbox_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "quadrant":
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_quadrant_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "extent":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                extent_val = float(match.group(1))
+                extent_percentages.append(extent_val)
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_extent_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "solidity":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                solidity_val = float(match.group(1))
+                solidity_percentages.append(solidity_val)
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_solidity_count += 1
+                empty_count_map[seg_id] += 1
+
+    # Build the summary report lines
+    lines = []
+    lines.append("===== VQA DATA SUMMARY =====")
+    lines.append(f"Total questions: {total_questions}")
+
+    lines.append("\nQuestion type distribution:")
+    for t, c in question_type_counts.items():
+        lines.append(f"  - {t}: {c}")
+
+    lines.append("\nLabel name distribution:")
+    for lbl, c in label_name_counts.items():
+        lines.append(f"  - {lbl}: {c}")
+
+    # Summaries of adjacency values
+    if adjacency_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=adjacency_percentages,
+                                                zero_score_count=zero_adjacency_count,
+                                                none_score_count=none_adj_quadrant_count, metric_name="adjacency_area"))
+
+    # Summaries of area values
+    if area_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=area_percentages, zero_score_count=zero_area_count,
+                                                none_score_count=none_area_count, metric_name="area"))
+
+    if extent_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=extent_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_extent_count, metric_name="extent"))
+
+    if solidity_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=solidity_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_solidity_count, metric_name="solidity"))
+
+    # Summaries of "none" answers for quadrant and bounding box
+    lines.append(f"\n# of questions that returned 'none' quadrant: {none_quadrant_count}")
+    lines.append(f"# of questions that returned 'none' bounding box: {none_bbox_count}")
+    lines.append(f"# of questions that returned 'none' extent: {none_extent_count}")
+    lines.append(f"# of questions that returned 'none' solidity: {none_solidity_count}")
+
+    lines.append(f"# of seg maps: {len(completely_empty_map)}, seg maps that are empty: {sum(list(completely_empty_map.values()))}, seg maps without tumor core: {sum(list(no_tumor_core_map.values()))}")
+
+    if empty_count_map is not None:
+        #for remove_empty_counts in [[], [33, 28], [33, 28, 26]]:
+        #    for empty_count in remove_empty_counts:
+        #        empty_count_map = {seg_id: count for seg_id, count in list(empty_count_map.items()) if count != empty_count}
+        empty_count_map_ = empty_count_map.copy()
+        for max_seg_id in max_seg_id_list:
+            empty_count_tracker = dict()
+            empty_count_map = dict()
+            for seg_id, count in list(empty_count_map_.items()):
+                if count not in empty_count_tracker:
+                    empty_count_tracker[count] = 1
+                    empty_count_map[seg_id] = count
+                else:
+                    if empty_count_tracker[count] < max_seg_id:
+                        empty_count_tracker[count] += 1
+                        empty_count_map[seg_id] = count
+            empty_counts = list(empty_count_map.values())
+            avg_empty_counts = sum(empty_counts) / len(empty_counts)
+            q1_empty_counts = np.quantile(empty_counts, 0.25)
+            q2_empty_counts = np.quantile(empty_counts, 0.5)
+            q3_empty_counts = np.quantile(empty_counts, 0.75)
+            min_empty_counts = min(empty_counts)
+            max_empty_counts = max(empty_counts)
+            empty_count_distribution = Counter(empty_counts)
+            seg_id_counts = list(empty_count_distribution.values())
+            avg_seg_id_counts = sum(seg_id_counts) / len(seg_id_counts)
+            q1_seg_id_counts = np.quantile(seg_id_counts, 0.25)
+            q2_seg_id_counts = np.quantile(seg_id_counts, 0.5)
+            q3_seg_id_counts = np.quantile(seg_id_counts, 0.75)
+            min_seg_id_counts = min(seg_id_counts)
+            max_seg_id_counts = max(seg_id_counts)
+            lines.append(
+                f"\nEmpty counts per seg_id (over 4 image types with 1 modality question and 5 questions for 5 organs and 2 questions for 4 relationships. total=136):\n"
+                #f"\nEmpty counts per seg_id (over 5 questions for 5 organs and 2 questions for 4 relationships. total=33):\n"
+                #f"  Removing seg_ids with empty counts: " + ", ".join([str(k) for k in remove_empty_counts]) + "\n"
+                f"  Max # of seg_ids: {max_seg_id}\n"
+                f"  Seg_id Count: {len(empty_count_map)}\n"
+                f"  Avg Empty Count:   {avg_empty_counts:.2f}\n"
+                f"  Empty Count 25-50-75: [{q1_empty_counts:.2f}, {q2_empty_counts:.2f}, {q3_empty_counts:.2f}]\n"
+                f"  Empty Count Range: [{min_empty_counts:.2f}, {max_empty_counts:.2f}]\n"
+                f"  Empty Count Distribution: {[(k, empty_count_distribution[k]) for k in sorted(empty_count_distribution.keys())]}\n"
+                f"  Avg Seg_id Count:   {avg_seg_id_counts:.2f}\n"
+                f"  Seg_id 25-50-75: [{q1_seg_id_counts:.2f}, {q2_seg_id_counts:.2f}, {q3_seg_id_counts:.2f}]\n"
+                f"  Seg_id Range: [{min_seg_id_counts:.2f}, {max_seg_id_counts:.2f}]\n"
+            )
+    return "\n".join(lines)
+
+
+def summarize_3d_vqa_data(all_vqa_questions,
+                       max_seg_id_list=(10, 20, 25, 30, 40, 50, 70, 77, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200)):
+    """
+    Summarize basic statistics about the generated VQA data:
+      - Count total questions
+      - Distribution of question types
+      - Distribution of label names
+      - Parse adjacency and area percentages for min/max/avg
+      - Count occurrences where we have 'none' labels or 0% adjacency
+    """
+    total_questions = len(all_vqa_questions)
+    question_type_counts = Counter(q.get("type", "unknown") for q in all_vqa_questions)
+    label_name_counts = Counter(q.get("label_name", "unknown") for q in all_vqa_questions)
+
+    # We'll try to parse numeric percentages for adjacency (adj_area) questions:
+    adjacency_percentages = []
+    # Keep track of how many adjacency questions are effectively 0% => "none" adjacency
+    zero_adjacency_count = 0
+    none_adj_quadrant_count = 0
+
+    # We'll do the same for area questions:
+    area_percentages = []
+    # Keep track of how many times area=0% => "none" label
+    zero_area_count = 0
+    none_area_count = 0
+
+    extent_percentages = []
+    solidity_percentages = []
+
+    # We'll also check how often bounding box = "none" or quadrant = "none"
+    # in quadrant-related or bbox-related questions
+    none_quadrant_count = 0
+    none_bbox_count = 0
+    none_extent_count = 0
+    none_solidity_count = 0
+
+    completely_empty_map = dict()
+    empty_count_map = defaultdict(int)
+    no_tumor_core_map = dict()
+
+    for q in all_vqa_questions:
+        q_type = q.get("type", "unknown")
+        answer = q.get("answer", "")
+        seg_id = q.get("seg_id", "unknown")
+        label_name = q.get("label_name", "unknown")
+        empty_count_map[seg_id]
+
+        # Parse adjacency area questions
+        if q_type == "adj_area":
+            # Typical answer format: "25.0%, which is the majority"
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                adj_val = float(match.group(1))
+                adjacency_percentages.append(adj_val)
+                if adj_val == 0.0:
+                    zero_adjacency_count += 1
+                    empty_count_map[seg_id] += 1
+
+        # Parse adjacency quadrant questions
+        if q_type == "adj_quadrants":
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_adj_quadrant_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Parse area questions
+        if q_type == "area":
+            # Typical answer format: "25.0%, which is a small portion"
+            match = re.search(r'([\d.]+)%,', answer)
+            area_val = None
+            if match:
+                area_val = float(match.group(1))
+                area_percentages.append(area_val)
+                if area_val == 0.0:
+                    zero_area_count += 1
+                    empty_count_map[seg_id] += 1
+                    completely_empty_map[seg_id] = completely_empty_map[seg_id] and True if seg_id in completely_empty_map else True
+                    if "tumor core" in label_name.lower():
+                        no_tumor_core_map[seg_id] = True
+                else:
+                    completely_empty_map[seg_id] = False
+            if "none" in answer.lower():
+                none_area_count += 1
+            if "none" not in answer.lower() and area_val == 0.0:
+                print("Anomaly: ", answer)
+
+        # Check bounding box questions
+        if q_type == "bbox":
+            # Typical answer format: "top-left, bottom-right" or "none"
+            if "none" in answer.lower():
+                none_bbox_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "quadrant":
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_quadrant_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "extent":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                extent_val = float(match.group(1))
+                extent_percentages.append(extent_val)
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_extent_count += 1
+                empty_count_map[seg_id] += 1
+
+        # Check quadrant questions
+        if q_type == "solidity":
+            match = re.search(r'([\d.]+)%,', answer)
+            if match:
+                solidity_val = float(match.group(1))
+                solidity_percentages.append(solidity_val)
+            # Typical answer format: "top-left" or "none"
+            if "none" in answer.lower():
+                none_solidity_count += 1
+                empty_count_map[seg_id] += 1
+
+    # Build the summary report lines
+    lines = []
+    lines.append("===== VQA DATA SUMMARY =====")
+    lines.append(f"Total questions: {total_questions}")
+
+    lines.append("\nQuestion type distribution:")
+    for t, c in question_type_counts.items():
+        lines.append(f"  - {t}: {c}")
+
+    lines.append("\nLabel name distribution:")
+    for lbl, c in label_name_counts.items():
+        lines.append(f"  - {lbl}: {c}")
+
+    # Summaries of adjacency values
+    if adjacency_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=adjacency_percentages,
+                                                zero_score_count=zero_adjacency_count,
+                                                none_score_count=none_adj_quadrant_count, metric_name="adjacency_area"))
+
+    # Summaries of area values
+    if area_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=area_percentages, zero_score_count=zero_area_count,
+                                                none_score_count=none_area_count, metric_name="area"))
+
+    if extent_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=extent_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_extent_count, metric_name="extent"))
+
+    if solidity_percentages:
+        lines.append(get_descriptive_statistics(list_of_scores=solidity_percentages, zero_score_count=np.nan,
+                                                none_score_count=none_solidity_count, metric_name="solidity"))
+
+    # Summaries of "none" answers for quadrant and bounding box
+    lines.append(f"\n# of questions that returned 'none' quadrant: {none_quadrant_count}")
+    lines.append(f"# of questions that returned 'none' bounding box: {none_bbox_count}")
+    lines.append(f"# of questions that returned 'none' extent: {none_extent_count}")
+    lines.append(f"# of questions that returned 'none' solidity: {none_solidity_count}")
+
+    lines.append(f"# of seg maps: {len(completely_empty_map)}, seg maps that are empty: {sum(list(completely_empty_map.values()))}, seg maps without tumor core: {sum(list(no_tumor_core_map.values()))}")
+
+    if empty_count_map is not None:
+        #for remove_empty_counts in [[], [33, 28], [33, 28, 26]]:
+        #    for empty_count in remove_empty_counts:
+        #        empty_count_map = {seg_id: count for seg_id, count in list(empty_count_map.items()) if count != empty_count}
+        empty_count_map_ = empty_count_map.copy()
+        for max_seg_id in max_seg_id_list:
+            empty_count_tracker = dict()
+            empty_count_map = dict()
+            for seg_id, count in list(empty_count_map_.items()):
+                if count not in empty_count_tracker:
+                    empty_count_tracker[count] = 1
+                    empty_count_map[seg_id] = count
+                else:
+                    if empty_count_tracker[count] < max_seg_id:
+                        empty_count_tracker[count] += 1
+                        empty_count_map[seg_id] = count
+            empty_counts = list(empty_count_map.values())
+            avg_empty_counts = sum(empty_counts) / len(empty_counts)
+            q1_empty_counts = np.quantile(empty_counts, 0.25)
+            q2_empty_counts = np.quantile(empty_counts, 0.5)
+            q3_empty_counts = np.quantile(empty_counts, 0.75)
+            min_empty_counts = min(empty_counts)
+            max_empty_counts = max(empty_counts)
+            empty_count_distribution = Counter(empty_counts)
+            seg_id_counts = list(empty_count_distribution.values())
+            avg_seg_id_counts = sum(seg_id_counts) / len(seg_id_counts)
+            q1_seg_id_counts = np.quantile(seg_id_counts, 0.25)
+            q2_seg_id_counts = np.quantile(seg_id_counts, 0.5)
+            q3_seg_id_counts = np.quantile(seg_id_counts, 0.75)
+            min_seg_id_counts = min(seg_id_counts)
+            max_seg_id_counts = max(seg_id_counts)
+            lines.append(
+                f"\nEmpty counts per seg_id (over 4 image types with 1 modality question and 5 questions for 5 organs and 2 questions for 4 relationships. total=136):\n"
+                #f"\nEmpty counts per seg_id (over 5 questions for 5 organs and 2 questions for 4 relationships. total=33):\n"
+                #f"  Removing seg_ids with empty counts: " + ", ".join([str(k) for k in remove_empty_counts]) + "\n"
+                f"  Max # of seg_ids: {max_seg_id}\n"
+                f"  Seg_id Count: {len(empty_count_map)}\n"
+                f"  Avg Empty Count:   {avg_empty_counts:.2f}\n"
+                f"  Empty Count 25-50-75: [{q1_empty_counts:.2f}, {q2_empty_counts:.2f}, {q3_empty_counts:.2f}]\n"
+                f"  Empty Count Range: [{min_empty_counts:.2f}, {max_empty_counts:.2f}]\n"
+                f"  Empty Count Distribution: {[(k, empty_count_distribution[k]) for k in sorted(empty_count_distribution.keys())]}\n"
+                f"  Avg Seg_id Count:   {avg_seg_id_counts:.2f}\n"
+                f"  Seg_id 25-50-75: [{q1_seg_id_counts:.2f}, {q2_seg_id_counts:.2f}, {q3_seg_id_counts:.2f}]\n"
+                f"  Seg_id Range: [{min_seg_id_counts:.2f}, {max_seg_id_counts:.2f}]\n"
+            )
+    return "\n".join(lines)

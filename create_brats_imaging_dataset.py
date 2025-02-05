@@ -44,6 +44,27 @@ COLORINT_TO_LABEL = {
     for (r, g, b), lbl in COLOR_TO_LABEL.items()
 }
 
+
+def get_nifti_seg_file_from_dir(nii_file_dir: str) -> str:
+    nii_files = glob.glob(os.path.join(nii_file_dir, "*.nii.gz"))
+    seg_nii_file = [nii_file for nii_file in nii_files if "seg" in nii_file][0]
+    return seg_nii_file
+
+
+def get_nifti_non_seg_file_from_dir(nii_file_dir: str) -> str:
+    nii_dict = {}
+    nii_files = glob.glob(os.path.join(nii_file_dir, "*.nii.gz"))
+    for modality in ["t1c", "t1n", "t2w", "t2f"]:
+        nii_dict[modality] = [nii_file for nii_file in nii_files if modality in nii_file][0]
+    return nii_dict
+
+
+def load_lab_map_from_nifti(seg_nii_file: str) -> torch.Tensor:
+    img = nib.load(seg_nii_file)
+    label_map = img.get_fdata() # H x W x D
+    return label_map
+
+
 def load_color_seg_png_as_labels_gpu(png_path: str) -> torch.Tensor:
     """
     Reads a color-coded segmentation PNG on CPU, then does color->label
@@ -122,6 +143,7 @@ def load_color_seg_png_as_labels_gpu(png_path: str) -> torch.Tensor:
     label_map = label_map_flat.view(H, W)
 
     return label_map
+
 
 def rank_slices_by_annotation(
     seg_dir: str,
