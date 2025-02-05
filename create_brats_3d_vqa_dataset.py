@@ -1,150 +1,13 @@
-import os.path
 from glob import glob
-import numpy as np
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from tqdm_joblib import tqdm_joblib
 import json
-from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, load_lab_map_from_nifti
-from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data
-
-
-def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
-                                   train_frac=0.8, val_frac=0.1, train_file="brats_gli_vqa_train.json",
-                                   val_file="brats_gli_vqa_val.json", test_file="brats_gli_vqa_test.json"):
-    if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
-        train_questions = [q for q in all_vqa_questions if q["seg_id"] in train_seg_ids]
-        val_questions = [q for q in all_vqa_questions if q["seg_id"] in val_seg_ids]
-        test_questions = [q for q in all_vqa_questions if q["seg_id"] in test_seg_ids]
-        train_studies = list({q["study_name"] for q in train_questions})
-        val_studies = list({q["study_name"] for q in val_questions})
-        test_studies = list({q["study_name"] for q in test_questions})
-    else:
-        random_state = np.random.RandomState(seed)
-        study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
-        random_state.shuffle(study_names)
-        total_studies = len(study_names)
-        train_end = int(total_studies * train_frac)
-        val_end = int(total_studies * (train_frac + val_frac))
-        train_studies = study_names[:train_end]
-        val_studies = study_names[train_end:val_end]
-        test_studies = study_names[val_end:]
-        train_questions = [q for q in all_vqa_questions if q["study_name"] in train_studies]
-        val_questions = [q for q in all_vqa_questions if q["study_name"] in val_studies]
-        test_questions = [q for q in all_vqa_questions if q["study_name"] in test_studies]
-    print(f"Train studies: {len(train_studies)}, Val studies: {len(val_studies)}, Test studies: {len(test_studies)}")
-    print(f"Train questions: {len(train_questions)}, Val questions: {len(val_questions)}, Test questions: {len(test_questions)}")
-
-    with open(train_file, 'w') as f:
-        json.dump(train_questions, f, indent=2)
-    with open(val_file, 'w') as f:
-        json.dump(val_questions, f, indent=2)
-    with open(test_file, 'w') as f:
-        json.dump(test_questions, f, indent=2)
-
-    return train_questions, val_questions, test_questions
-
-def postprocess_vqa_data(all_vqa_questions, seg_id_list=(), max_num_of_seg_ids_per_empty_count=100,
-                         default_modality="t1c", save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
-    if seg_id_list:
-        filtered_vqa_questions = [q for q in all_vqa_questions if q["seg_id"] in seg_id_list]
-    for index in range(len(filtered_vqa_questions)):
-        question = filtered_vqa_questions[index]
-        base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
-        question["img_id"] = filtered_vqa_questions[index]["seg_id"]
-        if "img_name" not in question:
-            base_img_file = os.path.basename(question["seg_file"]).replace("seg", default_modality)
-            question["img_name"] = os.path.join(base_dir, base_img_file)
-        assert "question" in filtered_vqa_questions[index]
-        assert "answer" in filtered_vqa_questions[index]
-        question["q_lang"] = "en"
-        question["qid"] = index
-        question["location"] = "Brain"
-        if "modality" not in question:
-            question["modality"] = default_modality
-        question["answer_type"] = "OPEN"
-        question["base_type"] = "VQA"
-        question["content_type"] = question["type"]
-        question["qid"] = index
-        question["study_name"] = "-".join(base_dir.split("-")[:-1])
-
-    with open(save_vqa_file, 'w') as f:
-        json.dump(filtered_vqa_questions, f, indent=2)
-
-    return filtered_vqa_questions
-
-
-def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
-    lines = []
-    avg_score = sum(list_of_scores) / len(list_of_scores)
-    q1_score = np.quantile(list_of_scores, 0.25)
-    q2_score = np.quantile(list_of_scores, 0.5)
-    q3_score = np.quantile(list_of_scores, 0.75)
-    min_score = min(list_of_scores)
-    max_score = max(list_of_scores)
-
-    # add non-zero scores
-    non_zero_scores = [p for p in list_of_scores if p != 0.0]
-    non_zero_avg_score = sum(non_zero_scores) / len(non_zero_scores)
-    non_zero_q1_score = np.quantile(non_zero_scores, 0.25)
-    non_zero_q2_score = np.quantile(non_zero_scores, 0.5)
-    non_zero_q3_score = np.quantile(non_zero_scores, 0.75)
-    non_zero_min_score = min(non_zero_scores)
-    non_zero_max_score = max(non_zero_scores)
-
-    return (f"\n{metric_name} questions:\n"
-            f"  Count: {len(list_of_scores)}\n"
-            f"  Avg:   {avg_score:.2f}%\n"
-            f"  25-50-75: [{q1_score:.2f}, {q2_score:.2f}, {q3_score:.2f}]\n"
-            f"  Range: [{min_score:.2f}%, {max_score:.2f}%]\n"
-            f"  # with 0% {metric_name}: {zero_score_count}\n"
-            f"  # with none {metric_name}: {none_score_count}\n"
-
-            f"\n (non-zero) {metric_name} questions:\n"
-            f"  Count: {len(non_zero_scores)}\n"
-            f"  Avg:   {non_zero_avg_score:.2f}%\n"
-            f"  25-50-75: [{non_zero_q1_score:.2f}, {non_zero_q2_score:.2f}, {non_zero_q3_score:.2f}]\n"
-            f"  Range: [{non_zero_min_score:.2f}%, {non_zero_max_score:.2f}%]\n")
-
-
-def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True, include_extent=True,
-                                 include_solidity=True, subjective_only=False):
-    vqa_questions = []
-    if include_area:
-        question = f"How large is the area covered by {summ['name']}?"
-        if subjective_only:
-            answer = f"{summ['area_interp']}"
-        else:
-            answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "area", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_quadrant:
-        question = f"Which quadrant is {summ['name']} centered in?"
-        answer = f"{summ['centroid_quadrant']}"
-        question_dict = {"question": question, "answer": answer, "type": "quadrant", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_bbox:
-        question = f"The smallest bounding box surrounding {summ['name']} is in which quadrants?"
-        answer = f"{summ['bbox_str']}"
-        question_dict = {"question": question, "answer": answer, "type": "bbox", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_extent:
-        question = f"Within the smallest bounding box surrounding {summ['name']}, to what extent is the bounding box region filled?"
-        if subjective_only:
-            answer = f"{summ['extent_interp']}"
-        else:
-            answer = f"{summ['extent_value']:.1f}%, which is {summ['extent_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_solidity:
-        question = f"Within the smallest bounding box surrounding {summ['name']}, how solid is the region?"
-        if subjective_only:
-            answer = f"{summ['solidity_interp']}"
-        else:
-            answer = f"{summ['solidity_value']:.1f}%, which is {summ['solidity_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    return vqa_questions
+import time
+from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, \
+    load_lab_map_from_nifti
+from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_labal_vqa_questions, \
+    postprocess_vqa_data, generate_train_val_test_splits
 
 
 def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, include_quadrant=False,
@@ -158,7 +21,10 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
       - Resection cavity vs tumor core & FLAIR.
     """
     nii_seg_file = get_nifti_seg_file_from_dir(volume_file_dir)
+    t0 = time.time()
     seg_map_3d = load_lab_map_from_nifti(nii_seg_file)
+    t1 = time.time()
+    print(f"Loaded segmentation map from {nii_seg_file} in {t1 - t0:.2f} seconds.")
 
     height, width, depth = seg_map_3d.shape
     total_pixels = seg_map_3d.size
@@ -271,12 +137,12 @@ if __name__ == "__main__":
     ref_test_vqa_file = None
     # rest of the parameters
     subjective_only = True
-    vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data.json"
+    vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_temp.json"
     clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data.json"
     train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train.json"
     val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val.json"
     test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test.json"
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))[:10]
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
                                                        include_quadrant=False, n_jobs=8)
     with open(vqa_file, 'w') as f:

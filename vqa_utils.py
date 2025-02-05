@@ -2,9 +2,149 @@ from skimage.morphology import convex_hull_image
 from skimage.measure import label
 import numpy as np
 import re
+import os
+import json
 from scipy.ndimage import center_of_mass
 from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
 from collections import Counter, defaultdict
+import time
+
+
+def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
+                                   train_frac=0.8, val_frac=0.1, train_file="brats_gli_vqa_train.json",
+                                   val_file="brats_gli_vqa_val.json", test_file="brats_gli_vqa_test.json"):
+    if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
+        train_questions = [q for q in all_vqa_questions if q["seg_id"] in train_seg_ids]
+        val_questions = [q for q in all_vqa_questions if q["seg_id"] in val_seg_ids]
+        test_questions = [q for q in all_vqa_questions if q["seg_id"] in test_seg_ids]
+        train_studies = list({q["study_name"] for q in train_questions})
+        val_studies = list({q["study_name"] for q in val_questions})
+        test_studies = list({q["study_name"] for q in test_questions})
+    else:
+        random_state = np.random.RandomState(seed)
+        study_names = sorted(list({q["study_name"] for q in all_vqa_questions}))
+        random_state.shuffle(study_names)
+        total_studies = len(study_names)
+        train_end = int(total_studies * train_frac)
+        val_end = int(total_studies * (train_frac + val_frac))
+        train_studies = study_names[:train_end]
+        val_studies = study_names[train_end:val_end]
+        test_studies = study_names[val_end:]
+        train_questions = [q for q in all_vqa_questions if q["study_name"] in train_studies]
+        val_questions = [q for q in all_vqa_questions if q["study_name"] in val_studies]
+        test_questions = [q for q in all_vqa_questions if q["study_name"] in test_studies]
+    print(f"Train studies: {len(train_studies)}, Val studies: {len(val_studies)}, Test studies: {len(test_studies)}")
+    print(f"Train questions: {len(train_questions)}, Val questions: {len(val_questions)}, Test questions: {len(test_questions)}")
+
+    with open(train_file, 'w') as f:
+        json.dump(train_questions, f, indent=2)
+    with open(val_file, 'w') as f:
+        json.dump(val_questions, f, indent=2)
+    with open(test_file, 'w') as f:
+        json.dump(test_questions, f, indent=2)
+
+    return train_questions, val_questions, test_questions
+
+def postprocess_vqa_data(all_vqa_questions, seg_id_list=(), max_num_of_seg_ids_per_empty_count=100,
+                         default_modality="t1c", save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
+    if seg_id_list:
+        filtered_vqa_questions = [q for q in all_vqa_questions if q["seg_id"] in seg_id_list]
+    elif max_num_of_seg_ids_per_empty_count is not None:
+        filtered_vqa_questions = filter_seg_ids_from_vqa_data(all_vqa_questions,
+                                                              max_num_of_seg_ids_per_empty_count=max_num_of_seg_ids_per_empty_count,
+                                                              seed=seed)
+    for index in range(len(filtered_vqa_questions)):
+        question = filtered_vqa_questions[index]
+        base_dir = os.path.basename(os.path.dirname(question["seg_file"]))
+        question["img_id"] = filtered_vqa_questions[index]["seg_id"]
+        if "img_name" not in question:
+            base_img_file = os.path.basename(question["seg_file"]).replace("seg", default_modality)
+            question["img_name"] = os.path.join(base_dir, base_img_file)
+        assert "question" in filtered_vqa_questions[index]
+        assert "answer" in filtered_vqa_questions[index]
+        question["q_lang"] = "en"
+        question["qid"] = index
+        question["location"] = "Brain"
+        if "modality" not in question:
+            question["modality"] = default_modality
+        question["answer_type"] = "OPEN"
+        question["base_type"] = "VQA"
+        question["content_type"] = question["type"]
+        question["qid"] = index
+        question["study_name"] = "-".join(base_dir.split("-")[:-1])
+
+    with open(save_vqa_file, 'w') as f:
+        json.dump(filtered_vqa_questions, f, indent=2)
+
+    return filtered_vqa_questions
+
+
+def filter_seg_ids_from_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100, seed=0):
+    seg_ids_empty_counts_map = get_seg_ids_empty_counts(all_vqa_questions)
+    random_state = np.random.RandomState(seed)
+
+    # 1) Group seg_ids by their empties count
+    count_to_segids = defaultdict(list)
+    for seg_id, empties_val in seg_ids_empty_counts_map.items():
+        count_to_segids[empties_val].append(seg_id)
+
+    # 2) For each empties_val group, if it has more than max_segids_per_count seg_ids,
+    #    we randomly sample up to that limit. Otherwise, keep all.
+    final_seg_ids = []
+    for empties_val, segids in count_to_segids.items():
+        if len(segids) > max_num_of_seg_ids_per_empty_count:
+            chosen = random_state.choice(segids, size=max_num_of_seg_ids_per_empty_count, replace=False)
+        else:
+            chosen = segids
+        final_seg_ids.extend(chosen)
+    return [q for q in all_vqa_questions if q["seg_id"] in final_seg_ids]
+
+
+def generate_modality_question(modality):
+    question = f"What is the modality of the brain image?"
+    answer = modality
+    question_dict = {"question": question, "answer": answer, "type": "modality", "label_name": "NA"}
+    return [question_dict]
+
+
+def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True, include_extent=True,
+                                 include_solidity=True, subjective_only=False):
+    vqa_questions = []
+    if include_area:
+        question = f"How large is the area covered by {summ['name']}?"
+        if subjective_only:
+            answer = f"{summ['area_interp']}"
+        else:
+            answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "area", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_quadrant:
+        question = f"Which quadrant is {summ['name']} centered in?"
+        answer = f"{summ['centroid_quadrant']}"
+        question_dict = {"question": question, "answer": answer, "type": "quadrant", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_bbox:
+        question = f"The smallest bounding box surrounding {summ['name']} is in which quadrants?"
+        answer = f"{summ['bbox_str']}"
+        question_dict = {"question": question, "answer": answer, "type": "bbox", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_extent:
+        question = f"Within the smallest bounding box surrounding {summ['name']}, to what extent is the bounding box region filled?"
+        if subjective_only:
+            answer = f"{summ['extent_interp']}"
+        else:
+            answer = f"{summ['extent_value']:.1f}%, which is {summ['extent_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_solidity:
+        question = f"Within the smallest bounding box surrounding {summ['name']}, how solid is the region?"
+        if subjective_only:
+            answer = f"{summ['solidity_interp']}"
+        else:
+            answer = f"{summ['solidity_value']:.1f}%, which is {summ['solidity_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    return vqa_questions
 
 
 def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
@@ -349,8 +489,10 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
         mask = seg_map_3d == lbl
 
         label_name = label_names.get(lbl, f"Label {lbl}")
-
+        t0 = time.time()
         area_pct = compute_area_percentage(mask, total_pixels)
+        t1 = time.time()
+        print(f"Area computation took {t1 - t0} seconds")
         area_interp = interpret_3d_area_percentage(area_pct)
 
         if area_interp == "none":
@@ -363,16 +505,27 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             solidity_value = 0.0
             solidity_interp = "none"
         else:
+            t2 = time.time()
             centroid = center_of_mass(mask)
+            t3 = time.time()
+            print(f"Centroid computation took {t3 - t2} seconds")
             quadrant = get_3d_quadrant(centroid, height, width, depth)
 
+            t4 = time.time()
             bbox = compute_3d_bounding_box(mask)
+            t5 = time.time()
+            print(f"Bounding box computation took {t5 - t4} seconds")
             bounding_box_quads = get_3d_bounding_box_quadrants(bbox, height, width, depth)
             bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
 
             # Extent-based compactness
-            extent_value, extent_interp = measure_3d_extent_compactness(mask)
+            t6 = time.time()
+            extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
+            t7 = time.time()
+            print(f"Extent computation took {t7 - t6} seconds")
             solidity_value, solidity_interp = measure_3d_solidity(mask)
+            t8 = time.time()
+            print(f"Solidity computation took {t8 - t7} seconds")
 
         label_summaries.append({
             "label": lbl,
@@ -827,8 +980,7 @@ def measure_extent_compactness(mask):
     return extent, interpretation
 
 
-def measure_3d_extent_compactness(mask):
-    bbox = compute_3d_bounding_box(mask)
+def measure_3d_extent_compactness(mask, bbox):
     area = mask.sum()
     if not bbox:
         return 0.0, "none"
