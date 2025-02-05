@@ -46,14 +46,14 @@ COLORINT_TO_LABEL = {
 
 
 def get_nifti_seg_file_from_dir(nii_file_dir: str) -> str:
-    nii_files = glob.glob(os.path.join(nii_file_dir, "*.nii.gz"))
+    nii_files = glob(os.path.join(nii_file_dir, "*.nii.gz"))
     seg_nii_file = [nii_file for nii_file in nii_files if "seg" in nii_file][0]
     return seg_nii_file
 
 
 def get_nifti_non_seg_file_from_dir(nii_file_dir: str) -> str:
     nii_dict = {}
-    nii_files = glob.glob(os.path.join(nii_file_dir, "*.nii.gz"))
+    nii_files = glob(os.path.join(nii_file_dir, "*.nii.gz"))
     for modality in ["t1c", "t1n", "t2w", "t2f"]:
         nii_dict[modality] = [nii_file for nii_file in nii_files if modality in nii_file][0]
     return nii_dict
@@ -223,7 +223,7 @@ def convert_nifti_to_png_y_slices(
     for subdir in tqdm(subdirs):
         subdir_path = os.path.join(input_root, subdir)
         # Find all .nii.gz files
-        nii_files = glob.glob(os.path.join(subdir_path, "*.nii.gz"))
+        nii_files = glob(os.path.join(subdir_path, "*.nii.gz"))
 
         # Create an output subfolder for this subject
         subject_out_dir = os.path.join(output_root, subdir)
