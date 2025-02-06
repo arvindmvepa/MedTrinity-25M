@@ -127,10 +127,9 @@ if __name__ == "__main__":
         print(report)
     """
     # reference vqa files to line up seg_ids and train/val/test splits
-    ref_vqa_file = None
-    ref_train_vqa_file = None
-    ref_val_vqa_file = None
-    ref_test_vqa_file = None
+    ref_train_vqa_file = f"brats_gli_3d_vqa_subjFalse_train_v2.json"
+    ref_val_vqa_file = f"brats_gli_3d_vqa_subjFalse_val_v2.json"
+    ref_test_vqa_file = f"brats_gli_3d_vqa_subjFalse_test_v2.json"
     # rest of the parameters
     subjective_only = True
     vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v2.json"
@@ -139,31 +138,28 @@ if __name__ == "__main__":
     val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v2.json"
     test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v2.json"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
+    question_key = "volume_file_id"
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
                                                        include_quadrant=False, n_jobs=8)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
-        vqa_data = json.load(f)
-    print(summarize_3d_vqa_data(vqa_data))
-    if ref_vqa_file is not None:
-        with open(ref_vqa_file, 'r') as f:
-            ref_vqa_data = json.load(f)
-            ref_seg_ids = [q["seg_id"] for q in ref_vqa_data]
-        processed_vqa_data = postprocess_3d_vqa_data(vqa_data, seg_id_list=ref_seg_ids, save_vqa_file=clean_vqa_file)
+        vqa_data_ = json.load(f)
+    print(summarize_3d_vqa_data(vqa_data_))
+    processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
+    if (ref_train_vqa_file is not None) and (ref_val_vqa_file is not None) and (ref_test_vqa_file is not None):
         with open(ref_train_vqa_file, 'r') as f:
             ref_train_vqa_data = json.load(f)
-            ref_train_seg_ids = [q["seg_id"] for q in ref_train_vqa_data]
+            ref_train_seg_ids = [q[question_key] for q in ref_train_vqa_data]
         with open(ref_val_vqa_file, 'r') as f:
             ref_val_vqa_data = json.load(f)
-            ref_val_seg_ids = [q["seg_id"] for q in ref_val_vqa_data]
+            ref_val_seg_ids = [q[question_key] for q in ref_val_vqa_data]
         with open(ref_test_vqa_file, 'r') as f:
             ref_test_vqa_data = json.load(f)
-            ref_test_seg_ids = [q["seg_id"] for q in ref_test_vqa_data]
+            ref_test_seg_ids = [q[question_key] for q in ref_test_vqa_data]
         generate_train_val_test_splits(processed_vqa_data, train_seg_ids=ref_train_seg_ids, val_seg_ids=ref_val_seg_ids,
                                        test_seg_ids=ref_test_seg_ids, train_file=train_file, val_file=val_file,
                                        test_file=test_file)
     else:
-        processed_vqa_data = postprocess_3d_vqa_data(vqa_data, save_vqa_file=clean_vqa_file)
-        generate_train_val_test_splits(processed_vqa_data, question_key="volume_file_id", train_file=train_file,
+        generate_train_val_test_splits(processed_vqa_data, question_key=question_key, train_file=train_file,
                                        val_file=val_file, test_file=test_file)
