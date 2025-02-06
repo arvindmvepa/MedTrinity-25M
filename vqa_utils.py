@@ -1,5 +1,6 @@
 from skimage.morphology import convex_hull_image
 from skimage.measure import label
+from skimage import measure
 import numpy as np
 import re
 import os
@@ -510,8 +511,7 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
 
             # Extent-based compactness
             extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
-            #solidity_value, solidity_interp = measure_3d_solidity(mask)
-            #print(f"Solidity computation took {t8 - t7} seconds")
+            solidity_value, solidity_interp = measure_3d_solidity(mask)
 
         label_summaries.append({
             "label": lbl,
@@ -523,8 +523,8 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             "bbox_str": bounding_box_str,
             "extent_value": extent_value,
             "extent_interp": extent_interp,
-            #"solidity_value": solidity_value,
-            #"solidity_interp": solidity_interp
+            "solidity_value": solidity_value,
+            "solidity_interp": solidity_interp
         })
     return label_summaries
 
@@ -689,21 +689,21 @@ def interpret_area_percentage(pct):
     """
     if pct == 0.0:
         return "none"
-    elif pct < 0.1:
+    elif pct < 0.01:
         return "almost negligible"
-    elif pct < 0.5:
+    elif pct < 0.05:
         return "tiny fraction"
-    elif pct < 1:
+    elif pct < .1:
         return "very small fraction"
-    elif pct < 2:
+    elif pct < .3:
         return "small portion"
-    elif pct < 5:
+    elif pct < .6:
         return "moderate portion"
-    elif pct < 12:
+    elif pct < 1.2:
         return "significant portion"
-    elif pct < 40:
+    elif pct < 4.0:
         return "large portion"
-    elif pct < 70:
+    elif pct < 7.0:
         return "major portion"
     else:
         return "the vast majority"
@@ -1031,14 +1031,30 @@ def measure_solidity(mask):
     return solidity, interpret_solidity(solidity)
 
 
-def measure_3d_solidity(mask):
-    """
-    Computes Solidity = area / convex_hull_area.
-    """
-    convex_hull = convex_hull_image(mask)
-    region_area = mask.sum()
-    convex_area = convex_hull.sum()
-    solidity = vqa_round(region_area / convex_area) * 100 if convex_area > 0 else 0.0
+def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
+    # 1) Volume = number of foreground voxels * voxel volume
+    voxel_volume = np.prod(voxel_spacing)  # e.g. 1 * 1 * 1 if spacing=(1,1,1)
+    volume = np.count_nonzero(mask_3d) * voxel_volume
+
+    # 2) Use marching cubes to get a 3D mesh of the surface
+    #    skimage.measure.marching_cubes returns:
+    #       vertices, faces, normals, values
+    #    'level=0.5' is typical for binary masks
+    #    'spacing' uses voxel_spacing to scale the mesh in real units.
+    verts, faces, normals, _ = measure.marching_cubes(
+        volume=mask_3d,
+        level=0.5,
+        spacing=voxel_spacing
+    )
+
+    # 3) Compute surface area of that mesh
+    #    skimage provides a convenience function
+    surface_area = measure.mesh_surface_area(verts, faces)
+
+    if volume == 0 or surface_area == 0:
+        solidity = 0.0
+    else:
+        solidity = vqa_round(surface_area / volume) * 100
     return solidity, interpret_3d_solidity(solidity)
 
 
