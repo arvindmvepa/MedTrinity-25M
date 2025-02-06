@@ -132,7 +132,7 @@ if __name__ == "__main__":
     ref_val_vqa_file = None
     ref_test_vqa_file = None
     # rest of the parameters
-    subjective_only = True
+    subjective_only = False
     vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v1.json"
     clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data_v1.json"
     train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v1.json"
