@@ -640,7 +640,7 @@ def compute_bounding_box(mask):
         return None
     min_r, max_r = coords[0].min(), coords[0].max() + 1
     min_c, max_c = coords[1].min(), coords[1].max() + 1
-    return (min_r, min_c, max_r, max_c)
+    return min_r, min_c, max_r, max_c
 
 
 def compute_3d_bounding_box(mask):
@@ -654,7 +654,7 @@ def compute_3d_bounding_box(mask):
     min_r, max_r = coords[0].min(), coords[0].max() + 1
     min_c, max_c = coords[1].min(), coords[1].max() + 1
     min_d, max_d = coords[2].min(), coords[2].max() + 1
-    return (min_r, min_c, max_r, max_c, min_d, max_d)
+    return min_r, min_c, min_d, max_r, max_c, max_d
 
 def compute_area_percentage(mask, total_pixels):
     """
