@@ -1008,13 +1008,13 @@ def interpret_3d_extent(value):
     """
     if value == 0.0:
         return "none"
-    elif value < 20.0:
+    elif value < 5.0:
         return "very sparse"
-    elif value < 50.0:
+    elif value < 12.5:
         return "somewhat scattered"
-    elif value < 80.0:
+    elif value < 20.0:
         return "partially filled"
-    elif value < 95.0:
+    elif value < 50.0:
         return "nearly filled"
     else:
         return "almost fully filled"
@@ -1064,7 +1064,7 @@ def interpret_solidity(value):
     """
     if value == 0.0:
         return "none"
-    elif value < 50.0:
+    elif value < 60:
         return "highly irregular and scattered"
     elif value < 80.0:
         return "somewhat compact but irregular"
