@@ -79,6 +79,28 @@ def postprocess_vqa_data(all_vqa_questions, seg_id_list=(), max_num_of_seg_ids_p
     return filtered_vqa_questions
 
 
+def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
+    for index in range(len(all_vqa_questions)):
+        question = all_vqa_questions[index]
+        question["img_id"] = all_vqa_questions[index]["volume_file_id"]
+        assert "question" in all_vqa_questions[index]
+        assert "answer" in all_vqa_questions[index]
+        question["q_lang"] = "en"
+        question["qid"] = index
+        question["location"] = "Brain"
+        question["answer_type"] = "OPEN"
+        question["base_type"] = "VQA"
+        question["content_type"] = question["type"]
+        question["qid"] = index
+        base_dir = os.path.basename(question["volume_file_dir"])
+        question["study_name"] = "-".join(base_dir.split("-")[:-1])
+
+    with open(save_vqa_file, 'w') as f:
+        json.dump(all_vqa_questions, f, indent=2)
+
+    return all_vqa_questions
+
+
 def filter_seg_ids_from_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100, seed=0):
     seg_ids_empty_counts_map = get_seg_ids_empty_counts(all_vqa_questions)
     random_state = np.random.RandomState(seed)
