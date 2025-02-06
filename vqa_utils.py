@@ -1345,7 +1345,7 @@ def summarize_3d_vqa_data(all_vqa_questions,
     for q in all_vqa_questions:
         q_type = q.get("type", "unknown")
         answer = q.get("answer", "")
-        seg_id = q.get("seg_id", "unknown")
+        seg_id = q.get("volume_file_id", "unknown")
         label_name = q.get("label_name", "unknown")
         empty_count_map[seg_id]
 
