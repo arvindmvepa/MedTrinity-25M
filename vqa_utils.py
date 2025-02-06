@@ -1054,7 +1054,7 @@ def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
     if volume == 0 or surface_area == 0:
         solidity = 0.0
     else:
-        solidity = vqa_round(surface_area / volume) * 100
+        solidity = (1.6 - vqa_round(surface_area / volume))/1.6 * 100
     return solidity, interpret_3d_solidity(solidity)
 
 
