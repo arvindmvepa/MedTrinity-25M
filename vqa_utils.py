@@ -10,13 +10,13 @@ from scipy.ndimage import label as label_, binary_dilation, generate_binary_stru
 from collections import Counter, defaultdict
 
 
-def generate_train_val_test_splits(all_vqa_questions, seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
+def generate_train_val_test_splits(all_vqa_questions, question_key="seg_id", seed=0, train_seg_ids=(), val_seg_ids=(), test_seg_ids=(),
                                    train_frac=0.8, val_frac=0.1, train_file="brats_gli_vqa_train.json",
                                    val_file="brats_gli_vqa_val.json", test_file="brats_gli_vqa_test.json"):
     if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
-        train_questions = [q for q in all_vqa_questions if q["seg_id"] in train_seg_ids]
-        val_questions = [q for q in all_vqa_questions if q["seg_id"] in val_seg_ids]
-        test_questions = [q for q in all_vqa_questions if q["seg_id"] in test_seg_ids]
+        train_questions = [q for q in all_vqa_questions if q[question_key] in train_seg_ids]
+        val_questions = [q for q in all_vqa_questions if q[question_key] in val_seg_ids]
+        test_questions = [q for q in all_vqa_questions if q[question_key] in test_seg_ids]
         train_studies = list({q["study_name"] for q in train_questions})
         val_studies = list({q["study_name"] for q in val_questions})
         test_studies = list({q["study_name"] for q in test_questions})
