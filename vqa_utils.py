@@ -13,7 +13,9 @@ from collections import Counter, defaultdict
 def generate_train_val_test_splits(all_vqa_questions, question_key="seg_id", seed=0, train_seg_ids=None,
                                    val_seg_ids=None, test_seg_ids=None, train_frac=0.8, val_frac=0.1,
                                    train_file="brats_gli_vqa_train.json", val_file="brats_gli_vqa_val.json",
-                                   test_file="brats_gli_vqa_test.json"):
+                                   test_file="brats_gli_vqa_test.json", ignore_label="Tumor Core"):
+    if ignore_label is not None:
+        all_vqa_questions = [q for q in all_vqa_questions if ignore_label not in q["label_name"]]
     if (train_seg_ids is not None) and (val_seg_ids is not None) and (test_seg_ids is not None):
         train_questions = [q for q in all_vqa_questions if q[question_key] in train_seg_ids]
         val_questions = [q for q in all_vqa_questions if q[question_key] in val_seg_ids]
@@ -498,7 +500,7 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
     return label_summaries
 
 
-def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4, 5)):
+def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4)):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -509,6 +511,7 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
     label_summaries = []
 
     for lbl in labels_order:
+        # TODO: Fix for Tumor Core (if we use it)
         mask = seg_map_3d == lbl
 
         label_name = label_names.get(lbl, f"Label {lbl}")

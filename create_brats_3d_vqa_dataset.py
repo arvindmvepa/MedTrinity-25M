@@ -10,7 +10,8 @@ from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_
 
 
 def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, include_quadrant=False,
-                              include_bbox=True, include_extent=True, include_solidity=True, subjective_only=False):
+                              include_bbox=True, include_extent=True, include_solidity=True, subjective_only=False,
+                              labels_order=(1, 2, 3, 4)):
     """
     Master function to produce a textual report combining:
       - Label summaries (area %, quadrant, bounding box, extent-based compactness)
@@ -28,7 +29,8 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     all_vqa_questions = []
 
     # Summaries of labels
-    label_summaries = analyze_3d_label_summary(seg_map_3d=seg_map_3d,height=height, width=width, depth=depth, total_pixels=total_pixels)
+    label_summaries = analyze_3d_label_summary(seg_map_3d=seg_map_3d,height=height, width=width, depth=depth,
+                                               total_pixels=total_pixels, labels_order=labels_order)
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
@@ -50,12 +52,13 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
 
 
 def generate_vqa_data_from_seg_file(seg_files, include_area=True, include_quadrant=True, include_bbox=True,
-                                    include_extent=True, include_solidity=True):
+                                    include_extent=True, include_solidity=True, labels_order=(1, 2, 3, 4)):
     all_vqa_questions = []
     for volume_id, volume_file_dir in tqdm(enumerate(seg_files)):
         vqa_data = generate_vqa_from_seg_map(volume_file_dir=volume_file_dir, volume_id=volume_id, include_area=include_area,
                                              include_quadrant=include_quadrant, include_bbox=include_bbox,
-                                             include_extent=include_extent, include_solidity=include_solidity,)
+                                             include_extent=include_extent, include_solidity=include_solidity,
+                                             labels_order=labels_order)
         all_vqa_questions.extend(vqa_data)
     return all_vqa_questions
 
@@ -68,7 +71,8 @@ def generate_vqa_data_from_seg_file_joblib(
     include_bbox=True,
     include_extent=True,
     include_solidity=True,
-    subjective_only=False
+    subjective_only=False,
+    labels_order=(1, 2, 3, 4)
 ):
     """
     Parallelized version of generating VQA data from a list of seg_files,
@@ -97,6 +101,7 @@ def generate_vqa_data_from_seg_file_joblib(
                 include_extent,
                 include_solidity,
                 subjective_only,
+                labels_order
             )
             for volume_id, volume_file_dir in enumerate(volume_file_dirs)
         )
@@ -134,9 +139,9 @@ if __name__ == "__main__":
     subjective_only = True
     vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v2.json"
     clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data_v2.json"
-    train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v2.json"
-    val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v2.json"
-    test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v2.json"
+    train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v3.json"
+    val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v3.json"
+    test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v3.json"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     question_key = "volume_file_id"
     #vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
@@ -146,6 +151,8 @@ if __name__ == "__main__":
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
     print(summarize_3d_vqa_data(vqa_data_))
+    # TODO: re-run the data-cleaning to see if the Tumor Core labels are removed
+    # make sure to updated the versions of the new clean files
     processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
     if (ref_train_vqa_file is not None) and (ref_val_vqa_file is not None) and (ref_test_vqa_file is not None):
         with open(ref_train_vqa_file, 'r') as f:
