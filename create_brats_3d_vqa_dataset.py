@@ -168,7 +168,7 @@ if __name__ == "__main__":
     #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS-PEDs2024/BraTS-PEDs2024_Training/*')))
 
     question_key = "volume_file_id"
-    labels_order = (1, 2, 3, 4)
+    labels_order = (1, 2, 3)
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
                                                        include_quadrant=False, labels_order=labels_order,
                                                        n_jobs=8, #pediatric=True
