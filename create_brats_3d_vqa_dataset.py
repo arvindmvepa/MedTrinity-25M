@@ -11,7 +11,7 @@ from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_
 
 def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, include_quadrant=False,
                               include_bbox=True, include_extent=True, include_solidity=True, subjective_only=False,
-                              labels_order=(1, 2, 3, 4)):
+                              labels_order=(1, 2, 3, 4), pediatric=False):
     """
     Master function to produce a textual report combining:
       - Label summaries (area %, quadrant, bounding box, extent-based compactness)
@@ -30,7 +30,7 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
 
     # Summaries of labels
     label_summaries = analyze_3d_label_summary(seg_map_3d=seg_map_3d,height=height, width=width, depth=depth,
-                                               total_pixels=total_pixels, labels_order=labels_order)
+                                               total_pixels=total_pixels, labels_order=labels_order, pediatric=pediatric)
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
@@ -72,7 +72,8 @@ def generate_vqa_data_from_seg_file_joblib(
     include_extent=True,
     include_solidity=True,
     subjective_only=False,
-    labels_order=(1, 2, 3, 4)
+    labels_order=(1, 2, 3, 4),
+    pediatric=False
 ):
     """
     Parallelized version of generating VQA data from a list of seg_files,
@@ -101,7 +102,8 @@ def generate_vqa_data_from_seg_file_joblib(
                 include_extent,
                 include_solidity,
                 subjective_only,
-                labels_order
+                labels_order,
+                pediatric
             )
             for volume_id, volume_file_dir in enumerate(volume_file_dirs)
         )
@@ -150,19 +152,26 @@ if __name__ == "__main__":
     #train_file = f"brats_goat_3d_vqa_subj{subjective_only}_train_v1.json"
     #val_file = f"brats_goat_3d_vqa_subj{subjective_only}_val_v1.json"
     #test_file = f"brats_goat_3d_vqa_subj{subjective_only}_test_v1.json"
-    vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_data_v1.json"
-    clean_vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_clean_data_v1.json"
-    train_file = f"brats_met_3d_vqa_subj{subjective_only}_train_v1.json"
-    val_file = f"brats_met_3d_vqa_subj{subjective_only}_val_v1.json"
-    test_file = f"brats_met_3d_vqa_subj{subjective_only}_test_v1.json"
+    #vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_data_v1.json"
+    #clean_vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_clean_data_v1.json"
+    #train_file = f"brats_met_3d_vqa_subj{subjective_only}_train_v1.json"
+    #val_file = f"brats_met_3d_vqa_subj{subjective_only}_val_v1.json"
+    #test_file = f"brats_met_3d_vqa_subj{subjective_only}_test_v1.json"
+    vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_data_v1.json"
+    clean_vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_clean_data_v1.json"
+    train_file = f"brats_ped_3d_vqa_subj{subjective_only}_train_v1.json"
+    val_file = f"brats_ped_3d_vqa_subj{subjective_only}_val_v1.json"
+    test_file = f"brats_ped_3d_vqa_subj{subjective_only}_test_v1.json"
     # volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
+    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS-PEDs2024/BraTS-PEDs2024_Training/*')))
+
     question_key = "volume_file_id"
-    labels_order = (1, 2, 3)
+    labels_order = (1, 2, 3, 4)
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
                                                        include_quadrant=False, labels_order=labels_order,
-                                                       n_jobs=8)
+                                                       n_jobs=8, pediatric=True)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:

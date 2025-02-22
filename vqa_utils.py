@@ -17,6 +17,13 @@ label_names = {
             4: "Resection Cavity",
             5: "Tumor Core"}
 
+ped_label_names = {
+            1: "Enhancing Tissue",
+            2: "Non-Enhancing Tumor",
+            3: "Cystic Component",
+            4: "Peritumoral Edema"}
+
+
 
 def generate_train_val_test_splits(all_vqa_questions, question_key="seg_id", seed=0, train_seg_ids=None,
                                    val_seg_ids=None, test_seg_ids=None, train_frac=0.8, val_frac=0.1,
@@ -104,7 +111,7 @@ def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clea
         question["content_type"] = question["type"]
         question["qid"] = index
         base_dir = os.path.basename(question["volume_file_dir"])
-        if "gli" in base_dir.lower() or "met" in base_dir.lower():
+        if "gli" in base_dir.lower() or "met" in base_dir.lower() or "ped" in base_dir.lower():
             question["study_name"] = "-".join(base_dir.split("-")[:-1])
         elif "goat" in base_dir.lower():
             question["study_name"] = base_dir
@@ -456,7 +463,7 @@ def get_label_mask(seg_map_2d, label):
 
 
 def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, abs_intensity_diff_thresh=10,
-                          labels_order=(1, 2, 3, 4, 5)):
+                          labels_order=(1, 2, 3, 4, 5), pediatric=False):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -471,7 +478,10 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
         if image is not None:
             mask, _, _, _ = extract_label_intensity_components(image=image, mask=mask,
                                                                abs_intensity_diff_thresh=abs_intensity_diff_thresh)
-        label_name = label_names.get(lbl, f"Label {lbl}")
+        if pediatric:
+            label_name = ped_label_names.get(lbl, f"Label {lbl}")
+        else:
+            label_name = label_names.get(lbl, f"Label {lbl}")
 
         area_pct = compute_area_percentage(mask, total_pixels)
         area_interp = interpret_area_percentage(area_pct)
@@ -513,7 +523,7 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
     return label_summaries
 
 
-def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4)):
+def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4), pediatric=False):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -526,8 +536,10 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
     for lbl in labels_order:
         # TODO: Fix for Tumor Core (if we use it)
         mask = seg_map_3d == lbl
-
-        label_name = label_names.get(lbl, f"Label {lbl}")
+        if pediatric:
+            label_name = ped_label_names.get(lbl, f"Label {lbl}")
+        else:
+            label_name = label_names.get(lbl, f"Label {lbl}")
         area_pct = compute_area_percentage(mask, total_pixels)
         area_interp = interpret_3d_area_percentage(area_pct)
 
