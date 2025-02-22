@@ -160,11 +160,11 @@ if __name__ == "__main__":
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
     question_key = "volume_file_id"
     labels_order = (1, 2, 3)
-    #vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
-    #                                                   include_quadrant=False, labels_order=labels_order,
-    #                                                   n_jobs=8)
-    #with open(vqa_file, 'w') as f:
-    #    json.dump(vqa_data_, f, indent=2)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
+                                                       include_quadrant=False, labels_order=labels_order,
+                                                       n_jobs=8)
+    with open(vqa_file, 'w') as f:
+        json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
     print(summarize_3d_vqa_data(vqa_data_))
