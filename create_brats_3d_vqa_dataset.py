@@ -163,8 +163,8 @@ if __name__ == "__main__":
     #vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
     #                                                   include_quadrant=False, labels_order=labels_order,
     #                                                   n_jobs=8)
-    with open(vqa_file, 'w') as f:
-        json.dump(vqa_data_, f, indent=2)
+    #with open(vqa_file, 'w') as f:
+    #    json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
     print(summarize_3d_vqa_data(vqa_data_))
