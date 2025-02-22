@@ -152,26 +152,26 @@ if __name__ == "__main__":
     #train_file = f"brats_goat_3d_vqa_subj{subjective_only}_train_v1.json"
     #val_file = f"brats_goat_3d_vqa_subj{subjective_only}_val_v1.json"
     #test_file = f"brats_goat_3d_vqa_subj{subjective_only}_test_v1.json"
-    vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_data_v1.json"
-    clean_vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_clean_data_v1.json"
-    train_file = f"brats_met_3d_vqa_subj{subjective_only}_train_v1.json"
-    val_file = f"brats_met_3d_vqa_subj{subjective_only}_val_v1.json"
-    test_file = f"brats_met_3d_vqa_subj{subjective_only}_test_v1.json"
-    #vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_data_v1.json"
-    #clean_vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_clean_data_v1.json"
-    #train_file = f"brats_ped_3d_vqa_subj{subjective_only}_train_v1.json"
-    #val_file = f"brats_ped_3d_vqa_subj{subjective_only}_val_v1.json"
-    #test_file = f"brats_ped_3d_vqa_subj{subjective_only}_test_v1.json"
+    #vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_data_v1.json"
+    #clean_vqa_file = f"brats_met_3d_vqa_subj{subjective_only}_clean_data_v1.json"
+    #train_file = f"brats_met_3d_vqa_subj{subjective_only}_train_v1.json"
+    #val_file = f"brats_met_3d_vqa_subj{subjective_only}_val_v1.json"
+    #test_file = f"brats_met_3d_vqa_subj{subjective_only}_test_v1.json"
+    vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_data_v1.json"
+    clean_vqa_file = f"brats_ped_3d_vqa_subj{subjective_only}_clean_data_v1.json"
+    train_file = f"brats_ped_3d_vqa_subj{subjective_only}_train_v1.json"
+    val_file = f"brats_ped_3d_vqa_subj{subjective_only}_val_v1.json"
+    test_file = f"brats_ped_3d_vqa_subj{subjective_only}_test_v1.json"
     # volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
-    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS-PEDs2024/BraTS-PEDs2024_Training/*')))
+    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS-PEDs2024/BraTS-PEDs2024_Training/*')))
 
     question_key = "volume_file_id"
-    labels_order = (1, 2, 3)
+    labels_order = (1, 2, 3, 4)
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
                                                        include_quadrant=False, labels_order=labels_order,
-                                                       n_jobs=8, #pediatric=True
+                                                       n_jobs=8, pediatric=True
                                                        )
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
