@@ -10,6 +10,14 @@ from scipy.ndimage import label as label_, binary_dilation, generate_binary_stru
 from collections import Counter, defaultdict
 
 
+label_names = {
+            1: "Non-Enhancing Tumor",
+            2: "Surrounding Non-enhancing FLAIR hyperintensity",
+            3: "Enhancing Tissue",
+            4: "Resection Cavity",
+            5: "Tumor Core"}
+
+
 def generate_train_val_test_splits(all_vqa_questions, question_key="seg_id", seed=0, train_seg_ids=None,
                                    val_seg_ids=None, test_seg_ids=None, train_frac=0.8, val_frac=0.1,
                                    train_file="brats_gli_vqa_train.json", val_file="brats_gli_vqa_val.json",
@@ -648,14 +656,6 @@ def vqa_round(value):
         return round_val
 
 
-label_names = {
-            1: "Non-Enhancing Tumor",
-            2: "Surrounding Non-enhancing FLAIR hyperintensity",
-            3: "Enhancing Tissue",
-            4: "Resection Cavity",
-            5: "Tumor Core"}
-
-
 def compute_bounding_box(mask):
     """
     Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
@@ -808,7 +808,7 @@ def get_quadrant(centroid, height, width):
 
 def get_3d_quadrant(centroid, height, width, depth):
     """
-    Maps a (row, col) centroid to one of 9 quadrants (top-left to bottom-right).
+    Maps a (row, col) centroid to one of 27 quadrants (top-left to bottom-right).
     """
     if not centroid or np.isnan(centroid[0]) or np.isnan(centroid[1]):
         return "none"

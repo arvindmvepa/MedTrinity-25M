@@ -132,27 +132,36 @@ if __name__ == "__main__":
         print(report)
     """
     # reference vqa files to line up seg_ids and train/val/test splits
-    ref_train_vqa_file = f"brats_gli_3d_vqa_subjFalse_train_v2.json"
-    ref_val_vqa_file = f"brats_gli_3d_vqa_subjFalse_val_v2.json"
-    ref_test_vqa_file = f"brats_gli_3d_vqa_subjFalse_test_v2.json"
+    #ref_train_vqa_file = f"brats_gli_3d_vqa_subjFalse_train_v2.json"
+    #ref_val_vqa_file = f"brats_gli_3d_vqa_subjFalse_val_v2.json"
+    #ref_test_vqa_file = f"brats_gli_3d_vqa_subjFalse_test_v2.json"
+    ref_train_vqa_file = None
+    ref_val_vqa_file = None
+    ref_test_vqa_file = None
     # rest of the parameters
     subjective_only = True
-    vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v2.json"
-    clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data_v2.json"
-    train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v3.json"
-    val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v3.json"
-    test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v3.json"
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
+    #vqa_file = f"brats_gli_3d_vqa_subj{subjective_only}_data_v2.json"
+    #clean_vqa_file = f"brats_3d_gli_vqa_subj{subjective_only}_clean_data_v2.json"
+    #train_file = f"brats_gli_3d_vqa_subj{subjective_only}_train_v3.json"
+    #val_file = f"brats_gli_3d_vqa_subj{subjective_only}_val_v3.json"
+    #test_file = f"brats_gli_3d_vqa_subj{subjective_only}_test_v3.json"
+    vqa_file = f"brats_goat_3d_vqa_subj{subjective_only}_data_v1.json"
+    clean_vqa_file = f"brats_goat_3d_vqa_subj{subjective_only}_clean_data_v1.json"
+    train_file = f"brats_goat_3d_vqa_subj{subjective_only}_train_v1.json"
+    val_file = f"brats_goat_3d_vqa_subj{subjective_only}_val_v1.json"
+    test_file = f"brats_goat_3d_vqa_subj{subjective_only}_test_v1.json"
+    # volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
     question_key = "volume_file_id"
-    #vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
-    #                                                   include_quadrant=False, n_jobs=8)
-    #with open(vqa_file, 'w') as f:
-    #    json.dump(vqa_data_, f, indent=2)
+    labels_order = (1, 2, 3)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
+                                                       include_quadrant=False, labels_order=labels_order,
+                                                       n_jobs=8)
+    with open(vqa_file, 'w') as f:
+        json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
     print(summarize_3d_vqa_data(vqa_data_))
-    # TODO: re-run the data-cleaning to see if the Tumor Core labels are removed
-    # make sure to updated the versions of the new clean files
     processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
     if (ref_train_vqa_file is not None) and (ref_val_vqa_file is not None) and (ref_test_vqa_file is not None):
         with open(ref_train_vqa_file, 'r') as f:
