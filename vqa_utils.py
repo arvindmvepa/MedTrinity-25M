@@ -23,6 +23,11 @@ ped_label_names = {
             3: "Cystic Component",
             4: "Peritumoral Edema"}
 
+goat_label_names = {
+            1: "Necrosis",
+            2: "Edema/Invaded Tissue",
+            3: "Enhancing Tumor"}
+
 
 
 def generate_train_val_test_splits(all_vqa_questions, question_key="seg_id", seed=0, train_seg_ids=None,
@@ -463,7 +468,7 @@ def get_label_mask(seg_map_2d, label):
 
 
 def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, abs_intensity_diff_thresh=10,
-                          labels_order=(1, 2, 3, 4, 5), pediatric=False):
+                          labels_order=(1, 2, 3, 4, 5), pediatric=False, goat=False):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -478,7 +483,9 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
         if image is not None:
             mask, _, _, _ = extract_label_intensity_components(image=image, mask=mask,
                                                                abs_intensity_diff_thresh=abs_intensity_diff_thresh)
-        if pediatric:
+        if goat:
+            label_name = goat_label_names.get(lbl, f"Label {lbl}")
+        elif pediatric:
             label_name = ped_label_names.get(lbl, f"Label {lbl}")
         else:
             label_name = label_names.get(lbl, f"Label {lbl}")
@@ -523,7 +530,8 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
     return label_summaries
 
 
-def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4), pediatric=False):
+def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4),
+                             pediatric=False, goat=False):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -536,7 +544,9 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
     for lbl in labels_order:
         # TODO: Fix for Tumor Core (if we use it)
         mask = seg_map_3d == lbl
-        if pediatric:
+        if goat:
+            label_name = goat_label_names.get(lbl, f"Label {lbl}")
+        elif pediatric:
             label_name = ped_label_names.get(lbl, f"Label {lbl}")
         else:
             label_name = label_names.get(lbl, f"Label {lbl}")
