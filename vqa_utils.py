@@ -197,6 +197,46 @@ def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True,
     return vqa_questions
 
 
+def generate_3d_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True,
+                                    include_extent=True, include_solidity=True, subjective_only=False):
+    vqa_questions = []
+    if include_area:
+        question = f"How large is the volume covered by {summ['name']}?"
+        if subjective_only:
+            answer = f"{summ['area_interp']}"
+        else:
+            answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "area", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_quadrant:
+        question = f"Which quadrant is {summ['name']} centered in?"
+        answer = f"{summ['centroid_quadrant']}"
+        question_dict = {"question": question, "answer": answer, "type": "quadrant", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_bbox:
+        question = f"The smallest bounding cube surrounding {summ['name']} is in which quadrants?"
+        answer = f"{summ['bbox_str']}"
+        question_dict = {"question": question, "answer": answer, "type": "bbox", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_extent:
+        question = f"Within the smallest bounding cube surrounding {summ['name']}, to what extent is the bounding cube region filled?"
+        if subjective_only:
+            answer = f"{summ['extent_interp']}"
+        else:
+            answer = f"{summ['extent_value']:.1f}%, which is {summ['extent_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    if include_solidity:
+        question = f"How compact is the {summ['name']} region?"
+        if subjective_only:
+            answer = f"{summ['solidity_interp']}"
+        else:
+            answer = f"{summ['solidity_value']:.1f}%, which is {summ['solidity_interp']}"
+        question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
+        vqa_questions.append(question_dict)
+    return vqa_questions
+
+
 def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
     lines = []
     avg_score = sum(list_of_scores) / len(list_of_scores)
