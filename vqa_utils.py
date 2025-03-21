@@ -482,8 +482,8 @@ def analyze_label_relationship(maskA, maskB, total_pixels, height, width):
     adjacent_pct = compute_adj_percentage(adjacent_mask_B, maskB)
     non_adjacent_pct = 100 - adjacent_pct
 
-    bbox_adjacent = compute_bounding_box(adjacent_mask_B)
-    bbox_non_adjacent = compute_bounding_box(non_adjacent_mask_B)
+    bbox_adjacent = compute_bounding_box(adjacent_mask_B, total_pixels)
+    bbox_non_adjacent = compute_bounding_box(non_adjacent_mask_B, total_pixels)
 
     quadrants_adjacent = get_bounding_box_quadrants(bbox_adjacent, height, width)
     quadrants_non_adjacent = get_bounding_box_quadrants(bbox_non_adjacent, height, width)
@@ -546,7 +546,7 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             centroid = center_of_mass(mask)
             quadrant = get_quadrant(centroid, height, width)
 
-            bbox = compute_bounding_box(mask)
+            bbox = compute_bounding_box(mask, total_pixels)
             bounding_box_quads = get_bounding_box_quadrants(bbox, height, width)
             bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
 
@@ -606,7 +606,7 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             centroid = center_of_mass(mask)
             quadrant = get_3d_quadrant(centroid, height, width, depth)
 
-            bbox = compute_3d_bounding_box(mask)
+            bbox = compute_3d_bounding_box(mask, total_pixels)
             bounding_box_quads = get_3d_bounding_box_quadrants(bbox, height, width, depth)
             bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
 
@@ -723,26 +723,28 @@ def vqa_round(value):
         return round_val
 
 
-def compute_bounding_box(mask):
+def compute_bounding_box(mask, total_pixels):
     """
     Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
     If `mask` is empty, returns None.
     """
+    area = compute_area_percentage(mask, total_pixels)
     coords = np.where(mask)
-    if coords[0].size == 0:
+    if (coords[0].size == 0) or (area == 0.0):
         return None
     min_r, max_r = coords[0].min(), coords[0].max() + 1
     min_c, max_c = coords[1].min(), coords[1].max() + 1
     return min_r, min_c, max_r, max_c
 
 
-def compute_3d_bounding_box(mask):
+def compute_3d_bounding_box(mask, total_pixels):
     """
     Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
     If `mask` is empty, returns None.
     """
+    area = compute_area_percentage(mask, total_pixels)
     coords = np.where(mask)
-    if coords[0].size == 0:
+    if (coords[0].size == 0) or (area == 0.0):
         return None
     min_r, max_r = coords[0].min(), coords[0].max() + 1
     min_c, max_c = coords[1].min(), coords[1].max() + 1
@@ -1031,7 +1033,7 @@ def compute_connected_component_adjacency_masks(maskA, maskB, dilation_iteration
 # Measuring Compactness via "Extent" (Region's fill within its bounding box)
 ###############################################################################
 
-def measure_extent_compactness(mask):
+def measure_extent_compactness(mask, total_pixels):
     """
     Extent = region_area / bounding_box_area.
     Returns a float in [0..1], plus a subjective interpretation:
@@ -1041,7 +1043,7 @@ def measure_extent_compactness(mask):
       - 0.8..0.95 => "nearly filling"
       - >0.95 => "almost fully filling"
     """
-    bbox = compute_bounding_box(mask)
+    bbox = compute_bounding_box(mask, total_pixels)
     area = mask.sum()
     if not bbox:
         return 0.0, "none"
@@ -1120,7 +1122,7 @@ def measure_solidity(mask):
     convex_hull = convex_hull_image(mask)
     region_area = mask.sum()
     convex_area = convex_hull.sum()
-    solidity = vqa_round(region_area / convex_area) * 100 if convex_area > 0 else 0.0
+    solidity = vqa_round((region_area / convex_area) * 100) if convex_area > 0 else 0.0
     return solidity, interpret_solidity(solidity)
 
 
@@ -1147,7 +1149,7 @@ def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
     if volume == 0 or surface_area == 0:
         solidity = 0.0
     else:
-        solidity = (1.6 - vqa_round(surface_area / volume))/1.6 * 100
+        solidity = vqa_round(((1.6 - (surface_area / volume))/1.6) * 100)
     return solidity, interpret_3d_solidity(solidity)
 
 
