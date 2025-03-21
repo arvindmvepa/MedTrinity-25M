@@ -5,7 +5,7 @@ from tqdm_joblib import tqdm_joblib
 import json
 from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, \
     load_lab_map_from_nifti
-from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_labal_vqa_questions, \
+from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_3d_labal_vqa_questions, \
     postprocess_3d_vqa_data, generate_train_val_test_splits
 
 
@@ -35,12 +35,12 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
-        label_vqa_questions = generate_labal_vqa_questions(summ=summ, include_area=include_area,
-                                                           include_quadrant=include_quadrant,
-                                                           include_bbox=include_bbox,
-                                                           include_extent=include_extent,
-                                                           include_solidity=include_solidity,
-                                                           subjective_only=subjective_only)
+        label_vqa_questions = generate_3d_labal_vqa_questions(summ=summ, include_area=include_area,
+                                                              include_quadrant=include_quadrant,
+                                                              include_bbox=include_bbox,
+                                                              include_extent=include_extent,
+                                                              include_solidity=include_solidity,
+                                                              subjective_only=subjective_only)
         vqa_questions.extend(label_vqa_questions)
     non_seg_files_dict = get_nifti_non_seg_file_from_dir(volume_file_dir)
     for q in vqa_questions:
@@ -148,10 +148,11 @@ if __name__ == "__main__":
     train_file = "brats_{}_3d_vqa_subj{}_train_{}.json"
     val_file = "brats_{}_3d_vqa_subj{}_val_{}.json"
     test_file = "brats_{}_3d_vqa_subj{}_test_{}.json"
+    seed = 0
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = "v4"
+    version = f"v5_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     labels_order = (1, 2, 3, 4)
     pediatric = False
@@ -159,7 +160,7 @@ if __name__ == "__main__":
     """
     # MET dataset settings
     dataset_type = "met"
-    version = "v2"
+    version = "v2_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
     labels_order = (1, 2, 3)
     pediatric = False
@@ -167,7 +168,7 @@ if __name__ == "__main__":
 
     # GoAT dataset settings
     dataset_type = "goat"
-    version = "v2"
+    version = "v2_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
     labels_order = (1, 2, 3)
     pediatric = False
@@ -204,4 +205,4 @@ if __name__ == "__main__":
                                        train_file=train_file, val_file=val_file, test_file=test_file)
     else:
         generate_train_val_test_splits(processed_vqa_data, question_key=question_key, train_file=train_file,
-                                       val_file=val_file, test_file=test_file)
+                                       val_file=val_file, test_file=test_file, seed=seed)
