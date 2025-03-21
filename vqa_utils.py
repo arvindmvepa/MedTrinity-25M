@@ -614,6 +614,16 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
             solidity_value, solidity_interp = measure_3d_solidity(mask)
 
+        if (bounding_box_str == "none") or (extent_interp == "none") or (solidity_interp == "none"):
+            centroid = None
+            quadrant = "none"
+            bounding_box_quads = None
+            bounding_box_str = "none"
+            extent_value = 0.0
+            extent_interp = "none"
+            solidity_value = 0.0
+            solidity_interp = "none"
+
         label_summaries.append({
             "label": lbl,
             "name": label_name,
