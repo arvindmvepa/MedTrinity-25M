@@ -724,10 +724,10 @@ def vqa_round(value):
     """
     Round a value to a specific number of decimal places.
     """
-    round_val = np.round(value, 1)
-    if round_val >= 0.05 and round_val < 0.1:
-        return 0.1
-    if round_val < .05:
+    round_val = np.round(value, 2)
+    if round_val >= 0.005 and round_val < 0.01:
+        return 0.01
+    if round_val < .005:
         return 0.0
     else:
         return round_val
