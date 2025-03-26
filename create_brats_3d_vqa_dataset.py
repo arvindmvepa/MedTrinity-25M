@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"v5_seed{seed}"
+    version = f"v6_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     labels_order = (1, 2, 3, 4)
     pediatric = False
