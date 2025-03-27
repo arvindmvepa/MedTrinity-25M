@@ -28,7 +28,7 @@ def build_aux_tasks(all_vqa_questions, dataset="gli", question_types=("area", "b
     gt_lookup = build_gt_lookup(all_vqa_questions)
 
     # 2) Identify all seg_files in the data
-    seg_files_set = set(entry["seg_file"] for entry in all_vqa_questions)
+    seg_files_set = set(entry["volume_seg_file"] for entry in all_vqa_questions)
 
     # 3) Get the Target Labels for the dataset
     if dataset == "gli":
@@ -52,13 +52,7 @@ def build_aux_tasks(all_vqa_questions, dataset="gli", question_types=("area", "b
                     gt_value = gt_lookup[key]
                 else:
                     continue
-                entry = {
-                    "volume_seg_file": seg_file,
-                    "ground_truth_value": gt_value,
-                    "label_name": lbl_name,
-                    "type": q_type
-                }
-                q_type_dict[q_type] = entry
+                q_type_dict[q_type] = gt_value
             label_dict[lbl_name] = q_type_dict
         aux_dict[seg_file] = label_dict
 
