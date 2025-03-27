@@ -32,9 +32,9 @@ def build_aux_tasks(all_vqa_questions, dataset="gli", question_types=("area", "b
 
     # 3) Get the Target Labels for the dataset
     if dataset == "gli":
-        target_labels = list(label_names.values())[:5]
-    elif dataset == "met":
         target_labels = list(label_names.values())[:4]
+    elif dataset == "met":
+        target_labels = list(label_names.values())[:3]
     elif dataset == "goat":
         target_labels = list(goat_label_names.values())
     else:
