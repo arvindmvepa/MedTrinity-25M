@@ -2,6 +2,136 @@ import re
 from glob import glob
 import json
 from vqa_utils import label_names, ped_label_names, goat_label_names
+import re
+
+
+AREA_MAP = {
+    "none": 0,
+    "almost negligible": 1,
+    "tiny fraction": 2,
+    "very small fraction": 3,
+    "small portion": 4,
+    "moderate portion": 5,
+    "significant portion": 6,
+    "large portion": 7,
+    "major portion": 8,
+    "the vast majority": 9,
+}
+
+EXTENT_MAP = {
+    "none": 0,
+    "very sparse": 1,
+    "somewhat scattered": 2,
+    "partially filled": 3,
+    "nearly filled": 4,
+    "almost fully filled": 5,
+}
+
+SOLIDITY_MAP = {
+    "none": 0,
+    "highly irregular and scattered": 1,
+    "somewhat compact but irregular": 2,
+    "mostly compact": 3,
+}
+
+row_map = {"top": 0, "center": 1, "bottom": 2}
+col_map = {"left": 0, "center": 1, "right": 2}
+depth_map = {"front": 0, "middle": 1, "back": 2}
+
+
+def parse_bbox_quadrants(bbox_str):
+    """
+    Given a bbox string like:
+       "bottom-center-back, bottom-center-middle, center-left-back"
+    return a sorted list of integers representing each quadrant.
+    If bbox_str == 'none', return an empty list.
+    """
+    bbox_str = bbox_str.strip()
+    if bbox_str.lower() == "none":
+        return []
+
+    quadrants = bbox_str.split(",")
+    numeric_quads = []
+    for q in quadrants:
+        q = q.strip()
+        # q should look like "bottom-center-back"
+        parts = q.split("-")
+        if len(parts) != 3:
+            # Unexpected format, skip or handle error
+            continue
+        row_part, col_part, depth_part = parts
+        # Convert each part to numeric
+        r_val = row_map.get(row_part, 0)
+        c_val = col_map.get(col_part, 0)
+        d_val = depth_map.get(depth_part, 0)
+
+        # Combine into a single integer
+        # row * 9 + col * 3 + depth
+        numeric_code = r_val * 9 + c_val * 3 + d_val
+        numeric_quads.append(numeric_code)
+
+    # Optionally sort them
+    numeric_quads.sort()
+    return numeric_quads
+
+
+def convert_dict_to_numeric(original_data):
+    """
+    Given the nested dictionary structure shown above,
+    return a new dictionary with numeric codes for
+    area, extent, and solidity, plus a list of integer codes for bbox.
+    """
+    new_data = {}
+
+    for seg_file, label_dict in original_data.items():
+        # Each seg_file has multiple labels
+        new_label_dict = {}
+        for label_name, metrics in label_dict.items():
+            # metrics is like {"area": "...", "bbox": "...", "extent": "...", "solidity": "..."}
+            area_str = metrics.get("area", "none")
+            bbox_str = metrics.get("bbox", "none")
+            extent_str = metrics.get("extent", "none")
+            solidity_str = metrics.get("solidity", "none")
+
+            # Convert each one to numeric / codes
+            area_num = AREA_MAP.get(area_str, 0)  # default to 0 if unknown
+            bbox_list = parse_bbox_quadrants(bbox_str)
+            extent_num = EXTENT_MAP.get(extent_str, 0)
+            solidity_num = SOLIDITY_MAP.get(solidity_str, 0)
+
+            # Build the new metrics
+            new_metrics = {
+                "area": area_num,
+                "bbox": bbox_list,        # list of ints
+                "extent": extent_num,
+                "solidity": solidity_num
+            }
+            new_label_dict[label_name] = new_metrics
+
+        new_data[seg_file] = new_label_dict
+
+    return new_data
+
+
+def convert_numeric_dict_to_list(numeric_data):
+    """
+    Given the 'numeric_data' dict from convert_dict_to_numeric(),
+    produce a list of dicts, one per seg_file, sorted by seg_file.
+    Each dict has keys: id, seg_file, labels (the label metrics).
+    """
+    seg_files_sorted = sorted(numeric_data.keys())  # sort by seg_file path
+    result_list = []
+
+    for i, seg_file in enumerate(seg_files_sorted):
+        labels_info = numeric_data[seg_file]  # dict of label_name -> {area, bbox, extent, solidity}
+        entry = {
+            "id": i,
+            "seg_file": seg_file,
+            "labels": labels_info
+        }
+        result_list.append(entry)
+
+    return result_list
 
 
 def build_gt_lookup(vqa_questions, question_types=("area", "bbox", "extent", "solidity")):
@@ -115,9 +245,9 @@ if __name__ == "__main__":
     with open(test_file, 'r') as f:
         test_vqa_data = json.load(f)
 
-    train_vqa_aux_data = build_aux_tasks(train_vqa_data)
-    val_vqa_aux_data = build_aux_tasks(val_vqa_data)
-    test_vqa_aux_data = build_aux_tasks(test_vqa_data)
+    train_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(train_vqa_data)))
+    val_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(val_vqa_data)))
+    test_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(test_vqa_data)))
 
     with open(train_aux_file, "w") as f:
         json.dump(train_vqa_aux_data, f, indent=4)
