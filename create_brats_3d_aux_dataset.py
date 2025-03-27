@@ -7,7 +7,7 @@ from vqa_utils import label_names, ped_label_names, goat_label_names
 def build_gt_lookup(vqa_questions, question_types=("area", "bbox", "extent", "solidity")):
     gt_lookup = {}
     for entry in vqa_questions:
-        seg_file = entry["seg_file"]
+        seg_file = entry["volume_seg_file"]
         label_name = entry["label_name"]
         q_type = entry["type"]
         answer = entry["answer"].strip()
