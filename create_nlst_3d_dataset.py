@@ -132,41 +132,53 @@ def split_vqa_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
 
 def summarize_vqa(final_vqa):
     """
-    Produces statistics on how many VQA questions have answers = 'NA'.
-    Shows overall stats and per-institution breakdown.
+    Produces summary statistics from the final VQA list of dictionaries,
+    including the percentage of Code 51 questions.
     """
-    # Convert list of dicts to DataFrame
+
+    import pandas as pd
+
+    # 1) Convert to DataFrame
     df = pd.DataFrame(final_vqa)
 
-    # 1) Overall "NA" answer stats
-    # Create a boolean or integer flag for 'NA' answers
-    df["na_flag"] = (df["answer"] == "NA").astype(int)
-
+    # 2) Overall Statistics
     n_questions = len(df)
-    n_na = df["na_flag"].sum()
-    pct_na = (n_na / n_questions * 100) if n_questions else 0.0
+    n_code51 = len(df[df["sct_ab_code"] == 51])
+    pct_code51 = (n_code51 / n_questions * 100.0) if n_questions else 0.0
 
-    print("=== Overall NA Answer Statistics ===")
+    n_year1 = len(df[df["study_yr"] == 1])
+    n_year2 = len(df[df["study_yr"] == 2])
+    n_pids = df["pid"].nunique()
+
+    print("=== Overall Statistics ===")
     print(f"Total number of questions: {n_questions}")
-    print(f"Number of 'NA' answers: {n_na} ({pct_na:.1f}%)\n")
+    print(f"Number of Code 51 questions: {n_code51} ({pct_code51:.1f}%)")
+    print(f"Number of Study Year=1 questions: {n_year1}")
+    print(f"Number of Study Year=2 questions: {n_year2}")
+    print(f"Number of unique pids: {n_pids}\n")
 
-    # 2) Per-Institution "NA" stats
-    # We'll group by institution and count:
-    # - total questions
-    # - number of NA answers
+    # 3) Per-Institution Statistics
+    df["code51_flag"] = (df["sct_ab_code"] == 51).astype(int)
+    df["year1_flag"] = (df["study_yr"] == 1).astype(int)
+    df["year2_flag"] = (df["study_yr"] == 2).astype(int)
+
     grouped = df.groupby("inst").agg(
-        total_questions=("question", "count"),
-        total_na_answers=("na_flag", "sum")
+        total_questions = ("question", "count"),
+        total_code51    = ("code51_flag", "sum"),
+        total_year1     = ("year1_flag", "sum"),
+        total_year2     = ("year2_flag", "sum"),
+        unique_pids     = ("pid", "nunique")
     ).reset_index()
 
-    grouped["pct_na_answers"] = (grouped["total_na_answers"] / grouped["total_questions"]) * 100
+    # 4) Compute percentage of Code 51 per institution
+    grouped["pct_code51"] = (grouped["total_code51"] / grouped["total_questions"]) * 100
 
-    # Sort by total questions descending (or total NA, whichever you prefer)
+    # 5) Sort descending by total questions
     grouped_sorted = grouped.sort_values(by="total_questions", ascending=False)
 
-    print("=== Per-Institution 'NA' Answer Statistics ===")
+    print("=== Per-Institution Statistics (sorted by most questions) ===")
+    # Display as a string table
     print(grouped_sorted.to_string(index=False))
-    print()
 
     return grouped_sorted
 
