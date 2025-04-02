@@ -3,6 +3,7 @@ import pyreadstat
 from collections import defaultdict
 import json
 from tqdm import tqdm
+import pandas as pd
 
 
 sct_ab_code_dict = {
@@ -81,6 +82,61 @@ sct_ab_preexist_dict = {
     9: "Unable to determine",
     # .M => "Missing"
 }
+
+
+def summarize_vqa(final_vqa):
+    """
+    Produces summary statistics from the final VQA list of dictionaries.
+    """
+
+    # 1) Convert to DataFrame
+    df = pd.DataFrame(final_vqa)
+
+    # 2) Overall Statistics
+    n_questions = len(df)
+    n_code51 = len(df[df["sct_ab_code"] == 51])
+    n_year1 = len(df[df["study_yr"] == 1])
+    n_year2 = len(df[df["study_yr"] == 2])
+    n_pids = df["pid"].nunique()
+
+    print("=== Overall Statistics ===")
+    print(f"Total number of questions: {n_questions}")
+    print(f"Number of Code 51 questions: {n_code51}")
+    print(f"Number of Study Year=1 questions: {n_year1}")
+    print(f"Number of Study Year=2 questions: {n_year2}")
+    print(f"Number of unique pids: {n_pids}\n")
+
+    # 3) Per-Institution Statistics
+    #    We want counts of:
+    #      - total questions
+    #      - code 51 questions
+    #      - study_yr=1 questions
+    #      - study_yr=2 questions
+    #      - unique pids
+    #
+    #    One approach is to create indicator columns and use groupby/agg
+
+    df["code51_flag"] = (df["sct_ab_code"] == 51).astype(int)
+    df["year1_flag"] = (df["study_yr"] == 1).astype(int)
+    df["year2_flag"] = (df["study_yr"] == 2).astype(int)
+
+    # Now group by 'inst' and aggregate
+    grouped = df.groupby("inst").agg(
+        total_questions = ("question", "count"),
+        total_code51    = ("code51_flag", "sum"),
+        total_year1     = ("year1_flag", "sum"),
+        total_year2     = ("year2_flag", "sum"),
+        unique_pids     = ("pid", "nunique")
+    ).reset_index()
+
+    # 4) Sort descending by total questions
+    grouped_sorted = grouped.sort_values(by="total_questions", ascending=False)
+
+    print("=== Per-Institution Statistics (sorted by most questions) ===")
+    print(grouped_sorted.to_string(index=False))
+
+    return grouped_sorted
+
 
 # A small helper to handle "code not found in dict" => "NA"
 def get_dict_value(dictionary, key):
@@ -305,11 +361,11 @@ if __name__ == "__main__":
     combined_measure_comp_w_patient_info_df = pd.merge(combined_measure_comp_df,
                                                        patient_df, on="pid", how="inner")
     all_vqas = generate_vqa_from_df(combined_measure_comp_w_patient_info_df)
-    all_pids = {qa["pid"] for qa in all_vqas}
-    print(f"Generated {len(all_vqas)} VQA pairs with {len(all_pids)} unique patients.")
 
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
+
+    summarize_vqa(all_vqas)
     """
     for inst in ["BF", "AC", "AP", "AJ", "AX", "AB"]:
         df_inst = combined_measure_comp_w_patient_info_df.loc[combined_measure_comp_w_patient_info_df['cen'] == inst]
