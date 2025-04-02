@@ -1,9 +1,9 @@
-import pandas as pd
 import pyreadstat
 from collections import defaultdict
 import json
 from tqdm import tqdm
 import pandas as pd
+import random
 
 
 sct_ab_code_dict = {
@@ -84,10 +84,54 @@ sct_ab_preexist_dict = {
 }
 
 
+def split_vqa_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
+    """
+    Splits a list of VQA dicts into train, val, and test sets by PID.
+    The val set is val_pct of unique PIDs,
+    the test set is test_pct of unique PIDs,
+    and the remainder goes to train.
+
+    - final_vqa: list of dictionaries, each must have 'pid' key
+    - val_pct: fraction of PIDs for validation
+    - test_pct: fraction of PIDs for test
+    - seed: random seed for reproducibility
+
+    Returns: (train_list, val_list, test_list)
+    """
+
+    # 1) Collect unique PIDs from the list
+    unique_pids = list({item["pid"] for item in final_vqa})
+    total_pids = len(unique_pids)
+
+    # 2) Shuffle PIDs
+    random.seed(seed)
+    random.shuffle(unique_pids)
+
+    # 3) Determine how many PIDs go to val/test
+    val_size = int(val_pct * total_pids)
+    test_size = int(test_pct * total_pids)
+    train_size = total_pids - val_size - test_size
+
+    # 4) Slice the shuffled PIDs
+    train_pids = set(unique_pids[:train_size])
+    val_pids = set(unique_pids[train_size:train_size + val_size])
+    test_pids = set(unique_pids[train_size + val_size:train_size + val_size + test_size])
+
+    # 5) Partition the original list by checking pid membership
+    train_list = [entry for entry in final_vqa if entry["pid"] in train_pids]
+    val_list = [entry for entry in final_vqa if entry["pid"] in val_pids]
+    test_list = [entry for entry in final_vqa if entry["pid"] in test_pids]
+
+    return train_list, val_list, test_list
+
+
 def summarize_vqa(final_vqa):
     """
-    Produces summary statistics from the final VQA list of dictionaries.
+    Produces summary statistics from the final VQA list of dictionaries,
+    including the percentage of Code 51 questions.
     """
+
+    import pandas as pd
 
     # 1) Convert to DataFrame
     df = pd.DataFrame(final_vqa)
@@ -95,32 +139,24 @@ def summarize_vqa(final_vqa):
     # 2) Overall Statistics
     n_questions = len(df)
     n_code51 = len(df[df["sct_ab_code"] == 51])
+    pct_code51 = (n_code51 / n_questions * 100.0) if n_questions else 0.0
+
     n_year1 = len(df[df["study_yr"] == 1])
     n_year2 = len(df[df["study_yr"] == 2])
     n_pids = df["pid"].nunique()
 
     print("=== Overall Statistics ===")
     print(f"Total number of questions: {n_questions}")
-    print(f"Number of Code 51 questions: {n_code51}")
+    print(f"Number of Code 51 questions: {n_code51} ({pct_code51:.1f}%)")
     print(f"Number of Study Year=1 questions: {n_year1}")
     print(f"Number of Study Year=2 questions: {n_year2}")
     print(f"Number of unique pids: {n_pids}\n")
 
     # 3) Per-Institution Statistics
-    #    We want counts of:
-    #      - total questions
-    #      - code 51 questions
-    #      - study_yr=1 questions
-    #      - study_yr=2 questions
-    #      - unique pids
-    #
-    #    One approach is to create indicator columns and use groupby/agg
-
     df["code51_flag"] = (df["sct_ab_code"] == 51).astype(int)
     df["year1_flag"] = (df["study_yr"] == 1).astype(int)
     df["year2_flag"] = (df["study_yr"] == 2).astype(int)
 
-    # Now group by 'inst' and aggregate
     grouped = df.groupby("inst").agg(
         total_questions = ("question", "count"),
         total_code51    = ("code51_flag", "sum"),
@@ -129,10 +165,14 @@ def summarize_vqa(final_vqa):
         unique_pids     = ("pid", "nunique")
     ).reset_index()
 
-    # 4) Sort descending by total questions
+    # 4) Compute percentage of Code 51 per institution
+    grouped["pct_code51"] = (grouped["total_code51"] / grouped["total_questions"]) * 100
+
+    # 5) Sort descending by total questions
     grouped_sorted = grouped.sort_values(by="total_questions", ascending=False)
 
     print("=== Per-Institution Statistics (sorted by most questions) ===")
+    # Display as a string table
     print(grouped_sorted.to_string(index=False))
 
     return grouped_sorted
@@ -348,11 +388,24 @@ def generate_vqa_from_df(df):
     return post_processed_qas
 
 
+def filter_by_instution(all_vqas, inst_list):
+    """
+    Filter the VQA list by institution.
+    """
+    return [qa for qa in all_vqas if qa["inst"] in inst_list]
+
+
 if __name__ == "__main__":
     measurement_file = "nlst_780_ctab_idc_20210527.csv"
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     save_file = "nlst_vqa.json"
+    filter_inst = ["BF", "AC", "AP", "AJ", "AX", "AB"]
+    filt_save_file = "nlst_vqa_filt.json"
+    filt_save_pid_list = "nlst_vqa_filt_pids.json"
+    train_save_file = "nlst_train_vqa.json"
+    val_save_file = "nlst_val_vqa.json"
+    test_save_file = "nlst_test_vqa.json"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -361,11 +414,35 @@ if __name__ == "__main__":
     combined_measure_comp_w_patient_info_df = pd.merge(combined_measure_comp_df,
                                                        patient_df, on="pid", how="inner")
     all_vqas = generate_vqa_from_df(combined_measure_comp_w_patient_info_df)
-
+    print(f"==========OVERALL VQA==========")
+    summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
 
-    summarize_vqa(all_vqas)
+    """"
+
+    filtered_vqas = filter_by_instution(all_vqas, filter_inst)
+    print(f"==========FILTERED VQA==========")
+    summarize_vqa(filtered_vqas)
+    with open(filt_save_file, "w") as f:
+        json.dump(filtered_vqas, f, indent=4)
+
+    train_vqas, val_vqas, test_vqas = split_vqa_by_pid(all_vqas, val_pct=0.1, test_pct=0.1, seed=0)
+    print(f"==========TRAIN VQA==========")
+    summarize_vqa(train_vqas)
+    print(f"==========VAL VQA==========")
+    summarize_vqa(val_vqas)
+    print(f"==========TEST VQA==========")
+    summarize_vqa(test_vqas)
+
+    with open(train_save_file, "w") as f:
+        json.dump(train_vqas, f, indent=4)
+    with open(val_save_file, "w") as f:
+        json.dump(val_vqas, f, indent=4)
+    with open(test_save_file, "w") as f:
+        json.dump(test_vqas, f, indent=4)
+    """
+
     """
     for inst in ["BF", "AC", "AP", "AJ", "AX", "AB"]:
         df_inst = combined_measure_comp_w_patient_info_df.loc[combined_measure_comp_w_patient_info_df['cen'] == inst]
