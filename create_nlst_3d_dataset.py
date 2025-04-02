@@ -400,7 +400,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     save_file = "nlst_vqa.json"
-    filter_inst = ["BF", "AC", "AP", "AJ", "AX", "AB"]
+    filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC"]
     filt_save_file = "nlst_vqa_filt.json"
     filt_save_pid_list = "nlst_vqa_filt_pids.json"
     train_save_file = "nlst_train_vqa.json"
@@ -419,13 +419,14 @@ if __name__ == "__main__":
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
 
-    """"
-
     filtered_vqas = filter_by_instution(all_vqas, filter_inst)
     print(f"==========FILTERED VQA==========")
     summarize_vqa(filtered_vqas)
     with open(filt_save_file, "w") as f:
         json.dump(filtered_vqas, f, indent=4)
+    filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
+    with open(filt_save_pid_list, "w") as f:
+        json.dump(filtered_pids, f)
 
     train_vqas, val_vqas, test_vqas = split_vqa_by_pid(all_vqas, val_pct=0.1, test_pct=0.1, seed=0)
     print(f"==========TRAIN VQA==========")
@@ -441,17 +442,3 @@ if __name__ == "__main__":
         json.dump(val_vqas, f, indent=4)
     with open(test_save_file, "w") as f:
         json.dump(test_vqas, f, indent=4)
-    """
-
-    """
-    for inst in ["BF", "AC", "AP", "AJ", "AX", "AB"]:
-        df_inst = combined_measure_comp_w_patient_info_df.loc[combined_measure_comp_w_patient_info_df['cen'] == inst]
-        df_inst['pid'] = df_inst['pid'].astype(int)
-        print(f"Number of patients in {inst}: {len(df_inst['pid'].unique())}")
-        df_inst.to_csv(f"nlst_{inst}.csv", index=False)
-    """
-
-
-
-
-
