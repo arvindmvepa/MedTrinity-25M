@@ -10,7 +10,7 @@ if __name__ == "__main__":
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
     combined_measure_comp_df = pd.merge(measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner")
-    patient_df = pyreadstat.read_sas7bdat(patient_file)
+    (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
     combined_measure_comp_w_patient_info_df = pd.merge(combined_measure_comp_df,
                                                        patient_df, on="pid", how="inner")
     for inst in ["BF", "AC", "AP", "AJ", "AX", "AB"]:
