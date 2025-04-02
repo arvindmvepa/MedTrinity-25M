@@ -257,31 +257,39 @@ def build_question(row, question, answer):
     }
 
 
-def get_general_questions(row):
+def get_general_questions(row, ignore_NA=True):
     """
     Returns a list of Q–A dictionaries always asked for any sct_ab_code.
     """
     ab_code = row["sct_ab_code"]
     lesion_name = get_dict_value(sct_ab_code_dict, ab_code)
 
+    q_list = []
+
     # Q1: What type of abnormality is this?
-    qa1 = build_question(
-        row,
-        question="What type of abnormality is seen?",
-        answer=lesion_name
-    )
+    qa1_answer = lesion_name
+    if not (ignore_NA and qa1_answer == "NA"):
+        qa1 = build_question(
+            row,
+            question="What type of abnormality is seen?",
+            answer=qa1_answer
+        )
+        q_list.append(qa1)
 
     # Q2: Was the abnormality pre-existing?
-    qa2 = build_question(
-        row,
-        question=f"Was this {lesion_name} pre-existing?",
-        answer=get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"])
-    )
+    qa2_answer = get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"])
+    if not (ignore_NA and qa2_answer == "NA"):
+        qa2 = build_question(
+            row,
+            question=f"Was this {lesion_name} pre-existing?",
+            answer=qa2_answer
+        )
+        q_list.append(qa2)
 
-    return [qa1, qa2]
+    return q_list
 
 
-def get_code51_questions(row):
+def get_code51_questions(row, ignore_NA=True):
     """
     Returns a list of Q–A dictionaries relevant only for sct_ab_code == 51.
     If called for code != 51, you can return an empty list or
@@ -291,71 +299,87 @@ def get_code51_questions(row):
     # Make sure it's only for code=51
     if ab_code != 51:
         return []
-
     lesion_name = get_dict_value(sct_ab_code_dict, ab_code)
 
+    q_list = []
+
     # 1) Where is the abnormality located?
-    qa_loc = build_question(
-        row,
-        question=f"Where is the {lesion_name} epicenter located?",
-        answer=get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"])
-    )
-
+    qa_loc_answer = get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"])
+    if not (ignore_NA and qa_loc_answer == "NA"):
+        qa_loc = build_question(
+            row,
+            question=f"Where is the {lesion_name} epicenter located?",
+            answer=qa_loc_answer
+        )
+        q_list.append(qa_loc)
     # 2) Did it have a suspicious interval change in attenuation?
-    qa_attn = build_question(
-        row,
-        question=f"Any suspicious interval change in attenuation for {lesion_name}?",
-        answer=get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"])
-    )
-
+    qa_attn_answer = get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"])
+    if not (ignore_NA and qa_attn_answer == "NA"):
+        qa_attn = build_question(
+            row,
+            question=f"Any suspicious interval change in attenuation for {lesion_name}?",
+            answer=qa_attn_answer
+        )
+        q_list.append(qa_attn)
     # 3) Did the abnormality have interval growth?
-    qa_gwth = build_question(
-        row,
-        question=f"Did the {lesion_name} have interval growth?",
-        answer=get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"])
-    )
-
+    qa_gwth_answer = get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"])
+    if not (ignore_NA and qa_gwth_answer == "NA"):
+        qa_gwth = build_question(
+            row,
+            question=f"Did the {lesion_name} have interval growth?",
+            answer=qa_gwth_answer
+        )
+        q_list.append(qa_gwth)
     # 4) Does interval change warrant further investigation?
-    qa_invg = build_question(
-        row,
-        question=f"Does the interval change in {lesion_name} warrant further investigation?",
-        answer=get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"])
-    )
-
+    qa_gwth_answer = get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"])
+    if not (ignore_NA and qa_gwth_answer == "NA"):
+        qa_invg = build_question(
+            row,
+            question=f"Does the interval change in {lesion_name} warrant further investigation?",
+            answer=qa_gwth_answer
+        )
+        q_list.append(qa_invg)
     # 5) What are the margins?
-    qa_marg = build_question(
-        row,
-        question=f"What are the margins for {lesion_name}?",
-        answer=get_dict_value(sct_margins_dict, row["sct_margins"])
-    )
-
+    qa_margin_answer = get_dict_value(sct_margins_dict, row["sct_margins"])
+    if not (ignore_NA and qa_margin_answer == "NA"):
+        qa_margin = build_question(
+            row,
+            question=f"What are the margins for {lesion_name}?",
+            answer=qa_margin_answer
+        )
+        q_list.append(qa_margin)
     # 6) What is the predominant attenuation?
-    qa_pre_att = build_question(
-        row,
-        question=f"What is the predominant attenuation for {lesion_name}?",
-        answer=get_dict_value(sct_pre_att_dict, row["sct_pre_att"])
-    )
-
+    qa_pre_att_answer = get_dict_value(sct_pre_att_dict, row["sct_pre_att"])
+    if not (ignore_NA and qa_pre_att_answer == "NA"):
+        qa_pre_att = build_question(
+            row,
+            question=f"What is the predominant attenuation for {lesion_name}?",
+            answer=qa_pre_att_answer
+        )
+        q_list.append(qa_pre_att)
     # 7) What is the longest diameter (in mm)?
     long_dia_str = str(row["sct_long_dia"]) if pd.notnull(row["sct_long_dia"]) else "NA"
-    qa_long = build_question(
-        row,
-        question=f"What is the longest diameter (mm) for {lesion_name}?",
-        answer=long_dia_str
-    )
-
+    if not (ignore_NA and long_dia_str == "NA"):
+        qa_long = build_question(
+            row,
+            question=f"What is the longest diameter (mm) for {lesion_name}?",
+            answer=long_dia_str
+        )
+        q_list.append(qa_long)
     # 8) What is the longest perpendicular diameter (in mm)?
     perp_dia_str = str(row["sct_perp_dia"]) if pd.notnull(row["sct_perp_dia"]) else "NA"
-    qa_perp = build_question(
-        row,
-        question=f"What is the longest perpendicular diameter (mm) for {lesion_name}?",
-        answer=perp_dia_str
-    )
+    if not (ignore_NA and perp_dia_str == "NA"):
+        qa_perp = build_question(
+            row,
+            question=f"What is the longest perpendicular diameter (mm) for {lesion_name}?",
+            answer=perp_dia_str
+        )
+        q_list.append(qa_perp)
 
-    return [qa_loc, qa_attn, qa_gwth, qa_invg, qa_marg, qa_pre_att, qa_long, qa_perp]
+    return q_list
 
 
-def generate_vqa_from_df(df):
+def generate_vqa_from_df(df, ignore_NA=True):
     """
     Main function: iterates over the rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -364,11 +388,11 @@ def generate_vqa_from_df(df):
 
     for idx, row in tqdm(df.iterrows()):
         # Always-asked questions
-        general_qas = get_general_questions(row)
+        general_qas = get_general_questions(row, ignore_NA=ignore_NA)
         all_vqas.extend(general_qas)
 
         # Code-51-specific questions
-        code51_qas = get_code51_questions(row)
+        code51_qas = get_code51_questions(row, ignore_NA=ignore_NA)
         all_vqas.extend(code51_qas)
 
     post_processed_qas = postprocess_qas(all_vqas)
