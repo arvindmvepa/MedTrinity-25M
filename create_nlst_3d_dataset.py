@@ -268,7 +268,7 @@ def get_general_questions(row, ignore_NA=True):
 
     # Q1: What type of abnormality is this?
     qa1_answer = lesion_name
-    if not (ignore_NA and qa1_answer == "NA"):
+    if (not ignore_NA) or (qa1_answer != "NA"):
         qa1 = build_question(
             row,
             question="What type of abnormality is seen?",
@@ -278,7 +278,7 @@ def get_general_questions(row, ignore_NA=True):
 
     # Q2: Was the abnormality pre-existing?
     qa2_answer = get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"])
-    if not (ignore_NA and qa2_answer == "NA"):
+    if (not ignore_NA) or (qa2_answer != "NA"):
         qa2 = build_question(
             row,
             question=f"Was this {lesion_name} pre-existing?",
@@ -305,7 +305,7 @@ def get_code51_questions(row, ignore_NA=True):
 
     # 1) Where is the abnormality located?
     qa_loc_answer = get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"])
-    if not (ignore_NA and qa_loc_answer == "NA"):
+    if (not ignore_NA) or (qa_loc_answer != "NA"):
         qa_loc = build_question(
             row,
             question=f"Where is the {lesion_name} epicenter located?",
@@ -314,7 +314,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_loc)
     # 2) Did it have a suspicious interval change in attenuation?
     qa_attn_answer = get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"])
-    if not (ignore_NA and qa_attn_answer == "NA"):
+    if (not ignore_NA) or (qa_attn_answer != "NA"):
         qa_attn = build_question(
             row,
             question=f"Any suspicious interval change in attenuation for {lesion_name}?",
@@ -323,7 +323,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_attn)
     # 3) Did the abnormality have interval growth?
     qa_gwth_answer = get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"])
-    if not (ignore_NA and qa_gwth_answer == "NA"):
+    if (not ignore_NA) or (qa_gwth_answer != "NA"):
         qa_gwth = build_question(
             row,
             question=f"Did the {lesion_name} have interval growth?",
@@ -332,7 +332,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_gwth)
     # 4) Does interval change warrant further investigation?
     qa_gwth_answer = get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"])
-    if not (ignore_NA and qa_gwth_answer == "NA"):
+    if (not ignore_NA) or (qa_gwth_answer != "NA"):
         qa_invg = build_question(
             row,
             question=f"Does the interval change in {lesion_name} warrant further investigation?",
@@ -341,7 +341,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_invg)
     # 5) What are the margins?
     qa_margin_answer = get_dict_value(sct_margins_dict, row["sct_margins"])
-    if not (ignore_NA and qa_margin_answer == "NA"):
+    if (not ignore_NA) or (qa_margin_answer != "NA"):
         qa_margin = build_question(
             row,
             question=f"What are the margins for {lesion_name}?",
@@ -350,7 +350,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_margin)
     # 6) What is the predominant attenuation?
     qa_pre_att_answer = get_dict_value(sct_pre_att_dict, row["sct_pre_att"])
-    if not (ignore_NA and qa_pre_att_answer == "NA"):
+    if (not ignore_NA) or (qa_pre_att_answer != "NA"):
         qa_pre_att = build_question(
             row,
             question=f"What is the predominant attenuation for {lesion_name}?",
@@ -359,7 +359,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_pre_att)
     # 7) What is the longest diameter (in mm)?
     long_dia_str = str(row["sct_long_dia"]) if pd.notnull(row["sct_long_dia"]) else "NA"
-    if not (ignore_NA and long_dia_str == "NA"):
+    if (not ignore_NA) or (long_dia_str != "NA"):
         qa_long = build_question(
             row,
             question=f"What is the longest diameter (mm) for {lesion_name}?",
@@ -368,7 +368,7 @@ def get_code51_questions(row, ignore_NA=True):
         q_list.append(qa_long)
     # 8) What is the longest perpendicular diameter (in mm)?
     perp_dia_str = str(row["sct_perp_dia"]) if pd.notnull(row["sct_perp_dia"]) else "NA"
-    if not (ignore_NA and perp_dia_str == "NA"):
+    if (not ignore_NA) or (perp_dia_str != "NA"):
         qa_perp = build_question(
             row,
             question=f"What is the longest perpendicular diameter (mm) for {lesion_name}?",
