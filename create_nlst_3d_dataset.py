@@ -400,7 +400,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     save_file = "nlst_vqa.json"
-    filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC"]
+    filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
     filt_save_file = "nlst_vqa_filt.json"
     filt_save_pid_list = "nlst_vqa_filt_pids.json"
     train_save_file = "nlst_train_vqa.json"
