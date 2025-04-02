@@ -2,6 +2,7 @@ import pandas as pd
 import pyreadstat
 from collections import defaultdict
 import json
+from tqdm import tqdm
 
 
 sct_ab_code_dict = {
@@ -277,7 +278,7 @@ def generate_vqa_from_df(df):
     """
     all_vqas = []
 
-    for idx, row in df.iterrows():
+    for idx, row in tqdm(df.iterrows()):
         # Always-asked questions
         general_qas = get_general_questions(row)
         all_vqas.extend(general_qas)
