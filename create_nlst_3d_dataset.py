@@ -428,7 +428,7 @@ if __name__ == "__main__":
     with open(filt_save_pid_list, "w") as f:
         json.dump(filtered_pids, f)
 
-    train_vqas, val_vqas, test_vqas = split_vqa_by_pid(all_vqas, val_pct=0.1, test_pct=0.1, seed=0)
+    train_vqas, val_vqas, test_vqas = split_vqa_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
     print(f"==========TRAIN VQA==========")
     summarize_vqa(train_vqas)
     print(f"==========VAL VQA==========")
