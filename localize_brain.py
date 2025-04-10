@@ -1,7 +1,7 @@
 import nibabel as nib
 import numpy as np
 import pandas as pd
-from nilearn.image import resample_to_img
+from nilearn.image import resample_to_img, new_img_like
 import os
 
 
@@ -52,6 +52,19 @@ def main(seg, atlas, labels, out):
     print("Tumour affine:\n", tumour_img.affine)
     print("Atlas affine:\n", atlas_img.affine)
 
+    # Compute translation difference
+    tumour_translation = tumour_img.affine[:3, 3]
+    atlas_translation = atlas_img.affine[:3, 3]
+    translation_diff = tumour_translation - atlas_translation
+    print("Translation difference:", translation_diff)
+
+    corrected_affine = tumour_img.affine.copy()
+    corrected_affine[:3, 3] = atlas_translation  # This sets it to [0, 0, 0]
+
+    # Create a new image with the corrected affine (data remains unchanged)
+    tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corrected_affine)
+    print("Corrected tumour affine:\n", tumour_img.affine)
+
     # Resample atlas to tumour space if needed
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         print("Resampling atlas to match tumour mask...")
@@ -85,8 +98,9 @@ def main(seg, atlas, labels, out):
 
 if __name__ == "__main__":
     seg = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz"
-    #atlas = "/local2/amvepa91/sri24/lpba40.nii"
-    atlas = "/local2/amvepa91/sri24/tzo116plus.nii"
-    labels = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
+    atlas = "/local2/amvepa91/sri24/lpba40.nii"
+    #atlas = "/local2/amvepa91/sri24/tzo116plus.nii"
+    labels = "/local2/amvepa91/sri24/LPBA40-labels.txt "
+    #labels = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
     out = f"./{os.path.basename(seg)}_report.csv"
     main(seg=seg, atlas=atlas, labels=labels, out=out)
