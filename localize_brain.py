@@ -100,7 +100,7 @@ if __name__ == "__main__":
     seg = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz"
     atlas = "/local2/amvepa91/sri24/lpba40.nii"
     #atlas = "/local2/amvepa91/sri24/tzo116plus.nii"
-    labels = "/local2/amvepa91/sri24/LPBA40-labels.txt "
+    labels = "/local2/amvepa91/sri24/LPBA40-labels.txt"
     #labels = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
     out = f"./{os.path.basename(seg)}_report.csv"
     main(seg=seg, atlas=atlas, labels=labels, out=out)
