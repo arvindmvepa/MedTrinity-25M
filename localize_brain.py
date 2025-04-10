@@ -21,20 +21,10 @@ def load_labels(label_txt_path):
 def compute_overlap(tumour_img, atlas_img):
     tumour_data = tumour_img.get_fdata() > 0
     atlas_data = atlas_img.get_fdata().astype(int)  # Assuming the atlas is a single channel
-    #assert atlas_data.shape == tumour_data.shape, "Atlas and tumour images must have the same shape."
-    print(f"tumour_data shape: {tumour_data.shape}")
-    print(f"atlas_data shape: {atlas_data.shape}")
-    print(f"min(atlas_data): {np.min(atlas_data)}, max(atlas_data): {np.max(atlas_data)}")
-    print(f"total atlas_data: {np.sum(atlas_data > 0)}")
+
 
     # Only look at tumour voxels
     overlapped_labels = atlas_data[tumour_data]
-
-    print(f"overlapping labels: {overlapped_labels.shape}")
-    print(f"(non-zero) overlapping labels: {np.sum(overlapped_labels > 0)}")
-
-    print("nonzero tumor data: ", np.nonzero(tumour_data))
-    print("nonzero atlas data: ", np.nonzero(atlas_data))
 
     unique, counts = np.unique(overlapped_labels[overlapped_labels > 0], return_counts=True)
     total_voxels = np.sum(tumour_data)
@@ -47,28 +37,24 @@ def main(seg, atlas, labels, out):
     tumour_img = nib.load(seg)
     atlas_img = nib.load(atlas)
 
-    print("Tumour shape:", tumour_img.shape)
-    print("Atlas shape :", atlas_img.shape)
-    print("Tumour affine:\n", tumour_img.affine)
-    print("Atlas affine:\n", atlas_img.affine)
-
     # Compute translation difference
     tumour_translation = tumour_img.affine[:3, 3]
     atlas_translation = atlas_img.affine[:3, 3]
-    translation_diff = tumour_translation - atlas_translation
-    print("Translation difference:", translation_diff)
 
-    corrected_affine = tumour_img.affine.copy()
-    corrected_affine[:3, 3] = atlas_translation  # This sets it to [0, 0, 0]
+    if not np.allclose(tumour_translation, atlas_translation):
+        print("Updating tumor affine to match atlas affine...")
+        corrected_affine = tumour_img.affine.copy()
+        corrected_affine[:3, 3] = atlas_translation  # This sets it to [0, 0, 0]
 
-    # Create a new image with the corrected affine (data remains unchanged)
-    tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corrected_affine)
-    print("Corrected tumour affine:\n", tumour_img.affine)
+        # Create a new image with the corrected affine (data remains unchanged)
+        tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corrected_affine)
 
     # Resample atlas to tumour space if needed
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         print("Resampling atlas to match tumour mask...")
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation='nearest')
+
+    print("number of nonzero atlas voxels: ", np.count_nonzero(atlas_img.get_fdata()))
 
     # Load label map
     label_map = load_labels(labels)
