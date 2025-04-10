@@ -22,12 +22,17 @@ def compute_overlap(tumour_img, atlas_img):
     tumour_data = tumour_img.get_fdata() > 0
     atlas_data = atlas_img.get_fdata().astype(int)[..., 0]  # Assuming the atlas is a single channel
     assert atlas_data.shape == tumour_data.shape, "Atlas and tumour images must have the same shape."
+    print(f"min(atlas_data): {np.min(atlas_data)}, max(atlas_data): {np.max(atlas_data)}")
+    print(f"total atlas_data: {np.sum(atlas_data > 0)}")
 
     # Only look at tumour voxels
     overlapped_labels = atlas_data[tumour_data]
 
     print(f"overlapping labels: {overlapped_labels.shape}")
     print(f"(non-zero) overlapping labels: {np.sum(overlapped_labels > 0)}")
+
+    print("nonzero tumor data: ", np.nonzero(tumour_data))
+    print("nonzero atlas data: ", np.nonzero(atlas_data))
 
     unique, counts = np.unique(overlapped_labels[overlapped_labels > 0], return_counts=True)
     total_voxels = np.sum(tumour_data)
