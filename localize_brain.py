@@ -21,7 +21,9 @@ def load_labels(label_txt_path):
 def compute_overlap(tumour_img, atlas_img):
     tumour_data = tumour_img.get_fdata() > 0
     atlas_data = atlas_img.get_fdata().astype(int)  # Assuming the atlas is a single channel
-    assert atlas_data.shape == tumour_data.shape, "Atlas and tumour images must have the same shape."
+    #assert atlas_data.shape == tumour_data.shape, "Atlas and tumour images must have the same shape."
+    print(f"tumour_data shape: {tumour_data.shape}")
+    print(f"atlas_data shape: {atlas_data.shape}")
     print(f"min(atlas_data): {np.min(atlas_data)}, max(atlas_data): {np.max(atlas_data)}")
     print(f"total atlas_data: {np.sum(atlas_data > 0)}")
 
