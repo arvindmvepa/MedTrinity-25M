@@ -237,6 +237,292 @@ def generate_3d_labal_vqa_questions(summ, include_area=True, include_quadrant=Tr
     return vqa_questions
 
 
+def generate_3d_labal_vqa_questions_v2(
+    summ,
+    include_area=True,
+    include_bbox=True,
+    include_extent=True,
+    include_solidity=True,
+    include_area_bbox=True,
+    include_area_extent=True,
+    include_area_solidity=True,
+    include_bbox_extent=True,
+    include_bbox_solidity=True,
+    include_extent_solidity=True,
+    include_area_bbox_extent=True,
+    include_area_bbox_solidity=True,
+    include_bbox_extent_solidity=True,
+    include_area_bbox_extent_solidity=True
+):
+    vqa_questions = []
+
+    # 1) AREA (example done)
+    if include_area:
+        question = f"How large is the volume covered by {summ['name']}?"
+        # short VQA
+        answer_vqa = [summ['area_interp']]
+        # longer, fluent text
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}."
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 2) BBOX (example done)
+    if include_bbox:
+        question = f"The smallest bounding cube surrounding {summ['name']} is in which quadrants?"
+        answer_vqa = [summ['bbox_str']]
+        answer_gen = f"The bounding region for {summ['name']} spans {summ['bbox_str']} in the image space."
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "bbox",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 3) EXTENT (example done)
+    if include_extent:
+        question = f"Within the smallest bounding cube surrounding {summ['name']}, to what extent is the bounding cube region filled?"
+        answer_vqa = [summ['extent_interp']]
+        answer_gen = f"Inside its bounding region, {summ['name']} occupies {summ['extent_interp']} of that cube."
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "extent",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 4) SOLIDITY
+    if include_solidity:
+        question = f"How compact is the {summ['name']} region?"
+        answer_vqa = [summ['solidity_interp']]
+        answer_gen = f"Based on its shape analysis, {summ['name']} is {summ['solidity_interp']} in terms of compactness."
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 5) AREA + BBOX
+    if include_area_bbox:
+        question = f"How large is the volume of {summ['name']}, and in which quadrants does its smallest bounding cube lie?"
+        answer_vqa = [summ['area_interp'], summ['bbox_str']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}, and its bounding cube lies in {summ['bbox_str']}."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_bbox",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 6) AREA + EXTENT
+    if include_area_extent:
+        question = f"How large is the volume of {summ['name']}, and how much of its bounding cube is filled?"
+        answer_vqa = [summ['area_interp'], summ['extent_interp']]
+        answer_gen = (
+            f"The overall volume of {summ['name']} is {summ['area_interp']}, "
+            f"and it fills {summ['extent_interp']} of its bounding cube."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_extent",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 7) AREA + SOLIDITY
+    if include_area_solidity:
+        question = f"How large is the volume of {summ['name']}, and how compact would you describe that region to be?"
+        answer_vqa = [summ['area_interp'], summ['solidity_interp']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}, "
+            f"and it appears {summ['solidity_interp']} in terms of compactness."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 8) BBOX + EXTENT
+    if include_bbox_extent:
+        question = (
+            f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, "
+            f"and to what extent is the bounding cube region filled?"
+        )
+        answer_vqa = [summ['bbox_str'], summ['extent_interp']]
+        answer_gen = (
+            f"The bounding cube is located in {summ['bbox_str']}, and {summ['name']} occupies "
+            f"{summ['extent_interp']} of that region."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "bbox_extent",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 9) BBOX + SOLIDITY
+    if include_bbox_solidity:
+        question = f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, and how compact is the region?"
+        answer_vqa = [summ['bbox_str'], summ['solidity_interp']]
+        answer_gen = (
+            f"The bounding cube is in {summ['bbox_str']}, and {summ['name']} shows "
+            f"{summ['solidity_interp']} compactness."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "bbox_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 10) EXTENT + SOLIDITY
+    if include_extent_solidity:
+        question = f"To what extent is the bounding cube region filled and how compact is the {summ['name']} region?"
+        answer_vqa = [summ['extent_interp'], summ['solidity_interp']]
+        answer_gen = (
+            f"{summ['name']} occupies {summ['extent_interp']} of its bounding cube, and "
+            f"it is {summ['solidity_interp']} in shape."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "extent_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 11) AREA + BBOX + EXTENT
+    if include_area_bbox_extent:
+        question = (
+            f"How large is the volume covered by {summ['name']}, what are the quadrants for the smallest "
+            f"bounding cube surrounding it, and to what extent is the bounding cube region filled?"
+        )
+        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['extent_interp']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}. Its bounding cube spans {summ['bbox_str']}, "
+            f"and the region fills {summ['extent_interp']} of that cube."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_bbox_extent",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 12) AREA + BBOX + SOLIDITY
+    if include_area_bbox_solidity:
+        question = (
+            f"How large is the volume covered by {summ['name']}, what is the smallest bounding cube surrounding it, "
+            f"and how compact is the region?"
+        )
+        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['solidity_interp']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}, its bounding cube lies in {summ['bbox_str']}, "
+            f"and the region appears {summ['solidity_interp']} in terms of compactness."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_bbox_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 13) AREA + EXTENT + SOLIDITY
+    if include_area_bbox_solidity:
+        question = (
+            f"How large is the volume covered by {summ['name']}, to what extent is its bounding cube filled, "
+            f"and how compact is the region?"
+        )
+        answer_vqa = [summ['area_interp'], summ['extent_interp'], summ['solidity_interp']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}, the label fills {summ['extent_interp']} "
+            f"of its bounding cube ",
+            f"and the region appears {summ['solidity_interp']} in terms of compactness."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_extent_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 14) BBOX + EXTENT + SOLIDITY
+    if include_bbox_extent_solidity:
+        question = (
+            f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, "
+            f"to what extent is it filled, and how compact is the region?"
+        )
+        answer_vqa = [summ['bbox_str'], summ['extent_interp'], summ['solidity_interp']]
+        answer_gen = (
+            f"The bounding cube for {summ['name']} is in {summ['bbox_str']}, the label fills {summ['extent_interp']} "
+            f"of that cube, and it is {summ['solidity_interp']} overall."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "bbox_extent_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    # 15) AREA + BBOX + EXTENT + SOLIDITY
+    if include_area_bbox_extent_solidity:
+        question = (
+            f"How large is the volume covered by {summ['name']}, what are the quadrants for the smallest bounding cube, "
+            f"to what extent is that cube filled, and how compact is the region?"
+        )
+        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['extent_interp'], summ['solidity_interp']]
+        answer_gen = (
+            f"The volume of {summ['name']} is {summ['area_interp']}. Its bounding cube spans {summ['bbox_str']}, "
+            f"the region fills {summ['extent_interp']} of that space, and it is {summ['solidity_interp']} in shape."
+        )
+        question_dict = {
+            "question": question,
+            "answer_vqa": answer_vqa,
+            "answer_gen": answer_gen,
+            "type": "area_bbox_extent_solidity",
+            "label_name": summ['name']
+        }
+        vqa_questions.append(question_dict)
+
+    return vqa_questions
+
+
+
 def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
     lines = []
     avg_score = sum(list_of_scores) / len(list_of_scores)
