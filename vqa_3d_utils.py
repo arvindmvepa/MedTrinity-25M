@@ -475,7 +475,7 @@ def generate_3d_labal_vqa_questions_v3(
     if include_satellite:
         question = f"How spread out is {summ['name']}?"
         answer_vqa = [summ['satellite_interp']]
-        answer_gen = f"The {summ['name']} is {summ['satellite_interp']}."
+        answer_gen = f"The spread of {summ['name']} is {summ['satellite_interp']}."
         question_dict = {
             "question": question,
             "answer_vqa": answer_vqa,
