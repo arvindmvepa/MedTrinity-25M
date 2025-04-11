@@ -170,9 +170,6 @@ if __name__ == "__main__":
         vqa_data_ = json.load(f)
     stats = summarise_vqa_stats(vqa_data_)
     print("Total:", stats["total_questions"])
-    print(stats["questions_per_label_and_type"])  # wide table of counts
-    print(stats["answer_dist_per_type"])  # distribution per question‑type
-    print(stats["answer_dist_per_label_and_type"].head())
     for k, v in stats.items():
         if k == "total_questions":
             continue
