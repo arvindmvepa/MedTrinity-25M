@@ -160,10 +160,12 @@ if __name__ == "__main__":
     val_file = val_file.format(dataset_type, subjective_only, version)
     test_file = test_file.format(dataset_type, subjective_only, version)
 
+    """
     vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, labels_order=labels_order, n_jobs=8,
                                                        pediatric=pediatric, goat=goat)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
+    """
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
     stats = summarise_vqa_stats(vqa_data_)
@@ -171,6 +173,10 @@ if __name__ == "__main__":
     print(stats["questions_per_label_and_type"])  # wide table of counts
     print(stats["answer_dist_per_type"])  # distribution per question‑type
     print(stats["answer_dist_per_label_and_type"].head())
+    for k, v in stats["answer_dist_per_label_and_type"].items():
+        if k == "total_questions":
+            continue
+        v.to_csv(f"{k}.csv", index=False)
     with open(f"stats {vqa_file}", 'w') as f:
         json.dump(stats, f, indent=2)
 
