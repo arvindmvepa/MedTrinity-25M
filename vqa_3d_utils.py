@@ -22,8 +22,8 @@ def summarise_vqa_stats(vqa_list):
     # 1. Basic question counts
     # ------------------------------------------------------------------ #
     total_questions              = len(df)
-    questions_per_label          = df["label_name"].value_counts().to_dict()
-    questions_per_type           = df["type"].value_counts().to_dict()
+    questions_per_label          = df["label_name"].value_counts()
+    questions_per_type           = df["type"].value_counts()
     questions_per_label_and_type = (
         df.groupby(["label_name", "type"])
           .size()
