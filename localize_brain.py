@@ -153,7 +153,7 @@ if __name__ == "__main__":
         print(f"\nTumor label: {tumor_label}")
         print("Total voxels:", info["total_voxels"])
         for idx_, info_ in info["overlap"].items():
-            print(f"{idx_:3d} {info['region']:<30} {info_['voxels']:6d} "
+            print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
                   f"({info_['percent']:5.2f}%)")
         print("Regions:", get_region_str(info["regions"]))
 
