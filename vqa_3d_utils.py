@@ -552,7 +552,7 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, height, width, depth, t
             solidity_value = 0.0
             solidity_interp = "none"
 
-        summ = summ.update({
+        summ.update({
             "label": lbl,
             "name": label_name,
             "area_pct": area_pct,
