@@ -1,15 +1,12 @@
 from skimage.morphology import convex_hull_image
 from skimage.measure import label
-from skimage import measure
 import numpy as np
 import re
 import os
 import json
-from scipy import ndimage
 from scipy.ndimage import center_of_mass
 from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
 from collections import Counter, defaultdict
-from skimage.morphology import ball
 
 
 label_names = {
@@ -104,33 +101,6 @@ def postprocess_vqa_data(all_vqa_questions, seg_id_list=(), max_num_of_seg_ids_p
     return filtered_vqa_questions
 
 
-def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
-    for index in range(len(all_vqa_questions)):
-        question = all_vqa_questions[index]
-        question["img_id"] = all_vqa_questions[index]["volume_file_id"]
-        assert "question" in all_vqa_questions[index]
-        assert "answer" in all_vqa_questions[index]
-        question["q_lang"] = "en"
-        question["qid"] = index
-        question["location"] = "Brain"
-        question["answer_type"] = "OPEN"
-        question["base_type"] = "VQA"
-        question["content_type"] = question["type"]
-        question["qid"] = index
-        base_dir = os.path.basename(question["volume_file_dir"])
-        if "gli" in base_dir.lower() or "met" in base_dir.lower() or "ped" in base_dir.lower():
-            question["study_name"] = "-".join(base_dir.split("-")[:-1])
-        elif "goat" in base_dir.lower():
-            question["study_name"] = base_dir
-        else:
-            raise ValueError(f"Unknown study name: {base_dir}")
-
-    with open(save_vqa_file, 'w') as f:
-        json.dump(all_vqa_questions, f, indent=2)
-
-    return all_vqa_questions
-
-
 def filter_seg_ids_from_vqa_data(all_vqa_questions, max_num_of_seg_ids_per_empty_count=100, seed=0):
     seg_ids_empty_counts_map = get_seg_ids_empty_counts(all_vqa_questions)
     random_state = np.random.RandomState(seed)
@@ -197,332 +167,6 @@ def generate_labal_vqa_questions(summ, include_area=True, include_quadrant=True,
         question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
         vqa_questions.append(question_dict)
     return vqa_questions
-
-
-def generate_3d_labal_vqa_questions(summ, include_area=True, include_quadrant=True, include_bbox=True,
-                                    include_extent=True, include_solidity=True, subjective_only=False):
-    vqa_questions = []
-    if include_area:
-        question = f"How large is the volume covered by {summ['name']}?"
-        if subjective_only:
-            answer = f"{summ['area_interp']}"
-        else:
-            answer = f"{summ['area_pct']:.1f}%, which is {summ['area_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "area", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_quadrant:
-        question = f"Which quadrant is {summ['name']} centered in?"
-        answer = f"{summ['centroid_quadrant']}"
-        question_dict = {"question": question, "answer": answer, "type": "quadrant", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_bbox:
-        question = f"The smallest bounding cube surrounding {summ['name']} is in which quadrants?"
-        answer = f"{summ['bbox_str']}"
-        question_dict = {"question": question, "answer": answer, "type": "bbox", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_extent:
-        question = f"Within the smallest bounding cube surrounding {summ['name']}, to what extent is the bounding cube region filled?"
-        if subjective_only:
-            answer = f"{summ['extent_interp']}"
-        else:
-            answer = f"{summ['extent_value']:.1f}%, which is {summ['extent_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "extent", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    if include_solidity:
-        question = f"How compact is the {summ['name']} region?"
-        if subjective_only:
-            answer = f"{summ['solidity_interp']}"
-        else:
-            answer = f"{summ['solidity_value']:.1f}%, which is {summ['solidity_interp']}"
-        question_dict = {"question": question, "answer": answer, "type": "solidity", "label_name": summ['name']}
-        vqa_questions.append(question_dict)
-    return vqa_questions
-
-
-def generate_3d_labal_vqa_questions_v2(
-    summ,
-    include_area=True,
-    include_bbox=True,
-    include_extent=True,
-    include_solidity=True,
-    include_area_bbox=True,
-    include_area_extent=True,
-    include_area_solidity=True,
-    include_bbox_extent=True,
-    include_bbox_solidity=True,
-    include_extent_solidity=True,
-    include_area_bbox_extent=True,
-    include_area_bbox_solidity=True,
-    include_bbox_extent_solidity=True,
-    include_area_bbox_extent_solidity=True
-):
-    vqa_questions = []
-
-    # 1) AREA (example done)
-    if include_area:
-        question = f"How large is the volume covered by {summ['name']}?"
-        # short VQA
-        answer_vqa = [summ['area_interp']]
-        # longer, fluent text
-        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}."
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 2) BBOX (example done)
-    if include_bbox:
-        question = f"The smallest bounding cube surrounding {summ['name']} is in which quadrants?"
-        answer_vqa = [summ['bbox_str']]
-        answer_gen = f"The bounding region for {summ['name']} spans {summ['bbox_str']} in the image space."
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "bbox",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 3) EXTENT (example done)
-    if include_extent:
-        question = f"Within the smallest bounding cube surrounding {summ['name']}, to what extent is the bounding cube region filled?"
-        answer_vqa = [summ['extent_interp']]
-        answer_gen = f"Inside its bounding region, {summ['name']} occupies {summ['extent_interp']} of that cube."
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "extent",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 4) SOLIDITY
-    if include_solidity:
-        question = f"How compact is the {summ['name']} region?"
-        answer_vqa = [summ['solidity_interp']]
-        answer_gen = f"Based on its shape analysis, {summ['name']} is {summ['solidity_interp']} in terms of compactness."
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 5) AREA + BBOX
-    if include_area_bbox:
-        question = f"How large is the volume of {summ['name']}, and in which quadrants does its smallest bounding cube lie?"
-        answer_vqa = [summ['area_interp'], summ['bbox_str']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}, and its bounding cube lies in {summ['bbox_str']}."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_bbox",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 6) AREA + EXTENT
-    if include_area_extent:
-        question = f"How large is the volume of {summ['name']}, and how much of its bounding cube is filled?"
-        answer_vqa = [summ['area_interp'], summ['extent_interp']]
-        answer_gen = (
-            f"The overall volume of {summ['name']} is {summ['area_interp']}, "
-            f"and it fills {summ['extent_interp']} of its bounding cube."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_extent",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 7) AREA + SOLIDITY
-    if include_area_solidity:
-        question = f"How large is the volume of {summ['name']}, and how compact would you describe that region to be?"
-        answer_vqa = [summ['area_interp'], summ['solidity_interp']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}, "
-            f"and it appears {summ['solidity_interp']} in terms of compactness."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 8) BBOX + EXTENT
-    if include_bbox_extent:
-        question = (
-            f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, "
-            f"and to what extent is the bounding cube region filled?"
-        )
-        answer_vqa = [summ['bbox_str'], summ['extent_interp']]
-        answer_gen = (
-            f"The bounding cube is located in {summ['bbox_str']}, and {summ['name']} occupies "
-            f"{summ['extent_interp']} of that region."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "bbox_extent",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 9) BBOX + SOLIDITY
-    if include_bbox_solidity:
-        question = f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, and how compact is the region?"
-        answer_vqa = [summ['bbox_str'], summ['solidity_interp']]
-        answer_gen = (
-            f"The bounding cube is in {summ['bbox_str']}, and {summ['name']} shows "
-            f"{summ['solidity_interp']} compactness."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "bbox_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 10) EXTENT + SOLIDITY
-    if include_extent_solidity:
-        question = f"To what extent is the bounding cube region filled and how compact is the {summ['name']} region?"
-        answer_vqa = [summ['extent_interp'], summ['solidity_interp']]
-        answer_gen = (
-            f"{summ['name']} occupies {summ['extent_interp']} of its bounding cube, and "
-            f"it is {summ['solidity_interp']} in shape."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "extent_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 11) AREA + BBOX + EXTENT
-    if include_area_bbox_extent:
-        question = (
-            f"How large is the volume covered by {summ['name']}, what are the quadrants for the smallest "
-            f"bounding cube surrounding it, and to what extent is the bounding cube region filled?"
-        )
-        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['extent_interp']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}. Its bounding cube spans {summ['bbox_str']}, "
-            f"and the region fills {summ['extent_interp']} of that cube."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_bbox_extent",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 12) AREA + BBOX + SOLIDITY
-    if include_area_bbox_solidity:
-        question = (
-            f"How large is the volume covered by {summ['name']}, what is the smallest bounding cube surrounding it, "
-            f"and how compact is the region?"
-        )
-        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['solidity_interp']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}, its bounding cube lies in {summ['bbox_str']}, "
-            f"and the region appears {summ['solidity_interp']} in terms of compactness."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_bbox_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 13) AREA + EXTENT + SOLIDITY
-    if include_area_bbox_solidity:
-        question = (
-            f"How large is the volume covered by {summ['name']}, to what extent is its bounding cube filled, "
-            f"and how compact is the region?"
-        )
-        answer_vqa = [summ['area_interp'], summ['extent_interp'], summ['solidity_interp']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}, the label fills {summ['extent_interp']} "
-            f"of its bounding cube ",
-            f"and the region appears {summ['solidity_interp']} in terms of compactness."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_extent_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 14) BBOX + EXTENT + SOLIDITY
-    if include_bbox_extent_solidity:
-        question = (
-            f"What are the quadrants for the smallest bounding cube surrounding {summ['name']}, "
-            f"to what extent is it filled, and how compact is the region?"
-        )
-        answer_vqa = [summ['bbox_str'], summ['extent_interp'], summ['solidity_interp']]
-        answer_gen = (
-            f"The bounding cube for {summ['name']} is in {summ['bbox_str']}, the label fills {summ['extent_interp']} "
-            f"of that cube, and it is {summ['solidity_interp']} overall."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "bbox_extent_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    # 15) AREA + BBOX + EXTENT + SOLIDITY
-    if include_area_bbox_extent_solidity:
-        question = (
-            f"How large is the volume covered by {summ['name']}, what are the quadrants for the smallest bounding cube, "
-            f"to what extent is that cube filled, and how compact is the region?"
-        )
-        answer_vqa = [summ['area_interp'], summ['bbox_str'], summ['extent_interp'], summ['solidity_interp']]
-        answer_gen = (
-            f"The volume of {summ['name']} is {summ['area_interp']}. Its bounding cube spans {summ['bbox_str']}, "
-            f"the region fills {summ['extent_interp']} of that space, and it is {summ['solidity_interp']} in shape."
-        )
-        question_dict = {
-            "question": question,
-            "answer_vqa": answer_vqa,
-            "answer_gen": answer_gen,
-            "type": "area_bbox_extent_solidity",
-            "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
-
-    return vqa_questions
-
 
 
 def get_descriptive_statistics(list_of_scores, zero_score_count, none_score_count, metric_name):
@@ -843,8 +487,6 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             extent_value, extent_interp = measure_extent_compactness(mask)
             solidity_value, solidity_interp = measure_solidity(mask)
 
-            shape_desc = compute_shape_descriptors(mask, voxel_spacing=(1.0, 1.0, 1.0))
-
         label_summaries.append({
             "label": lbl,
             "name": label_name,
@@ -857,81 +499,8 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             "extent_interp": extent_interp,
             "solidity_value": solidity_value,
             "solidity_interp": solidity_interp,
-            "shape_interp": shape_desc.get("shape_interp", None),
-            "satellite_interp": shape_desc.get("satellite_interp", None)
         })
     return label_summaries
-
-
-def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4),
-                             pediatric=False, goat=False):
-    """
-    For each label (1..4), compute:
-      - area percentage + subjective interpretation
-      - centroid quadrant
-      - bounding box quadrants
-      - extent-based "compactness" measure
-    """
-    label_summaries = []
-
-    for lbl in labels_order:
-        # TODO: Fix for Tumor Core (if we use it)
-        mask = seg_map_3d == lbl
-        if goat:
-            label_name = goat_label_names.get(lbl, f"Label {lbl}")
-        elif pediatric:
-            label_name = ped_label_names.get(lbl, f"Label {lbl}")
-        else:
-            label_name = label_names.get(lbl, f"Label {lbl}")
-        area_pct = compute_area_percentage(mask, total_pixels)
-        area_interp = interpret_3d_area_percentage(area_pct)
-
-        if area_interp == "none":
-            centroid = None
-            quadrant = "none"
-            bounding_box_quads = None
-            bounding_box_str = "none"
-            extent_value = 0.0
-            extent_interp = "none"
-            solidity_value = 0.0
-            solidity_interp = "none"
-        else:
-            centroid = center_of_mass(mask)
-            quadrant = get_3d_quadrant(centroid, height, width, depth)
-
-            bbox = compute_3d_bounding_box(mask, total_pixels)
-            bounding_box_quads = get_3d_bounding_box_quadrants(bbox, height, width, depth)
-            bounding_box_str = bounding_box_quads if bounding_box_quads else "none"
-
-            # Extent-based compactness
-            extent_value, extent_interp = measure_3d_extent_compactness(mask, bbox)
-            solidity_value, solidity_interp = measure_3d_solidity(mask)
-
-        if (bounding_box_str == "none") or (extent_interp == "none") or (solidity_interp == "none"):
-            centroid = None
-            quadrant = "none"
-            bounding_box_quads = None
-            bounding_box_str = "none"
-            extent_value = 0.0
-            extent_interp = "none"
-            solidity_value = 0.0
-            solidity_interp = "none"
-
-        label_summaries.append({
-            "label": lbl,
-            "name": label_name,
-            "area_pct": area_pct,
-            "area_interp": area_interp,
-            "centroid_quadrant": quadrant,
-            "bbox_quadrants": bounding_box_quads,
-            "bbox_str": bounding_box_str,
-            "extent_value": extent_value,
-            "extent_interp": extent_interp,
-            "solidity_value": solidity_value,
-            "solidity_interp": solidity_interp
-        })
-    return label_summaries
-
 
 
 def analyze_segmentation_map(seg_map_2d):
@@ -1026,118 +595,6 @@ def vqa_round(value):
         return round_val
 
 
-def _surface_area_from_mesh(verts, faces):
-    """
-    Compute surface area from a triangular mesh (verts, faces)
-    returned by skimage.measure.marching_cubes.
-    """
-    v0 = verts[faces[:, 0]]
-    v1 = verts[faces[:, 1]]
-    v2 = verts[faces[:, 2]]
-    # Triangle area = 0.5 * || (v1-v0) x (v2-v0) ||
-    tri_areas = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0), axis=1)
-    return tri_areas.sum()
-
-
-def _classify_shape(vol_mm3, sphericity, elongation):
-    """return one of: round / oval / elongated / irregular / focus"""
-    if vol_mm3 * 1e-3 < 0.1:          # <0.1 cc tiny
-        return "focus"
-    if sphericity >= 0.85 and elongation <= 1.3:
-        return "round"
-    if 0.60 <= sphericity < 0.85 and 1.3 < elongation <= 2.5:
-        return "oval"
-    if elongation > 2.5:
-        return "elongated"
-    return "irregular"
-
-
-def compute_shape_descriptors(mask, voxel_spacing=(1.0, 1.0, 1.0)):
-    desc = {}
-    voxel_vol = np.prod(voxel_spacing)
-    total_V = mask.sum() * voxel_vol
-    desc["volume_mm3"] = total_V
-
-    # --- connected components ---
-    labeled, num_cc = ndimage.label(mask, structure=ball(1))
-    desc["multiplicity"] = num_cc
-
-    if num_cc == 0:          # empty mask
-        desc.update({
-            "core_fraction": 0.0,
-            "satellite_volume_fraction": 0.0,
-            "satellite_ratio": 0.0,
-            "satellite_interp": "no lesion",
-            "shape_interp": "no lesion"
-        })
-        return desc
-
-    # sizes per component
-    cc_sizes = ndimage.sum(mask, labeled, index=range(1, num_cc + 1))
-    cc_sizes = np.asarray(cc_sizes, dtype=float) * voxel_vol
-    core_idx = int(np.argmax(cc_sizes)) + 1
-    core_vol = cc_sizes.max()
-    core_fraction = core_vol / total_V
-    desc["core_fraction"] = core_fraction
-    desc["satellite_volume_fraction"] = 1 - core_fraction
-    desc["satellite_ratio"] = max(0, num_cc - 1) / num_cc
-
-    # --- satellite label ---
-    if num_cc == 1:
-        sat_word = "single lesion"
-    elif core_fraction >= 0.70:
-        sat_word = "core with satellite lesions"
-    else:
-        sat_word = "scattered lesions"
-    desc["satellite_interp"] = sat_word
-
-    # ---------------- shape analysis ----------------
-    precedence = ["round", "oval", "elongated", "irregular"]  # higher → earlier
-    shape_counts = {k: 0 for k in precedence + ["focus"]}
-
-    def _shape_for_component(comp_mask):
-        V = comp_mask.sum() * voxel_vol
-        if V == 0:
-            return "focus"
-        verts, faces, _, _ = measure.marching_cubes(comp_mask.astype(np.uint8),
-                                                   spacing=voxel_spacing)
-        A = _surface_area_from_mesh(verts, faces)
-        sph = (np.pi ** (1/3) * (6 * V) ** (2/3)) / A if A > 0 else 0.0
-        # elongation via PCA
-        coords = np.column_stack(np.nonzero(comp_mask))
-        if coords.shape[0] >= 3:
-            cov = np.cov(coords, rowvar=False)
-            eigvals, _ = np.linalg.eigh(cov)
-            eigvals = np.sort(eigvals)[::-1]
-            elg = np.sqrt(eigvals[0] / eigvals[1]) if eigvals[1] > 0 else 0.0
-        else:
-            elg = 0.0
-        return _classify_shape(V, sph, elg)
-
-    if num_cc == 1 or core_fraction >= 0.70:
-        # analyse only the core
-        core_mask = (labeled == core_idx)
-        final_shape = _shape_for_component(core_mask)
-    else:
-        # scattered: analyse every component
-        for cid in range(1, num_cc + 1):
-            shp = _shape_for_component(labeled == cid)
-            shape_counts[shp] += 1
-        # majority vote
-        majority = max(shape_counts.values())
-        tied = [k for k, v in shape_counts.items() if v == majority]
-        # precedence resolution
-        for pref in precedence:
-            if pref in tied:
-                final_shape = pref
-                break
-        else:
-            final_shape = "focus"
-
-    desc["shape_interp"] = final_shape
-    return desc
-
-
 def compute_bounding_box(mask, total_pixels):
     """
     Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
@@ -1152,25 +609,12 @@ def compute_bounding_box(mask, total_pixels):
     return min_r, min_c, max_r, max_c
 
 
-def compute_3d_bounding_box(mask, total_pixels):
-    """
-    Returns (min_row, min_col, max_row, max_col) for all True pixels in `mask`.
-    If `mask` is empty, returns None.
-    """
-    area = compute_area_percentage(mask, total_pixels)
-    coords = np.where(mask)
-    if (coords[0].size == 0) or (area == 0.0):
-        return None
-    min_r, max_r = coords[0].min(), coords[0].max() + 1
-    min_c, max_c = coords[1].min(), coords[1].max() + 1
-    min_d, max_d = coords[2].min(), coords[2].max() + 1
-    return min_r, min_c, min_d, max_r, max_c, max_d
-
 def compute_area_percentage(mask, total_pixels):
     """
     Returns the percentage of 'mask' pixels relative to the total segmentation size.
     """
     return vqa_round((mask.sum() / total_pixels) * 100)
+
 
 def compute_adj_percentage(adj_mask, orig_mask):
     """
@@ -1219,43 +663,6 @@ def interpret_area_percentage(pct):
         return "the vast majority"
 
 
-def interpret_3d_area_percentage(pct):
-    """
-    Subjective interpretation of area percentage, tuned for smaller values.
-    Example thresholds (you can tweak these to your liking):
-      - 0.0%:    "none"
-      - <0.1%:   "almost negligible"
-      - <0.5%:   "tiny fraction"
-      - <2%:     "very small fraction"
-      - <5%:     "small portion"
-      - <10%:    "moderate portion"
-      - <20%:    "significant portion"
-      - <40%:    "large portion"
-      - <70%:    "major portion"
-      - >=70%:   "the vast majority"
-    """
-    if pct == 0.0:
-        return "none"
-    elif pct < 0.1:
-        return "almost negligible"
-    elif pct < 0.5:
-        return "tiny fraction"
-    elif pct < 1:
-        return "very small fraction"
-    elif pct < 2:
-        return "small portion"
-    elif pct < 5:
-        return "moderate portion"
-    elif pct < 12:
-        return "significant portion"
-    elif pct < 40:
-        return "large portion"
-    elif pct < 70:
-        return "major portion"
-    else:
-        return "the vast majority"
-
-
 def get_quadrant(centroid, height, width):
     """
     Maps a (row, col) centroid to one of 9 quadrants (top-left to bottom-right).
@@ -1290,42 +697,6 @@ def get_quadrant(centroid, height, width):
             return "bottom-right"
 
 
-def get_3d_quadrant(centroid, height, width, depth):
-    """
-    Maps a (row, col) centroid to one of 27 quadrants (top-left to bottom-right).
-    """
-    if not centroid or np.isnan(centroid[0]) or np.isnan(centroid[1]):
-        return "none"
-
-    row, col, d = centroid
-    third_height = height / 3
-    third_width = width / 3
-    third_depth = depth / 3
-    quadrant_string = ""
-    # add row string
-    if row < third_height:
-        quadrant_string += "top-"
-    elif row < 2 * third_height:
-        quadrant_string += "center-"
-    else:
-        quadrant_string += "bottom-"
-    # add col string
-    if col < third_width:
-        quadrant_string += "left-"
-    elif col < 2 * third_width:
-        quadrant_string += "center-"
-    else:
-        quadrant_string += "right-"
-    # add depth string
-    if d < third_depth:
-        quadrant_string += "front"
-    elif d < 2 * third_depth:
-        quadrant_string += "middle"
-    else:
-        quadrant_string += "back"
-    return quadrant_string
-
-
 def get_bounding_box_quadrants(bbox, height, width):
     """
     Determine which quadrants are affected by a bounding box
@@ -1346,38 +717,6 @@ def get_bounding_box_quadrants(bbox, height, width):
     ]
     for (r, c) in corners:
         quadrant = get_quadrant((r, c), height, width)
-        if quadrant != "none":
-            affected_quadrants.add(quadrant)
-    if len(affected_quadrants) == 0:
-        return "none"
-    affected_quadrants_str = ", ".join(sorted(affected_quadrants))
-    return affected_quadrants_str
-
-
-def get_3d_bounding_box_quadrants(bbox, height, width, depth):
-    """
-    Determine which quadrants are affected by a bounding box
-    by sampling corners of the bounding box.
-    """
-    if not bbox:
-        return "none"
-
-    min_r, min_c, min_d, max_r, max_c, max_d = bbox
-    affected_quadrants = set()
-
-    # We check the eight corners
-    corners = [
-        (min_r, min_c, min_d),
-        (min_r, max_c - 1, min_d),
-        (max_r - 1, min_c, min_d),
-        (max_r - 1, max_c - 1, min_d),
-        (min_r, min_c, max_d - 1),
-        (min_r, max_c - 1, max_d - 1),
-        (max_r - 1, min_c, max_d - 1),
-        (max_r - 1, max_c - 1, max_d - 1),
-    ]
-    for (r, c, d) in corners:
-        quadrant = get_3d_quadrant((r, c, d), height, width, depth)
         if quadrant != "none":
             affected_quadrants.add(quadrant)
     if len(affected_quadrants) == 0:
@@ -1476,24 +815,6 @@ def measure_extent_compactness(mask, total_pixels):
     return extent, interpretation
 
 
-def measure_3d_extent_compactness(mask, bbox):
-    area = mask.sum()
-    if not bbox:
-        return 0.0, "none"
-
-    min_r, min_c, min_d, max_r, max_c, max_d = bbox
-    bbox_h = max_r - min_r
-    bbox_w = max_c - min_c
-    bbox_d = max_d - min_d
-
-    bbox_area = bbox_h * bbox_w * bbox_d
-    if bbox_area == 0:
-        return 0.0, "none"
-
-    extent = (area / bbox_area) * 100
-    interpretation = interpret_3d_extent(extent)
-    return extent, interpretation
-
 def interpret_extent(value):
     """
     Subjective interpretation of how well the region fills its bounding box.
@@ -1512,24 +833,6 @@ def interpret_extent(value):
         return "almost fully filled"
 
 
-def interpret_3d_extent(value):
-    """
-    Subjective interpretation of how well the region fills its bounding box.
-    """
-    if value == 0.0:
-        return "none"
-    elif value < 5.0:
-        return "very sparse"
-    elif value < 12.5:
-        return "somewhat scattered"
-    elif value < 20.0:
-        return "partially filled"
-    elif value < 50.0:
-        return "nearly filled"
-    else:
-        return "almost fully filled"
-
-
 def measure_solidity(mask):
     """
     Computes Solidity = area / convex_hull_area.
@@ -1541,33 +844,6 @@ def measure_solidity(mask):
     return solidity, interpret_solidity(solidity)
 
 
-def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
-    # 1) Volume = number of foreground voxels * voxel volume
-    voxel_volume = np.prod(voxel_spacing)  # e.g. 1 * 1 * 1 if spacing=(1,1,1)
-    volume = np.count_nonzero(mask_3d) * voxel_volume
-
-    # 2) Use marching cubes to get a 3D mesh of the surface
-    #    skimage.measure.marching_cubes returns:
-    #       vertices, faces, normals, values
-    #    'level=0.5' is typical for binary masks
-    #    'spacing' uses voxel_spacing to scale the mesh in real units.
-    verts, faces, normals, _ = measure.marching_cubes(
-        volume=mask_3d,
-        level=0.5,
-        spacing=voxel_spacing
-    )
-
-    # 3) Compute surface area of that mesh
-    #    skimage provides a convenience function
-    surface_area = measure.mesh_surface_area(verts, faces)
-
-    if volume == 0 or surface_area == 0:
-        solidity = 0.0
-    else:
-        solidity = vqa_round(((1.6 - (surface_area / volume))/1.6) * 100)
-    return solidity, interpret_3d_solidity(solidity)
-
-
 def interpret_solidity(value):
     """
     Subjective interpretation of solidity.
@@ -1575,20 +851,6 @@ def interpret_solidity(value):
     if value == 0.0:
         return "none"
     elif value < 60:
-        return "highly irregular and scattered"
-    elif value < 80.0:
-        return "somewhat compact but irregular"
-    else:
-        return "mostly compact"
-
-
-def interpret_3d_solidity(value):
-    """
-    Subjective interpretation of solidity.
-    """
-    if value == 0.0:
-        return "none"
-    elif value < 50.0:
         return "highly irregular and scattered"
     elif value < 80.0:
         return "somewhat compact but irregular"

@@ -1,17 +1,15 @@
 from glob import glob
 from joblib import Parallel, delayed
-from tqdm import tqdm
 from tqdm_joblib import tqdm_joblib
 import json
 from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, \
     load_lab_map_from_nifti
-from vqa_utils import analyze_3d_label_summary, summarize_3d_vqa_data, generate_3d_labal_vqa_questions, \
-    postprocess_3d_vqa_data, generate_train_val_test_splits
+from vqa_utils import generate_train_val_test_splits
+from vqa_3d_utils import analyze_3d_label_summary, generate_3d_labal_vqa_questions_v3, postprocess_3d_vqa_data, summarise_vqa_stats
 
 
-def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, include_quadrant=False,
-                              include_bbox=True, include_extent=True, include_solidity=True, subjective_only=False,
-                              labels_order=(1, 2, 3, 4), pediatric=False, goat=False):
+def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, include_regions=True, include_shape=True,
+                              include_satellite=True, labels_order=(1, 2, 3, 4), pediatric=False, goat=False):
     """
     Master function to produce a textual report combining:
       - Label summaries (area %, quadrant, bounding box, extent-based compactness)
@@ -35,12 +33,10 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
-        label_vqa_questions = generate_3d_labal_vqa_questions(summ=summ, include_area=include_area,
-                                                              include_quadrant=include_quadrant,
-                                                              include_bbox=include_bbox,
-                                                              include_extent=include_extent,
-                                                              include_solidity=include_solidity,
-                                                              subjective_only=subjective_only)
+        label_vqa_questions = generate_3d_labal_vqa_questions_v3(summ=summ, include_area=include_area,
+                                                                 include_regions=include_regions,
+                                                                 include_shape=include_shape,
+                                                                 include_satellite=include_satellite)
         vqa_questions.extend(label_vqa_questions)
     non_seg_files_dict = get_nifti_non_seg_file_from_dir(volume_file_dir)
     for q in vqa_questions:
@@ -52,27 +48,13 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     return all_vqa_questions
 
 
-def generate_vqa_data_from_seg_file(seg_files, include_area=True, include_quadrant=True, include_bbox=True,
-                                    include_extent=True, include_solidity=True, labels_order=(1, 2, 3, 4)):
-    all_vqa_questions = []
-    for volume_id, volume_file_dir in tqdm(enumerate(seg_files)):
-        vqa_data = generate_vqa_from_seg_map(volume_file_dir=volume_file_dir, volume_id=volume_id, include_area=include_area,
-                                             include_quadrant=include_quadrant, include_bbox=include_bbox,
-                                             include_extent=include_extent, include_solidity=include_solidity,
-                                             labels_order=labels_order)
-        all_vqa_questions.extend(vqa_data)
-    return all_vqa_questions
-
-
 def generate_vqa_data_from_seg_file_joblib(
     volume_file_dirs,
     n_jobs=-1,
     include_area=True,
-    include_quadrant=True,
-    include_bbox=True,
-    include_extent=True,
-    include_solidity=True,
-    subjective_only=False,
+    include_regions=True,
+    include_shape=True,
+    include_satellite=True,
     labels_order=(1, 2, 3, 4),
     pediatric=False,
     goat=False
@@ -99,11 +81,9 @@ def generate_vqa_data_from_seg_file_joblib(
                 volume_file_dir,
                 volume_id,
                 include_area,
-                include_quadrant,
-                include_bbox,
-                include_extent,
-                include_solidity,
-                subjective_only,
+                include_regions,
+                include_shape,
+                include_satellite,
                 labels_order,
                 pediatric,
                 goat
@@ -152,7 +132,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"v6_seed{seed}"
+    version = f"updated_v0_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     labels_order = (1, 2, 3, 4)
     pediatric = False
@@ -180,14 +160,18 @@ if __name__ == "__main__":
     val_file = val_file.format(dataset_type, subjective_only, version)
     test_file = test_file.format(dataset_type, subjective_only, version)
 
-    vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, subjective_only=subjective_only,
-                                                       include_quadrant=False, labels_order=labels_order,
-                                                       n_jobs=8, pediatric=pediatric, goat=goat)
+    vqa_data_ = generate_vqa_data_from_seg_file_joblib(volume_file_dirs, labels_order=labels_order, n_jobs=8,
+                                                       pediatric=pediatric, goat=goat)
     with open(vqa_file, 'w') as f:
         json.dump(vqa_data_, f, indent=2)
     with open(vqa_file, 'r') as f:
         vqa_data_ = json.load(f)
-    print(summarize_3d_vqa_data(vqa_data_))
+    stats = summarise_vqa_stats(vqa_data_)
+    print("Total:", stats["total_questions"])
+    print(stats["questions_per_label_and_type"])  # wide table of counts
+    print(stats["answer_dist_per_type"])  # distribution per question‑type
+    print(stats["answer_dist_per_label_and_type"].head())
+
     processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
     question_key = "volume_file_id"
     if (ref_train_vqa_file is not None) and (ref_val_vqa_file is not None) and (ref_test_vqa_file is not None):
