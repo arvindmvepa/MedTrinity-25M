@@ -107,7 +107,10 @@ def get_region_str(region_list):
         return ", ".join(region_list[:-1]) + " and " + region_list[-1]
 
 
-def analyze_label_localization(seg_path, atlas_path, label_txt, tumour_labels):
+def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz",
+                               atlas_path="/local2/amvepa91/sri24/lpba40.nii",
+                               label_txt="/local2/amvepa91/sri24/LPBA40-labels.txt",
+                               tumour_labels=None):
     """
     seg_path      : path to your multi‑label tumour segmentation (NIfTI)
     atlas_path    : path to LPBA40 (or other) atlas NIfTI
@@ -121,11 +124,12 @@ def analyze_label_localization(seg_path, atlas_path, label_txt, tumour_labels):
     """
     tumour_img = nib.load(seg_path)
     atlas_img = nib.load(atlas_path)
-    atlas_map = load_atlas_label_map(label_txt)
+    atlas_label_map = load_atlas_label_map(label_txt)
 
     summary = {}
     for name, label_index in tumour_labels.items():
-        summary[name] = localize_to_gyrus(tumour_img, atlas_img, atlas_map,
+        summary[name] = localize_to_gyrus(tumour_img=tumour_img, atlas_img=atlas_img,
+                                          atlas_label_map=atlas_label_map,
                                           label_index=label_index)
 
     return summary
@@ -134,15 +138,16 @@ def analyze_label_localization(seg_path, atlas_path, label_txt, tumour_labels):
 # --------------------------------------------------------------------
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
-    seg = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz"
-    atlas = "/local2/amvepa91/sri24/lpba40.nii"
-    #atlas = "/local2/amvepa91/sri24/tzo116plus.nii"
-    labels = "/local2/amvepa91/sri24/LPBA40-labels.txt"
-    #labels = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
+    seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz"
+    atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
+    #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
+    label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
+    #label_txt = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
 
-    summ = analyze_label_localization(seg, atlas, labels, tumour_labels)
+    summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
+                                      tumour_labels=tumour_labels)
 
     # Pretty‑print ET example
     et = summ["ET"]
