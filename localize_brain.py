@@ -139,11 +139,10 @@ if __name__ == "__main__":
     #atlas = "/local2/amvepa91/sri24/tzo116plus.nii"
     labels = "/local2/amvepa91/sri24/LPBA40-labels.txt"
     #labels = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
-    txt = f"./{os.path.basename(seg)}_report.csv"
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
 
-    summ = analyze_label_localization(seg, atlas, txt, tumour_labels)
+    summ = analyze_label_localization(seg, atlas, labels, tumour_labels)
 
     # Pretty‑print ET example
     et = summ["ET"]
