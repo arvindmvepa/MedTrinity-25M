@@ -171,6 +171,8 @@ if __name__ == "__main__":
     print(stats["questions_per_label_and_type"])  # wide table of counts
     print(stats["answer_dist_per_type"])  # distribution per question‑type
     print(stats["answer_dist_per_label_and_type"].head())
+    with open(f"stats {vqa_file}", 'w') as f:
+        json.dump(stats, f, indent=2)
 
     processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
     question_key = "volume_file_id"
