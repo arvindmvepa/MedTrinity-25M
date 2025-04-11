@@ -149,10 +149,11 @@ if __name__ == "__main__":
     summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
                                       tumour_labels=tumour_labels)
 
-    # Pretty‑print ET example
-    et = summ["ET"]
-    print("Total ET voxels:", et["total_voxels"])
-    for idx, info in et["overlap"].items():
-        print(f"{idx:3d} {info['region']:<30} {info['voxels']:6d} "
-              f"({info['percent']:5.2f}%)")
+    for tumor_label, info in summ.items():
+        print(f"\nTumor label: {tumor_label}")
+        print("Total voxels:", info["total_voxels"])
+        for idx, info in info["overlap"].items():
+            print(f"{idx:3d} {info['region']:<30} {info['voxels']:6d} "
+                  f"({info['percent']:5.2f}%)")
+        print("Regions:", get_region_str(info["regions"]))
 
