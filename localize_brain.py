@@ -70,6 +70,9 @@ def localize_to_gyrus(
     tumour_mask = (tumour_mask == label_index).astype(int)
     atlas_data = atlas_img.get_fdata().astype(int)
 
+    print("atlas_data.shape", atlas_data.shape)
+    print("tumour_mask.shape", tumour_mask.shape)
+
     overlapped = atlas_data[tumour_mask]
     unique, counts = np.unique(overlapped[overlapped > 0], return_counts=True)
     total = int(tumour_mask.sum())
