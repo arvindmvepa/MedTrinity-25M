@@ -14,9 +14,21 @@ from vqa_utils import vqa_round, label_names, goat_label_names, ped_label_names,
 def summarise_vqa_stats(vqa_list):
     """
     vqa_list : list[dict] produced by your VQA‑generation pipeline
+
+    Returns
+    -------
+    {
+      "total_questions"                 : int,
+      "questions_per_label"             : pd.Series
+      "questions_per_type"              : pd.Series
+      "questions_per_label_and_type"    : pd.DataFrame   (labels × types)
+
+      "answer_dist_per_type"            : {type : DataFrame}               # NEW
+      "answer_dist_per_label_and_type"  : {type : DataFrame}               # NEW
+    }
     """
     df = pd.json_normalize(vqa_list)
-    df["answer"] = df["answer_vqa"].str[0]          # unwrap the single‑item list
+    df["answer"] = df["answer_vqa"].str[0]      # unwrap the single‑item list
 
     # ------------------------------------------------------------------ #
     # 1. Basic question counts
@@ -27,31 +39,38 @@ def summarise_vqa_stats(vqa_list):
     questions_per_label_and_type = (
         df.groupby(["label_name", "type"])
           .size()
-          .unstack(fill_value=0)          # nice wide table
+          .unstack(fill_value=0)      # labels as rows, types as columns
     )
 
     # ------------------------------------------------------------------ #
-    # 2. Answer‑distributions you requested
+    # 2. Answer‑distribution tables, **one DataFrame per question‑type**
     # ------------------------------------------------------------------ #
-    # a) For each QUESTION‑TYPE, how often does every answer appear?
-    answer_dist_per_type = (
-        df.groupby(["type", "answer"])
-          .size()
-          .rename("count")
-          .reset_index()
-          .pivot(index="type", columns="answer", values="count")
-          .fillna(0)
-          .astype(int)
-    )
+    answer_dist_per_type = {}
+    answer_dist_per_label_and_type = {}
 
-    # b) For each LABEL **and** QUESTION‑TYPE, how often does every answer appear?
-    answer_dist_per_label_and_type = (
-        df.groupby(["label_name", "type", "answer"])
-          .size()
-          .rename("count")
-          .reset_index()
-          .sort_values(["label_name", "type", "answer"])
-    )
+    for qtype, sub in df.groupby("type"):
+        # a) overall distribution for this type  -----------------------
+        #     columns = unique answers, single row with counts
+        overall_tbl = (
+            sub.groupby("answer")
+               .size()
+               .rename("count")
+               .to_frame()
+               .T                          # single row
+               .fillna(0)
+               .astype(int)
+        )
+        answer_dist_per_type[qtype] = overall_tbl
+
+        # b) distribution broken down by label ------------------------
+        #     rows = label_name, columns = answers
+        per_label_tbl = (
+            sub.groupby(["label_name", "answer"])
+               .size()
+               .unstack(fill_value=0)
+               .astype(int)
+        )
+        answer_dist_per_label_and_type[qtype] = per_label_tbl
 
     # ------------------------------------------------------------------ #
     # 3. Package everything
@@ -61,10 +80,9 @@ def summarise_vqa_stats(vqa_list):
         "questions_per_label": questions_per_label,
         "questions_per_type": questions_per_type,
         "questions_per_label_and_type": questions_per_label_and_type,
-        "answer_dist_per_type": answer_dist_per_type,
-        "answer_dist_per_label_and_type": answer_dist_per_label_and_type,
+        "answer_dist_per_type": answer_dist_per_type,                       # dict[type] → DF
+        "answer_dist_per_label_and_type": answer_dist_per_label_and_type,   # dict[type] → DF
     }
-
 
 def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clean_data.json", seed=0):
     for index in range(len(all_vqa_questions)):

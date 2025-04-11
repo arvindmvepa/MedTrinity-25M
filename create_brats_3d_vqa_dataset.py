@@ -176,7 +176,11 @@ if __name__ == "__main__":
     for k, v in stats.items():
         if k == "total_questions":
             continue
-        v.to_csv(f"{k}.csv")
+        elif k == "answer_dist_per_type" or k == "answer_dist_per_label_and_type":
+            for k_,v_ in v.items():
+                v_.to_csv(f"{k}_{k_}.csv")
+        else:
+            v.to_csv(f"{k}.csv")
     processed_vqa_data = postprocess_3d_vqa_data(vqa_data_, save_vqa_file=clean_vqa_file)
     question_key = "volume_file_id"
     if (ref_train_vqa_file is not None) and (ref_val_vqa_file is not None) and (ref_test_vqa_file is not None):
