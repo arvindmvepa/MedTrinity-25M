@@ -66,7 +66,6 @@ def localize_to_gyrus(
                                  atlas_img.affine)
 
     # --- 3. compute overlap ---------------------------------------
-    tumour_mask = tumour_img.get_fdata()
     tumour_mask = (tumour_img.get_fdata() == label_index)
     atlas_data = atlas_img.get_fdata().astype(np.int16)
 
