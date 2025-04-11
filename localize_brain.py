@@ -1,4 +1,4 @@
-import os
+from nilearn import plotting
 import nibabel as nib
 import numpy as np
 from nilearn.image import resample_to_img, new_img_like
@@ -28,6 +28,7 @@ def localize_to_gyrus(
     atlas_img: nib.Nifti1Image,
     atlas_label_map: dict[int, str],
     label_index: int = 1,
+    debug=False
 ) -> dict:
     """
     Parameters
@@ -71,6 +72,14 @@ def localize_to_gyrus(
     tumour_mask = (tumour_img.get_fdata() == label_index)
     atlas_data = atlas_img.get_fdata().astype(np.int16)
 
+    if debug:
+        display = plotting.plot_roi(tumour_img,
+                                    bg_img=atlas_img,
+                                    title=f"Tumour-Affine Alignment Check Label Index {label_index}")
+        display.savefig(f"tumour_affine_alignment_check_label_index{label_index}.png")
+        display.close()
+
+
 
     overlapped = atlas_data[tumour_mask]
     unique, counts = np.unique(overlapped[overlapped > 0], return_counts=True)
@@ -110,7 +119,7 @@ def get_region_str(region_list):
 def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz",
                                atlas_path="/local2/amvepa91/sri24/lpba40.nii",
                                label_txt="/local2/amvepa91/sri24/LPBA40-labels.txt",
-                               tumour_labels=None):
+                               tumour_labels=None, debug=True):
     """
     seg_path      : path to your multi‑label tumour segmentation (NIfTI)
     atlas_path    : path to LPBA40 (or other) atlas NIfTI
@@ -130,7 +139,7 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
     for name, label_index in tumour_labels.items():
         summary[name] = localize_to_gyrus(tumour_img=tumour_img, atlas_img=atlas_img,
                                           atlas_label_map=atlas_label_map,
-                                          label_index=label_index)
+                                          label_index=label_index, debug=debug)
 
     return summary
 
