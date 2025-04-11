@@ -155,5 +155,5 @@ if __name__ == "__main__":
         for idx, info in info["overlap"].items():
             print(f"{idx:3d} {info['region']:<30} {info['voxels']:6d} "
                   f"({info['percent']:5.2f}%)")
-        print("Regions:", get_region_str(info["regions"]))
+        print("Regions:", get_region_str(info["region"]))
 
