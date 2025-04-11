@@ -17,7 +17,6 @@ def load_atlas_label_map(label_txt_path: str) -> dict[int, str]:
             name = name.split("\t")[0]
             name = name.replace('"', "")
             mapping[int(idx)] = name
-    print(mapping)
     return mapping
 
 
