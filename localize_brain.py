@@ -124,9 +124,9 @@ def analyze_label_localization(seg_path, atlas_path, label_txt, tumour_labels):
     atlas_map = load_atlas_label_map(label_txt)
 
     summary = {}
-    for name, val in tumour_labels.items():
-        summary[name] = localize_to_gyrus(
-            tumour_img == val, atlas_img, atlas_map)
+    for name, label_index in tumour_labels.items():
+        summary[name] = localize_to_gyrus(tumour_img, atlas_img, atlas_map,
+                                          label_index=label_index)
 
     return summary
 
