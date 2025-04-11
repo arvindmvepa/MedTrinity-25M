@@ -5,9 +5,11 @@ import numpy as np
 import re
 import os
 import json
+from scipy import ndimage
 from scipy.ndimage import center_of_mass
 from scipy.ndimage import label as label_, binary_dilation, generate_binary_structure
 from collections import Counter, defaultdict
+from skimage.morphology import ball
 
 
 label_names = {
@@ -828,6 +830,7 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             extent_interp = "none"
             solidity_value = 0.0
             solidity_interp = "none"
+            shape_desc = {}
         else:
             centroid = center_of_mass(mask)
             quadrant = get_quadrant(centroid, height, width)
@@ -840,6 +843,8 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             extent_value, extent_interp = measure_extent_compactness(mask)
             solidity_value, solidity_interp = measure_solidity(mask)
 
+            shape_desc = compute_shape_descriptors(mask, voxel_spacing=(1.0, 1.0, 1.0))
+
         label_summaries.append({
             "label": lbl,
             "name": label_name,
@@ -851,7 +856,9 @@ def analyze_label_summary(seg_map_2d, height, width, total_pixels, image=None, a
             "extent_value": extent_value,
             "extent_interp": extent_interp,
             "solidity_value": solidity_value,
-            "solidity_interp": solidity_interp
+            "solidity_interp": solidity_interp,
+            "shape_interp": shape_desc.get("shape_interp", None),
+            "satellite_interp": shape_desc.get("satellite_interp", None)
         })
     return label_summaries
 
@@ -1017,6 +1024,118 @@ def vqa_round(value):
         return 0.0
     else:
         return round_val
+
+
+def _surface_area_from_mesh(verts, faces):
+    """
+    Compute surface area from a triangular mesh (verts, faces)
+    returned by skimage.measure.marching_cubes.
+    """
+    v0 = verts[faces[:, 0]]
+    v1 = verts[faces[:, 1]]
+    v2 = verts[faces[:, 2]]
+    # Triangle area = 0.5 * || (v1-v0) x (v2-v0) ||
+    tri_areas = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0), axis=1)
+    return tri_areas.sum()
+
+
+def _classify_shape(vol_mm3, sphericity, elongation):
+    """return one of: round / oval / elongated / irregular / focus"""
+    if vol_mm3 * 1e-3 < 0.1:          # <0.1 cc tiny
+        return "focus"
+    if sphericity >= 0.85 and elongation <= 1.3:
+        return "round"
+    if 0.60 <= sphericity < 0.85 and 1.3 < elongation <= 2.5:
+        return "oval"
+    if elongation > 2.5:
+        return "elongated"
+    return "irregular"
+
+
+def compute_shape_descriptors(mask, voxel_spacing=(1.0, 1.0, 1.0)):
+    desc = {}
+    voxel_vol = np.prod(voxel_spacing)
+    total_V = mask.sum() * voxel_vol
+    desc["volume_mm3"] = total_V
+
+    # --- connected components ---
+    labeled, num_cc = ndimage.label(mask, structure=ball(1))
+    desc["multiplicity"] = num_cc
+
+    if num_cc == 0:          # empty mask
+        desc.update({
+            "core_fraction": 0.0,
+            "satellite_volume_fraction": 0.0,
+            "satellite_ratio": 0.0,
+            "satellite_interp": "no lesion",
+            "shape_interp": "no lesion"
+        })
+        return desc
+
+    # sizes per component
+    cc_sizes = ndimage.sum(mask, labeled, index=range(1, num_cc + 1))
+    cc_sizes = np.asarray(cc_sizes, dtype=float) * voxel_vol
+    core_idx = int(np.argmax(cc_sizes)) + 1
+    core_vol = cc_sizes.max()
+    core_fraction = core_vol / total_V
+    desc["core_fraction"] = core_fraction
+    desc["satellite_volume_fraction"] = 1 - core_fraction
+    desc["satellite_ratio"] = max(0, num_cc - 1) / num_cc
+
+    # --- satellite label ---
+    if num_cc == 1:
+        sat_word = "single lesion"
+    elif core_fraction >= 0.70:
+        sat_word = "core with satellite lesions"
+    else:
+        sat_word = "scattered lesions"
+    desc["satellite_interp"] = sat_word
+
+    # ---------------- shape analysis ----------------
+    precedence = ["round", "oval", "elongated", "irregular"]  # higher → earlier
+    shape_counts = {k: 0 for k in precedence + ["focus"]}
+
+    def _shape_for_component(comp_mask):
+        V = comp_mask.sum() * voxel_vol
+        if V == 0:
+            return "focus"
+        verts, faces, _, _ = measure.marching_cubes(comp_mask.astype(np.uint8),
+                                                   spacing=voxel_spacing)
+        A = _surface_area_from_mesh(verts, faces)
+        sph = (np.pi ** (1/3) * (6 * V) ** (2/3)) / A if A > 0 else 0.0
+        # elongation via PCA
+        coords = np.column_stack(np.nonzero(comp_mask))
+        if coords.shape[0] >= 3:
+            cov = np.cov(coords, rowvar=False)
+            eigvals, _ = np.linalg.eigh(cov)
+            eigvals = np.sort(eigvals)[::-1]
+            elg = np.sqrt(eigvals[0] / eigvals[1]) if eigvals[1] > 0 else 0.0
+        else:
+            elg = 0.0
+        return _classify_shape(V, sph, elg)
+
+    if num_cc == 1 or core_fraction >= 0.70:
+        # analyse only the core
+        core_mask = (labeled == core_idx)
+        final_shape = _shape_for_component(core_mask)
+    else:
+        # scattered: analyse every component
+        for cid in range(1, num_cc + 1):
+            shp = _shape_for_component(labeled == cid)
+            shape_counts[shp] += 1
+        # majority vote
+        majority = max(shape_counts.values())
+        tied = [k for k, v in shape_counts.items() if v == majority]
+        # precedence resolution
+        for pref in precedence:
+            if pref in tied:
+                final_shape = pref
+                break
+        else:
+            final_shape = "focus"
+
+    desc["shape_interp"] = final_shape
+    return desc
 
 
 def compute_bounding_box(mask, total_pixels):
