@@ -62,7 +62,7 @@ def get_nifti_non_seg_file_from_dir(nii_file_dir: str) -> str:
 def load_lab_map_from_nifti(seg_nii_file: str) -> torch.Tensor:
     img = nib.load(seg_nii_file)
     label_map = img.get_fdata() # H x W x D
-    return label_map
+    return img, label_map
 
 
 def load_color_seg_png_as_labels_gpu(png_path: str) -> torch.Tensor:

@@ -25,6 +25,7 @@ def localize_to_gyrus(
     tumour_img: nib.Nifti1Image,
     atlas_img: nib.Nifti1Image,
     atlas_label_map: dict[int, str],
+    label_index: int = 1,
 ) -> dict:
     """
     Parameters
@@ -62,6 +63,7 @@ def localize_to_gyrus(
 
     # --- 3. compute overlap ---------------------------------------
     tumour_mask = tumour_img.get_fdata()
+    tumour_mask = (tumour_mask == label_index).astype(int)
     atlas_data = atlas_img.get_fdata().astype(int)
 
     overlapped = atlas_data[tumour_mask]

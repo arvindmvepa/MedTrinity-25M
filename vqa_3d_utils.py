@@ -488,7 +488,7 @@ def generate_3d_labal_vqa_questions_v3(
     return vqa_questions
 
 
-def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4),
+def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4),
                              pediatric=False, goat=False, atlas_path="/local2/amvepa91/sri24/lpba40.nii",
                              label_txt_path="/local2/amvepa91/sri24/LPBA40-labels.txt"):
     """
@@ -512,8 +512,7 @@ def analyze_3d_label_summary(seg_map_3d, height, width, depth, total_pixels, lab
             label_name = ped_label_names.get(lbl, f"Label {lbl}")
         else:
             label_name = label_names.get(lbl, f"Label {lbl}")
-
-        regions = localize_to_gyrus(mask, atlas_img, atlas_map)['regions']
+        regions = localize_to_gyrus(nib_seg_map_3d, atlas_img, atlas_map, label_index=lbl)['regions']
         region_str = get_region_str(regions)
         summ['regions'] = region_str
 

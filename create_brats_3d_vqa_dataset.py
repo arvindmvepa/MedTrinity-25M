@@ -19,7 +19,7 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
       - Resection cavity vs tumor core & FLAIR.
     """
     nii_seg_file = get_nifti_seg_file_from_dir(volume_file_dir)
-    seg_map_3d = load_lab_map_from_nifti(nii_seg_file)
+    nib_seg_map_3d, seg_map_3d = load_lab_map_from_nifti(nii_seg_file)
 
     height, width, depth = seg_map_3d.shape
     total_pixels = seg_map_3d.size
@@ -27,9 +27,9 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     all_vqa_questions = []
 
     # Summaries of labels
-    label_summaries = analyze_3d_label_summary(seg_map_3d=seg_map_3d,height=height, width=width, depth=depth,
-                                               total_pixels=total_pixels, labels_order=labels_order,
-                                               pediatric=pediatric, goat=goat)
+    label_summaries = analyze_3d_label_summary(nib_seg_map_3d=nib_seg_map_3d, seg_map_3d=seg_map_3d,height=height,
+                                               width=width, depth=depth, total_pixels=total_pixels,
+                                               labels_order=labels_order, pediatric=pediatric, goat=goat)
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
