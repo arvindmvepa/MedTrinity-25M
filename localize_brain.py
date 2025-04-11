@@ -67,11 +67,9 @@ def localize_to_gyrus(
 
     # --- 3. compute overlap ---------------------------------------
     tumour_mask = tumour_img.get_fdata()
-    tumour_mask = (tumour_mask == label_index).astype(int)
-    atlas_data = atlas_img.get_fdata().astype(int)
+    tumour_mask = (tumour_img.get_fdata() == label_index)
+    atlas_data = atlas_img.get_fdata().astype(np.int16)
 
-    print("atlas_data.shape", atlas_data.shape)
-    print("tumour_mask.shape", tumour_mask.shape)
 
     overlapped = atlas_data[tumour_mask]
     unique, counts = np.unique(overlapped[overlapped > 0], return_counts=True)
