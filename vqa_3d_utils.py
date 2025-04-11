@@ -71,7 +71,6 @@ def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clea
         question = all_vqa_questions[index]
         question["img_id"] = all_vqa_questions[index]["volume_file_id"]
         assert "question" in all_vqa_questions[index]
-        assert "answer" in all_vqa_questions[index]
         question["q_lang"] = "en"
         question["qid"] = index
         question["location"] = "Brain"
