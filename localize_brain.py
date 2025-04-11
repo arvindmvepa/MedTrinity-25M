@@ -57,9 +57,13 @@ def localize_to_gyrus(
 
     # --- 2. resample atlas to tumour space if needed ---------------
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
-        print("atlas_img.shape", atlas_img.shape)
-        print("tumour_img.shape", tumour_img.shape)
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation="nearest")
+
+    # ---- NEW: drop trailing singleton dim if present --------------
+    if atlas_img.ndim == 4 and atlas_img.shape[-1] == 1:
+        atlas_img = new_img_like(atlas_img,
+                                 atlas_img.get_fdata()[..., 0],  # squeeze
+                                 atlas_img.affine)
 
     # --- 3. compute overlap ---------------------------------------
     tumour_mask = tumour_img.get_fdata()
