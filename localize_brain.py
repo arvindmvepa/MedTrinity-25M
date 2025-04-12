@@ -75,8 +75,8 @@ def localize_to_gyrus(
     if debug:
         display = plotting.plot_roi(tumour_img,
                                     bg_img=atlas_img,
-                                    title=f"Tumour-Affine Alignment Check Label Index {label_index}")
-        display.savefig(f"tumour_affine_alignment_check_label_index{label_index}.png")
+                                    title=f"Tumour-Affine Alignment Check Label")
+        display.savefig(f"tumour_affine_alignment_check.png")
         display.close()
 
 
@@ -147,7 +147,7 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 # --------------------------------------------------------------------
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
-    seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz"
+    seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
     atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
     #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
