@@ -75,7 +75,7 @@ def localize_to_gyrus(
     if debug:
         display = plotting.plot_roi(tumour_img,
                                     bg_img=atlas_img,
-                                    title=f"Tumour-Affine Alignment Check Label")
+                                    title=f"Tumour-Affine Alignment Check Label", alpha=0.5)
         display.savefig(f"tumour_affine_alignment_check.png")
         display.close()
 
