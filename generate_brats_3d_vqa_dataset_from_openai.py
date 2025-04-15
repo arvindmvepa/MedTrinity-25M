@@ -34,7 +34,7 @@ def map_df_cols_to_combo(df):
         # get the combo for the current row
         original_qa_prompt = row["original_qa"][row["original_qa"].index("Q: "):]
         combo = question_type_combo_map[original_qa_prompt]
-        df.at[i, "combo"] = combo
+        df.at[i, "combo"] = str(combo)
     return df
 
 
@@ -48,7 +48,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
     for t in base_types:
         for combo in shuffled_combos:
             if t in combo and combo not in used_combos:
-                row = df[df["combo"] == combo].iloc[0]
+                row = df[df["combo"] == str(combo)].iloc[0]
                 df.drop(row.index, inplace=True)
                 question = row["transformed_q"]
                 answer = row["transformed_a"]
@@ -187,6 +187,9 @@ if __name__ == "__main__":
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict, openai_df, seed=new_dataset_seed)
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
+
+    # TODO: Add some validation to ensure the performance is good (check for question duplicates, frequency of combo/question types, etc.).
+    # Can use ChatGPT to help
 
     # save the updated vqa dataset
     with open(train_vqa_file, 'w') as f:
