@@ -60,18 +60,11 @@ def generate_clean_qa_dataset_from_openai(input_csv, question_col="question", an
     records = []
 
     for _, row in df_raw.iterrows():
-        # ── original block & split ────────────────────────────────────────────
-        original_qa = extract_original_qa(row[question_col])
-        original_q, original_a = parse_qa_block(original_qa)
-
-        # ── every transformed variant ────────────────────────────────────────
         for t in split_transformed_qas(row[answer_col]):
             records.append(
                 {
-                    "original_qa": original_qa,
-                    "original_q":  original_q,
-                    "original_a":  original_a,
-                    **t,                       # merges transformed_* keys
+                    "original_qa": row[question_col],
+                    **t
                 }
             )
 
