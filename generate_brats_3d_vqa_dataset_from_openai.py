@@ -81,14 +81,13 @@ def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volum
     return vqa_data_dict
 
 
-def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volume_file_id", type_key="type",
-                                                     label_key="label_name"):
-    vqa_data = []
+def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data):
+    vqa_data_list = []
     for seg_id, seg_id_vqa_datum in vqa_data.items():
         for label, label_vqa_datum in seg_id_vqa_datum.items():
             for question_type, vqa_datum in label_vqa_datum.items():
-                vqa_data.append(vqa_datum)
-    return vqa_data
+                vqa_data_list.append(vqa_datum)
+    return vqa_data_list
 
 
 def generate_updated_vqa_data(vqa_data_dict, df, seed):
