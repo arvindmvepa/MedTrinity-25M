@@ -99,7 +99,7 @@ def generate_updated_vqa_data(vqa_data_dict, df, seed):
             qas, used_combos = pick_num_question_types_combos_and_rows(df=df, rng=rng)
             # collect all the answers for all the types
             for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
-                answer_vqa = vqa_datum[question_type]["answer_vqa"]
+                answer_vqa = vqa_datum["answer_vqa"]
                 if question_type == "area":
                     area = answer_vqa
                 if question_type == "region":
