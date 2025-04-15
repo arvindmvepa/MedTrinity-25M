@@ -94,45 +94,46 @@ def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="vol
 
 def generate_updated_vqa_data(vqa_data_dict, df, seed):
     rng = random.Random(seed)
-    for label, question_types_vqa_datum in vqa_data_dict.items():
-        qas, used_combos = pick_num_question_types_combos_and_rows(df=df, rng=rng)
-        # collect all the answers for all the types
-        for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
-            answer_vqa = vqa_datum[question_type]["answer_vqa"]
-            if question_type == "area":
-                area = answer_vqa
-            if question_type == "region":
-                regions = answer_vqa
-            if question_type == "shape":
-                shape = answer_vqa
-            if question_type == "satellite":
-                satellite = answer_vqa
-        for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
-            question, answer = qas[i]
-            question = question.replace("{label}", label)
-            answer = answer.replace("{label}", label)
-            new_answer_vqa = []
-            if "{area}" in answer:
-                new_answer_vqa = new_answer_vqa + [area]
-                area_str = area[0]
-                answer = answer.replace("{area}", area_str)
-            if "{regions}" in answer:
-                new_answer_vqa = new_answer_vqa + [regions]
-                region_str = regions[0]
-                answer = answer.replace("{regions}", region_str)
-            if "{shape}" in answer:
-                new_answer_vqa = new_answer_vqa + [shape]
-                shape_str = shape[0]
-                answer = answer.replace("{shape}", shape_str)
-            if "{satellite}" in answer:
-                new_answer_vqa = new_answer_vqa + [satellite]
-                satellite_str = satellite[0]
-                answer = answer.replace("{satellite}", satellite_str)
-            vqa_datum["question"] = question
-            vqa_datum["answer"] = answer
-            vqa_datum["answer_vqa"] = new_answer_vqa
-            vqa_datum["answer_gen"] = answer
-            vqa_datum["combo"] = used_combos[i]
+    for seg_id, labels_question_types_vqa_datum in vqa_data_dict.items():
+        for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
+            qas, used_combos = pick_num_question_types_combos_and_rows(df=df, rng=rng)
+            # collect all the answers for all the types
+            for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
+                answer_vqa = vqa_datum[question_type]["answer_vqa"]
+                if question_type == "area":
+                    area = answer_vqa
+                if question_type == "region":
+                    regions = answer_vqa
+                if question_type == "shape":
+                    shape = answer_vqa
+                if question_type == "satellite":
+                    satellite = answer_vqa
+            for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
+                question, answer = qas[i]
+                question = question.replace("{label}", label)
+                answer = answer.replace("{label}", label)
+                new_answer_vqa = []
+                if "{area}" in answer:
+                    new_answer_vqa = new_answer_vqa + [area]
+                    area_str = area[0]
+                    answer = answer.replace("{area}", area_str)
+                if "{regions}" in answer:
+                    new_answer_vqa = new_answer_vqa + [regions]
+                    region_str = regions[0]
+                    answer = answer.replace("{regions}", region_str)
+                if "{shape}" in answer:
+                    new_answer_vqa = new_answer_vqa + [shape]
+                    shape_str = shape[0]
+                    answer = answer.replace("{shape}", shape_str)
+                if "{satellite}" in answer:
+                    new_answer_vqa = new_answer_vqa + [satellite]
+                    satellite_str = satellite[0]
+                    answer = answer.replace("{satellite}", satellite_str)
+                vqa_datum["question"] = question
+                vqa_datum["answer"] = answer
+                vqa_datum["answer_vqa"] = new_answer_vqa
+                vqa_datum["answer_gen"] = answer
+                vqa_datum["combo"] = used_combos[i]
     return vqa_data_dict
 
 
