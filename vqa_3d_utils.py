@@ -492,7 +492,7 @@ def generate_3d_labal_vqa_questions_v3(
             "type": "satellite",
             "label_name": summ['name']
         })
-
+    """
     # 2-Way Combinations
     if include_area and include_regions:
         question = f"How large is the volume of {summ['name']} and where is it located?"
@@ -605,7 +605,7 @@ def generate_3d_labal_vqa_questions_v3(
             "type": "area_region_shape_satellite",
             "label_name": summ['name']
         })
-
+    """
     return vqa_questions
 
 
@@ -830,7 +830,7 @@ def interpret_3d_area_percentage(pct: float) -> str:
     Uses literature‑like cut‑offs: <1, 1–5, 5–10, 10–25, 25–50, 50–75, >75.
     """
     if pct == 0.0:
-        return "none"
+        return "N/A"
     if pct < 1.0:
         return "<1%"
     if pct < 5.0:
