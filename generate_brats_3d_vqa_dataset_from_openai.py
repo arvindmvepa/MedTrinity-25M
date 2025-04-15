@@ -1,6 +1,7 @@
 import itertools, random
 import pandas as pd
 import json
+from tqdm import tqdm
 
 
 base_types = (1, 2, 3, 4)
@@ -35,7 +36,6 @@ def map_df_cols_to_combo(df):
         original_qa_prompt = row["original_qa"][row["original_qa"].index("Q: "):]
         combo = question_type_combo_map[original_qa_prompt]
         df.at[i, "combo"] = str(combo)
-    print(f"df['combo'].value_counts() = {df['combo'].value_counts()}")
     return df
 
 
@@ -50,7 +50,6 @@ def pick_num_question_types_combos_and_rows(df, rng):
         for combo in shuffled_combos:
             if t in combo and combo not in used_combos:
                 str_combo = str(tuple(combo))
-                print(f"Using combo {str_combo} for type {t}")
                 row = df[df["combo"] == str_combo].iloc[0]
                 question = row["transformed_q"]
                 answer = row["transformed_a"]
@@ -94,7 +93,7 @@ def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="vol
 
 def generate_updated_vqa_data(vqa_data_dict, df, seed):
     rng = random.Random(seed)
-    for seg_id, labels_question_types_vqa_datum in vqa_data_dict.items():
+    for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
             qas, used_combos = pick_num_question_types_combos_and_rows(df=df, rng=rng)
             # collect all the answers for all the types
