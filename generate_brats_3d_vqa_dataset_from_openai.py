@@ -49,8 +49,9 @@ def pick_num_question_types_combos_and_rows(df, rng):
     for t in base_types:
         for combo in shuffled_combos:
             if t in combo and combo not in used_combos:
-                print(f"Using combo {combo} for type {t}")
-                row = df[df["combo"] == str(combo)].iloc[0]
+                str_combo = str(tuple(combo))
+                print(f"Using combo {str_combo} for type {t}")
+                row = df[df["combo"] == str_combo].iloc[0]
                 df.drop(row.index, inplace=True)
                 question = row["transformed_q"]
                 answer = row["transformed_a"]
