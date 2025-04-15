@@ -52,12 +52,12 @@ def pick_num_question_types_combos_and_rows(df, rng):
                 str_combo = str(tuple(combo))
                 print(f"Using combo {str_combo} for type {t}")
                 row = df[df["combo"] == str_combo].iloc[0]
-                df.drop(row.index, inplace=True)
                 question = row["transformed_q"]
                 answer = row["transformed_a"]
                 qas.append((question, answer))
                 used_combos.append(combo)
-                df.drop(row.index, inplace=True)
+                row_idx = row.name
+                df.drop(row_idx, inplace=True)
                 break
         else:
             raise ValueError(
