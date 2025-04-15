@@ -955,6 +955,8 @@ def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
     # 1) Volume = number of foreground voxels * voxel volume
     voxel_volume = np.prod(voxel_spacing)  # e.g. 1 * 1 * 1 if spacing=(1,1,1)
     volume = np.count_nonzero(mask_3d) * voxel_volume
+    if volume == 0:
+        return 0.0, interpret_3d_solidity(solidity)
 
     # 2) Use marching cubes to get a 3D mesh of the surface
     #    skimage.measure.marching_cubes returns:
@@ -971,7 +973,7 @@ def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
     #    skimage provides a convenience function
     surface_area = measure.mesh_surface_area(verts, faces)
 
-    if volume == 0 or surface_area == 0:
+    if surface_area == 0:
         solidity = 0.0
     else:
         solidity = vqa_round(((1.6 - (surface_area / volume))/1.6) * 100)

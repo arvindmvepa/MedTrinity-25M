@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"updated_v0_seed{dataset_seed}"
+    version = f"updated_v1_seed{dataset_seed}"
     labels_order = (1, 2, 3, 4)
     pediatric = False
     goat = False
