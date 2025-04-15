@@ -35,6 +35,7 @@ def map_df_cols_to_combo(df):
         original_qa_prompt = row["original_qa"][row["original_qa"].index("Q: "):]
         combo = question_type_combo_map[original_qa_prompt]
         df.at[i, "combo"] = str(combo)
+    print(f"df['combo'].value_counts() = {df['combo'].value_counts()}")
     return df
 
 
@@ -48,6 +49,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
     for t in base_types:
         for combo in shuffled_combos:
             if t in combo and combo not in used_combos:
+                print(f"Using combo {combo} for type {t}")
                 row = df[df["combo"] == str(combo)].iloc[0]
                 df.drop(row.index, inplace=True)
                 question = row["transformed_q"]
