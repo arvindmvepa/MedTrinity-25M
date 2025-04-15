@@ -956,7 +956,7 @@ def measure_3d_solidity(mask_3d, voxel_spacing=(1.0, 1.0, 1.0)):
     voxel_volume = np.prod(voxel_spacing)  # e.g. 1 * 1 * 1 if spacing=(1,1,1)
     volume = np.count_nonzero(mask_3d) * voxel_volume
     if volume == 0:
-        return 0.0, interpret_3d_solidity(solidity)
+        return 0.0, interpret_3d_solidity(0.0)
 
     # 2) Use marching cubes to get a 3D mesh of the surface
     #    skimage.measure.marching_cubes returns:
