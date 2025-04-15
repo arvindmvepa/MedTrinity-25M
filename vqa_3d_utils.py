@@ -444,63 +444,167 @@ def generate_3d_labal_vqa_questions_v3(
 ):
     vqa_questions = []
 
-    # 1) AREA
+    # Single attributes
     if include_area:
         question = f"How large is the volume covered by {summ['name']}?"
-        # short VQA
         answer_vqa = [summ['area_interp']]
-        # longer, fluent text
         answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}."
-        question_dict = {
+        vqa_questions.append({
             "question": question,
             "answer_vqa": answer_vqa,
             "answer_gen": answer_gen,
             "type": "area",
             "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
+        })
 
-    # 2) REGIONS
     if include_regions:
         question = f"Which region(s) of the brain is {summ['name']} located in?"
         answer_vqa = [summ['regions']]
         answer_gen = f"The {summ['name']} is located in {summ['regions']}."
-        question_dict = {
+        vqa_questions.append({
             "question": question,
             "answer_vqa": answer_vqa,
             "answer_gen": answer_gen,
             "type": "region",
             "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
+        })
 
-    # 3) SHAPE
     if include_shape:
         question = f"What is the shape of {summ['name']}?"
         answer_vqa = [summ['shape_interp']]
         answer_gen = f"The shape of {summ['name']} is {summ['shape_interp']}."
-        question_dict = {
+        vqa_questions.append({
             "question": question,
             "answer_vqa": answer_vqa,
             "answer_gen": answer_gen,
             "type": "shape",
             "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
+        })
 
-    # 4) SATELLITE
     if include_satellite:
         question = f"How spread out is {summ['name']}?"
         answer_vqa = [summ['satellite_interp']]
         answer_gen = f"The spread of {summ['name']} is {summ['satellite_interp']}."
-        question_dict = {
+        vqa_questions.append({
             "question": question,
             "answer_vqa": answer_vqa,
             "answer_gen": answer_gen,
             "type": "satellite",
             "label_name": summ['name']
-        }
-        vqa_questions.append(question_dict)
+        })
+
+    # 2-Way Combinations
+    if include_area and include_regions:
+        question = f"How large is the volume of {summ['name']} and where is it located?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, and it is located in {summ['regions']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['regions']],
+            "answer_gen": answer_gen,
+            "type": "area_region",
+            "label_name": summ['name']
+        })
+
+    if include_area and include_shape:
+        question = f"How large is the volume of {summ['name']} and what is its shape?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, and its shape is described as {summ['shape_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['shape_interp']],
+            "answer_gen": answer_gen,
+            "type": "area_shape",
+            "label_name": summ['name']
+        })
+
+    if include_area and include_satellite:
+        question = f"How large is the volume of {summ['name']} and how spread out is it?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "area_satellite",
+            "label_name": summ['name']
+        })
+
+    if include_regions and include_shape:
+        question = f"In which region is {summ['name']} and what is its shape?"
+        answer_gen = f"The {summ['name']} is located in {summ['regions']}, and its shape is described as {summ['shape_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['regions'], summ['shape_interp']],
+            "answer_gen": answer_gen,
+            "type": "region_shape",
+            "label_name": summ['name']
+        })
+
+    if include_regions and include_satellite:
+        question = f"In which region is {summ['name']} and how spread out is it?"
+        answer_gen = f"The {summ['name']} is located in {summ['regions']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['regions'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "region_satellite",
+            "label_name": summ['name']
+        })
+
+    if include_shape and include_satellite:
+        question = f"What is the shape of {summ['name']} and how spread out is it?"
+        answer_gen = f"The shape of {summ['name']} is described as {summ['shape_interp']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['shape_interp'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "shape_satellite",
+            "label_name": summ['name']
+        })
+
+    # 3-Way Combinations
+    if include_area and include_regions and include_shape:
+        question = f"What is the volume, region, and shape of {summ['name']}?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, it is located in {summ['regions']}, and its shape is described as {summ['shape_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['regions'], summ['shape_interp']],
+            "answer_gen": answer_gen,
+            "type": "area_region_shape",
+            "label_name": summ['name']
+        })
+
+    if include_area and include_shape and include_satellite:
+        question = f"What is the volume, shape, and spread of {summ['name']}?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, its shape is {summ['shape_interp']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['shape_interp'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "area_shape_satellite",
+            "label_name": summ['name']
+        })
+
+    if include_regions and include_shape and include_satellite:
+        question = f"What is the region, shape, and spread of {summ['name']}?"
+        answer_gen = f"The {summ['name']} is located in {summ['regions']}, its shape is described as {summ['shape_interp']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['regions'], summ['shape_interp'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "region_shape_satellite",
+            "label_name": summ['name']
+        })
+
+    # 4-Way Combination
+    if include_area and include_regions and include_shape and include_satellite:
+        question = f"What is the volume, region, shape, and spread of {summ['name']}?"
+        answer_gen = f"The overall volume of {summ['name']} is {summ['area_interp']}, it is located in {summ['regions']}, its shape is described as {summ['shape_interp']}, and it is characterized as {summ['satellite_interp']}."
+        vqa_questions.append({
+            "question": question,
+            "answer_vqa": [summ['area_interp'], summ['regions'], summ['shape_interp'], summ['satellite_interp']],
+            "answer_gen": answer_gen,
+            "type": "area_region_shape_satellite",
+            "label_name": summ['name']
+        })
 
     return vqa_questions
 
