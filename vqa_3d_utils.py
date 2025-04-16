@@ -9,7 +9,7 @@ from skimage.morphology import ball
 import nibabel as nib
 import pandas as pd
 from localize_brain import localize_to_gyrus, load_atlas_label_map, get_region_str
-from vqa_utils import vqa_round, label_names, goat_label_names, ped_label_names
+from vqa_utils import compute_area_percentage, vqa_round, label_names, goat_label_names, ped_label_names
 
 
 def summarise_vqa_stats(vqa_list):
