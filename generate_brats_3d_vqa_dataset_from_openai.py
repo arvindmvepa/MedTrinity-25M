@@ -5,7 +5,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 
-base_types = (1, 2, 3, 4)
+base_types = [1, 2, 3, 4]
 all_combos = [
     tuple(sorted(c))
     for r in range(1, len(base_types) + 1)
