@@ -4,11 +4,12 @@ import os
 import json
 from scipy import ndimage
 from scipy.ndimage import center_of_mass
+from nilearn.masking import compute_brain_mask
 from skimage.morphology import ball
 import nibabel as nib
 import pandas as pd
 from localize_brain import localize_to_gyrus, load_atlas_label_map, get_region_str
-from vqa_utils import vqa_round, label_names, goat_label_names, ped_label_names, compute_area_percentage
+from vqa_utils import vqa_round, label_names, goat_label_names, ped_label_names
 
 
 def summarise_vqa_stats(vqa_list):
@@ -609,8 +610,9 @@ def generate_3d_labal_vqa_questions_v3(
     return vqa_questions
 
 
-def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, height, width, depth, total_pixels, labels_order=(1, 2, 3, 4),
-                             pediatric=False, goat=False, atlas_path="/local2/amvepa91/sri24/lpba40.nii",
+def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, width, depth, total_pixels,
+                             labels_order=(1, 2, 3, 4), pediatric=False, goat=False,
+                             atlas_path="/local2/amvepa91/sri24/lpba40.nii",
                              label_txt_path="/local2/amvepa91/sri24/LPBA40-labels.txt"):
     """
     For each label (1..4), compute:
@@ -639,7 +641,7 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, height, width, depth, t
 
         summ.update(compute_shape_descriptors(mask))
 
-        area_pct = compute_area_percentage(mask, total_pixels)
+        area_pct = compute_area_percentage_v1(mask, nib_t1n_3d)
         area_interp = interpret_3d_area_percentage(area_pct)
 
         if area_interp == "none":
@@ -1012,4 +1014,13 @@ def measure_3d_extent_compactness(mask, bbox):
     extent = (area / bbox_area) * 100
     interpretation = interpret_3d_extent(extent)
     return extent, interpretation
+
+
+def compute_area_percentage_v1(mask, t1_n_3d):
+    """
+    Returns the percentage of 'mask' pixels relative to the total segmentation size.
+    """
+    brain_mask = compute_brain_mask(t1_n_3d)
+    total_pixels = brain_mask.sum()
+    return vqa_round((mask.sum() / total_pixels) * 100)
 

@@ -2,8 +2,7 @@ from glob import glob
 from joblib import Parallel, delayed
 from tqdm_joblib import tqdm_joblib
 import json
-from create_brats_imaging_dataset import get_nifti_seg_file_from_dir, get_nifti_non_seg_file_from_dir, \
-    load_lab_map_from_nifti
+from create_brats_imaging_dataset import (get_nifti_seg_file_from_dir, get_nifti_t1_native_from_dir, get_nifti_non_seg_file_from_dir, load_lab_map_from_nifti)
 from vqa_utils import generate_train_val_test_splits
 from vqa_3d_utils import analyze_3d_label_summary, generate_3d_labal_vqa_questions_v3, postprocess_3d_vqa_data, summarise_vqa_stats
 
@@ -20,6 +19,7 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     """
     nii_seg_file = get_nifti_seg_file_from_dir(volume_file_dir)
     nib_seg_map_3d, seg_map_3d = load_lab_map_from_nifti(nii_seg_file)
+    nib_t1n_3d = get_nifti_t1_native_from_dir(volume_file_dir)
 
     height, width, depth = seg_map_3d.shape
     total_pixels = seg_map_3d.size
@@ -27,9 +27,10 @@ def generate_vqa_from_seg_map(volume_file_dir, volume_id, include_area=True, inc
     all_vqa_questions = []
 
     # Summaries of labels
-    label_summaries = analyze_3d_label_summary(nib_seg_map_3d=nib_seg_map_3d, seg_map_3d=seg_map_3d,height=height,
-                                               width=width, depth=depth, total_pixels=total_pixels,
-                                               labels_order=labels_order, pediatric=pediatric, goat=goat)
+    label_summaries = analyze_3d_label_summary(nib_seg_map_3d=nib_seg_map_3d, seg_map_3d=seg_map_3d,
+                                               nib_t1n_3d=nib_t1n_3d, height=height, width=width, depth=depth,
+                                               total_pixels=total_pixels, labels_order=labels_order,
+                                               pediatric=pediatric, goat=goat)
     vqa_questions = []
     # get single label questions
     for summ in label_summaries:
@@ -132,7 +133,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"updated_v1_seed{seed}"
+    version = f"updated_v2_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     labels_order = (1, 2, 3, 4)
     pediatric = False

@@ -51,6 +51,13 @@ def get_nifti_seg_file_from_dir(nii_file_dir: str) -> str:
     return seg_nii_file
 
 
+def get_nifti_t1_native_from_dir(nii_file_dir: str) -> str:
+    nii_files = glob(os.path.join(nii_file_dir, "*.nii.gz"))
+    t1n_nii_file = [nii_file for nii_file in nii_files if "t1n" in nii_file][0]
+    img = nib.load(t1n_nii_file)
+    return img
+
+
 def get_nifti_non_seg_file_from_dir(nii_file_dir: str) -> str:
     nii_dict = {}
     nii_files = glob(os.path.join(nii_file_dir, "*.nii.gz"))
