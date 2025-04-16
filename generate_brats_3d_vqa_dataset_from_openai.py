@@ -2,11 +2,12 @@ import itertools, random
 import pandas as pd
 import json
 from tqdm import tqdm
+from pathlib import Path
 
 
 base_types = (1, 2, 3, 4)
 all_combos = [
-    sorted(tuple(c))
+    tuple(sorted(c))
     for r in range(1, len(base_types) + 1)
     for c in itertools.combinations(base_types, r)
 ]
@@ -29,6 +30,140 @@ combo_question_type_map = {(1,): "Q: How large is the volume covered by {label}?
 question_type_combo_map = {v: k for k, v in combo_question_type_map.items()}
 
 
+def validate_vqa_lists(vqa_list, save_dir=None):
+    """
+    Compute and (optionally) persist statistics that sanity‑check your VQA data.
+
+    Parameters
+    ----------
+    vqa_list : list[dict]
+        Each element must contain at least these keys
+            question, answer, label_name, type, combo
+        where
+            question : str   – rendered "Q: …"
+            answer   : str   – rendered "A: …"
+            label_name : str – e.g. "Enhancing"
+            type       : str – one of {"area","region","shape","satellite"}
+            combo      : tuple[int] – e.g. (1, 3, 4)
+    save_dir : str | Path | None, default None
+        If provided, CSV versions of the tables are written there.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]  – the six summary tables for further inspection.
+    """
+    QUESTION_COL = "question"
+    ANSWER_COL = "answer"
+    LABEL_COL = "label_name"
+    TYPE_COL = "type"
+    COMBO_COL = "combo"
+
+    required_cols = {QUESTION_COL, ANSWER_COL, LABEL_COL, TYPE_COL, COMBO_COL}
+
+    df = pd.DataFrame(vqa_list)
+    print(f"Loaded {len(df):,} rows  ({len(vqa_list):,})")
+
+    # Basic schema check
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise KeyError(f"Each VQA dict must include {sorted(required_cols)}. Missing: {missing}")
+
+    df[COMBO_COL] = df[COMBO_COL].apply(
+        lambda c: tuple(c) if isinstance(c, list) else c
+    )
+    combo_overall = (df[COMBO_COL]
+          .value_counts()
+          .rename_axis("combo")
+          .reset_index(name="n_questions")
+          .sort_values("combo", key=lambda s: s.apply(str))
+    )
+
+    combo_per_label = (
+        df.groupby([LABEL_COL, COMBO_COL])
+          .size()
+          .rename("n_questions")
+          .reset_index()
+    )
+
+    combo_per_label_type = (
+        df.groupby([LABEL_COL, TYPE_COL, COMBO_COL])
+          .size()
+          .rename("n_questions")
+          .reset_index()
+    )
+
+    # ─────────────────────────────────────────────────────────────
+    # 4.  Unique‑question / unique‑answer counts
+    # ─────────────────────────────────────────────────────────────
+    unique_q_overall = df[QUESTION_COL].nunique()
+    unique_a_overall = df[ANSWER_COL].nunique()
+
+    unique_q_per_label = (
+        df.groupby(LABEL_COL)[QUESTION_COL]
+          .nunique()
+          .rename("n_unique_questions")
+          .reset_index()
+    )
+
+    unique_a_per_label = (
+        df.groupby(LABEL_COL)[ANSWER_COL]
+          .nunique()
+          .rename("n_unique_answers")
+          .reset_index()
+    )
+
+    unique_q_per_label_type = (
+        df.groupby([LABEL_COL, TYPE_COL])[QUESTION_COL]
+          .nunique()
+          .rename("n_unique_questions")
+          .reset_index()
+    )
+
+    unique_a_per_label_type = (
+        df.groupby([LABEL_COL, TYPE_COL])[ANSWER_COL]
+          .nunique()
+          .rename("n_unique_answers")
+          .reset_index()
+    )
+
+    print("\n▶ Combo distribution (overall)")
+    print(combo_overall.to_string(index=False))
+
+    print("\n▶ Unique Q/A counts (overall)")
+    print(f"   • questions : {unique_q_overall:,}")
+    print(f"   • answers   : {unique_a_overall:,}")
+
+    # ─────────────────────────────────────────────────────────────
+    # 6.  Optional CSV export
+    # ─────────────────────────────────────────────────────────────
+    if save_dir:
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        combo_overall.to_csv(save_dir / "combo_overall.csv", index=False)
+        combo_per_label.to_csv(save_dir / "combo_per_label.csv", index=False)
+        combo_per_label_type.to_csv(save_dir / "combo_per_label_type.csv", index=False)
+        unique_q_per_label.to_csv(save_dir / "unique_q_per_label.csv", index=False)
+        unique_a_per_label.to_csv(save_dir / "unique_a_per_label.csv", index=False)
+        unique_q_per_label_type.to_csv(save_dir / "unique_q_per_label_type.csv", index=False)
+        unique_a_per_label_type.to_csv(save_dir / "unique_a_per_label_type.csv", index=False)
+
+        print(f"\nCSV tables written to → {save_dir.resolve()}")
+
+    # ─────────────────────────────────────────────────────────────
+    # 7.  Return tables for programmatic inspection
+    # ─────────────────────────────────────────────────────────────
+    return {
+        "combo_overall": combo_overall,
+        "combo_per_label": combo_per_label,
+        "combo_per_label_type": combo_per_label_type,
+        "unique_q_per_label": unique_q_per_label,
+        "unique_a_per_label": unique_a_per_label,
+        "unique_q_per_label_type": unique_q_per_label_type,
+        "unique_a_per_label_type": unique_a_per_label_type,
+    }
+
+
 def map_df_cols_to_combo(df):
     # iterate over the rows of the dataframe
     for i, row in df.iterrows():
@@ -40,13 +175,14 @@ def map_df_cols_to_combo(df):
 
 
 def pick_num_question_types_combos_and_rows(df, rng):
+    shuffled_base_types = base_types[:]
     shuffled_combos = all_combos[:]
     rng.shuffle(shuffled_combos)
 
     used_combos = list()
     qas = []
 
-    for t in base_types:
+    for t in shuffled_base_types:
         for combo in shuffled_combos:
             str_combo = str(tuple(combo))
             filt_df = df[df["combo"] == str_combo]
