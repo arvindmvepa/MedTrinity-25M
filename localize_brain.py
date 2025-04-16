@@ -125,7 +125,7 @@ def localize_to_brain_regions(
             }
             region_list.append(region)
 
-    return {"total_voxels": total, "overlap": overlap_dict, "regions": sorted(region_list)}
+    return {"total_voxels": total, "overlap": overlap_dict, "regions": sorted(set(region_list))}
 
 
 def get_region_str(region_list):
