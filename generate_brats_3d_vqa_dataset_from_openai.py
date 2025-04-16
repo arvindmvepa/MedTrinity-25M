@@ -176,6 +176,7 @@ def map_df_cols_to_combo(df):
 
 def pick_num_question_types_combos_and_rows(df, rng):
     shuffled_base_types = base_types[:]
+    rng.shuffle(shuffled_base_types)
     shuffled_combos = all_combos[:]
     rng.shuffle(shuffled_combos)
 
