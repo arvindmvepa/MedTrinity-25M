@@ -846,15 +846,15 @@ def interpret_3d_area_percentage(pct: float) -> str:
     if pct < 1.0:
         return "<1%"
     if pct < 5.0:
-        return "1–5%"
+        return "1-5%"
     if pct < 10.0:
-        return "5–10%"
+        return "5-10%"
     if pct < 25.0:
-        return "10–25%"
+        return "10-25%"
     if pct < 50.0:
-        return "25–50%"
+        return "25-50%"
     if pct < 75.0:
-        return "50–75%"
+        return "50-75%"
     return ">75%"
 
 
