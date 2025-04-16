@@ -1020,7 +1020,7 @@ def compute_area_percentage_v1(mask, t1_n_3d):
     """
     Returns the percentage of 'mask' pixels relative to the total segmentation size.
     """
-    brain_mask = compute_brain_mask(t1_n_3d)
+    brain_mask = compute_brain_mask(t1_n_3d).get_fdata()
     total_pixels = brain_mask.sum()
     return vqa_round((mask.sum() / total_pixels) * 100)
 
