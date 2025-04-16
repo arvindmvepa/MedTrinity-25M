@@ -8,7 +8,7 @@ from nilearn.masking import compute_brain_mask
 from skimage.morphology import ball
 import nibabel as nib
 import pandas as pd
-from localize_brain import localize_to_gyrus, load_atlas_label_map, get_region_str
+from localize_brain import localize_to_brain_regions, load_atlas_label_map, get_region_str
 from vqa_utils import compute_area_percentage, vqa_round, label_names, goat_label_names, ped_label_names
 
 
@@ -635,15 +635,18 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, wid
             label_name = ped_label_names.get(lbl, f"Label {lbl}")
         else:
             label_name = label_names.get(lbl, f"Label {lbl}")
-        regions = localize_to_gyrus(nib_seg_map_3d, atlas_img, atlas_map, label_index=lbl)['regions']
-        region_str = get_region_str(regions)
-        summ['regions'] = region_str
-
-        summ.update(compute_shape_descriptors(mask))
-
         area_pct = compute_area_percentage_v1(mask, nib_t1n_3d)
         area_interp = interpret_3d_area_percentage(area_pct)
-
+        if area_interp == "N/A":
+            summ['satellite_interp'] = "N/A"
+            summ['shape_interp'] = "N/A"
+            summ['regions'] = "N/A"
+        else:
+            regions = localize_to_brain_regions(nib_seg_map_3d, atlas_img, atlas_map, label_index=lbl)['regions']
+            region_str = get_region_str(regions)
+            summ['regions'] = region_str
+            summ.update(compute_shape_descriptors(mask))
+        """
         if area_interp == "none":
             centroid = None
             quadrant = "none"
@@ -687,6 +690,13 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, wid
             "extent_interp": extent_interp,
             "solidity_value": solidity_value,
             "solidity_interp": solidity_interp
+        })
+        """
+        summ.update({
+            "label": lbl,
+            "name": label_name,
+            "area_pct": area_pct,
+            "area_interp": area_interp,
         })
         label_summaries.append(summ)
     return label_summaries

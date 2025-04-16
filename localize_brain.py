@@ -4,26 +4,53 @@ import numpy as np
 from nilearn.image import resample_to_img, new_img_like
 
 
-# --------------------------------------------------------------------
-# 1)  Utility: load the “label‑index → region name” text file
-# --------------------------------------------------------------------
-def load_atlas_label_map(label_txt_path: str) -> dict[int, str]:
+LOBE_MAP: dict[str, set[int]] = {
+    "frontal": {
+        21, 22, 23, 24, 25, 26, 27, 28,
+        29, 30, 31, 32, 33, 34,
+    },
+    "parietal": {
+        41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+    },
+    "occipital": {
+        61, 62, 63, 64, 65, 66, 67, 68, 89, 90,
+    },
+    "temporal": {
+        81, 82, 83, 84, 85, 86, 87, 88, 91, 92,
+    },
+    "limbic": {121, 122, 165, 166},
+    "insula": {101, 102},
+    "subcortical": {161, 162, 163, 164},
+    "cerebellum": {181},
+    "brainstem": {182},
+    "background": {0},        # keep 0 → background
+}
+
+
+# Build a quick reverse look‑up once so the function stays O(1)
+_ID_TO_LOBE: dict[int, str] = {
+    idx: lobe for lobe, indices in LOBE_MAP.items() for idx in indices
+}
+
+
+def load_atlas_label_map(label_txt_path, use_lobes=True):
     mapping = {}
     with open(label_txt_path, "r") as f:
         for line in f:
             if not line.strip():
                 continue
             idx, name = line.strip().split(maxsplit=1)
-            name = name.split("\t")[0]
-            name = name.replace('"', "")
-            mapping[int(idx)] = name
+            if use_lobes:
+                idx = int(idx)
+                mapping[idx] = _ID_TO_LOBE[idx]
+            else:
+                name = name.split("\t")[0]
+                name = name.replace('"', "")
+                mapping[int(idx)] = name
     return mapping
 
 
-# --------------------------------------------------------------------
-# 2)  Core routine: overlap of ONE tumour label with atlas
-# --------------------------------------------------------------------
-def localize_to_gyrus(
+def localize_to_brain_regions(
     tumour_img: nib.Nifti1Image,
     atlas_img: nib.Nifti1Image,
     atlas_label_map: dict[int, str],
@@ -137,9 +164,9 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 
     summary = {}
     for name, label_index in tumour_labels.items():
-        summary[name] = localize_to_gyrus(tumour_img=tumour_img, atlas_img=atlas_img,
-                                          atlas_label_map=atlas_label_map,
-                                          label_index=label_index, debug=debug)
+        summary[name] = localize_to_brain_regions(tumour_img=tumour_img, atlas_img=atlas_img,
+                                                  atlas_label_map=atlas_label_map,
+                                                  label_index=label_index, debug=debug)
 
     return summary
 
