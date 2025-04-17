@@ -157,7 +157,6 @@ def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clea
             question["study_name"] = base_dir
         else:
             raise ValueError(f"Unknown study name: {base_dir}")
-        question["answer_vqa_numeric"] = convert_entry(question)
 
     with open(save_vqa_file, 'w') as f:
         json.dump(all_vqa_questions, f, indent=2)

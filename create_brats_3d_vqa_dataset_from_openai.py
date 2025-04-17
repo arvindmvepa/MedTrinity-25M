@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from tqdm import tqdm
 from pathlib import Path
+from vqa_3d_utils import convert_entry
 
 
 base_types = [1, 2, 3, 4]
@@ -328,8 +329,13 @@ if __name__ == "__main__":
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict, openai_df, seed=new_dataset_seed)
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
 
-    # TODO: Add some validation to ensure the performance is good (check for question duplicates, frequency of combo/question types, etc.).
-    # Can use ChatGPT to help
+    # create numeric entries for vqa
+    for vqa_datum in train_vqa:
+        vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum)
+    for vqa_datum in val_vqa:
+        vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum)
+    for vqa_datum in test_vqa:
+        vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum)
 
     # save the updated vqa dataset
     with open(train_vqa_file, 'w') as f:
