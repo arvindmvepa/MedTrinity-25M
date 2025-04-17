@@ -12,6 +12,59 @@ from localize_brain import localize_to_brain_regions, load_atlas_label_map, get_
 from vqa_utils import compute_area_percentage, vqa_round, label_names, goat_label_names, ped_label_names
 
 
+area_map = {lab.lower(): i for i, lab in enumerate(
+    ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"])}
+
+
+shape_map = {lab.lower(): i for i, lab in enumerate(
+    ["N/A", "focus", "round", "oval", "elongated", "irregular"])}
+
+
+satellite_map = {lab.lower(): i for i, lab in enumerate(
+    ["N/A", "single lesion", "core with satellite lesions", "scattered lesions"])}
+
+
+lobes = ["frontal", "parietal", "occipital", "temporal",
+         "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
+lobe_map = {lob: i + 2 for i, lob in enumerate(lobes)}  # start at 2
+
+
+def region_to_codes(region: str) -> list[int]:
+    """Return sorted list of lobe indices (empty list == N/A)."""
+    txt = region.strip().lower()
+    if txt in {"n/a", "na", ""}:
+        return [1]
+    parts = []
+    for chunk in txt.split(","):
+        parts += [p.strip() for p in chunk.split(" and ")]      # handle “and”
+    return sorted({lobe_map[p] for p in parts if p in lobe_map})
+
+
+def answer_to_numeric(task_idx: int, ans: str):
+    ans = ans.lower().strip()
+    if task_idx == 1:  # area
+        return area_map.get(ans, 0)
+    if task_idx == 2:  # region
+        return region_to_codes(ans)
+    if task_idx == 3:  # shape
+        return shape_map.get(ans, 0)
+    if task_idx == 4:  # satellite
+        return satellite_map.get(ans, 0)
+    return 0
+
+
+def convert_entry(entry: dict):
+    """
+    Build [area, region(list), shape, satellite] for a single VQA entry.
+    Defaults: 0 for scalar tasks, [] for region when task not answered.
+    """
+    numeric = [0, [0], 0, 0]                     # area, region, shape, satellite
+    for task_idx, answers in zip(entry["combo"], entry["answer_vqa"]):
+        if answers:                             # answers is a 1‑element list
+            numeric[task_idx - 1] = answer_to_numeric(task_idx, answers[0])
+    return numeric
+
+
 def summarise_vqa_stats(vqa_list):
     """
     vqa_list : list[dict] produced by your VQA‑generation pipeline
@@ -104,6 +157,7 @@ def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clea
             question["study_name"] = base_dir
         else:
             raise ValueError(f"Unknown study name: {base_dir}")
+        question["answer_vqa_numeric"] = convert_entry(question)
 
     with open(save_vqa_file, 'w') as f:
         json.dump(all_vqa_questions, f, indent=2)
