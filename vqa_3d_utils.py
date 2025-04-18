@@ -157,6 +157,8 @@ def postprocess_3d_vqa_data(all_vqa_questions, save_vqa_file="brats_gli_vqa_clea
             question["study_name"] = base_dir
         else:
             raise ValueError(f"Unknown study name: {base_dir}")
+        question["volume_non_seg_files"]['t1c'] = question["volume_non_seg_files"]['t1c'].replace("t1c_MNI.nii.gz",
+                                                                                                  "t1c.nii.gz")
 
     with open(save_vqa_file, 'w') as f:
         json.dump(all_vqa_questions, f, indent=2)

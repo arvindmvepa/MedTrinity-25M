@@ -62,7 +62,7 @@ def get_nifti_non_seg_file_from_dir(nii_file_dir: str) -> str:
     nii_dict = {}
     nii_files = glob(os.path.join(nii_file_dir, "*.nii.gz"))
     for modality in ["t1c", "t1n", "t2w", "t2f"]:
-        nii_dict[modality] = [nii_file for nii_file in nii_files if modality in nii_file][0]
+        nii_dict[modality] = [nii_file for nii_file in nii_files if modality+".nii.gz" in nii_file][0]
     return nii_dict
 
 
