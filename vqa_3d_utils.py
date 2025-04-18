@@ -12,31 +12,31 @@ from localize_brain import localize_to_brain_regions, load_atlas_label_map, get_
 from vqa_utils import compute_area_percentage, vqa_round, label_names, goat_label_names, ped_label_names
 
 
-area_map = {lab.lower(): i for i, lab in enumerate(
-    ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"])}
+area_map = {lab.lower(): i+1 for i, lab in enumerate(
+    ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"])} # start at 1
 
 
-shape_map = {lab.lower(): i for i, lab in enumerate(
-    ["N/A", "focus", "round", "oval", "elongated", "irregular"])}
+shape_map = {lab.lower(): i+1 for i, lab in enumerate(
+    ["N/A", "focus", "round", "oval", "elongated", "irregular"])} # start at 1
 
 
-satellite_map = {lab.lower(): i for i, lab in enumerate(
-    ["N/A", "single lesion", "core with satellite lesions", "scattered lesions"])}
+satellite_map = {lab.lower(): i+1 for i, lab in enumerate(
+    ["N/A", "single lesion", "core with satellite lesions", "scattered lesions"])} # start at 1
 
 
-lobes = ["frontal", "parietal", "occipital", "temporal",
+lobes = ["n/a", "frontal", "parietal", "occipital", "temporal",
          "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
-lobe_map = {lob: i + 2 for i, lob in enumerate(lobes)}  # start at 2
+lobe_map = {lob: i+1 for i, lob in enumerate(lobes)}  # start at 1
 
 
 def region_to_codes(region: str) -> list[int]:
-    """Return sorted list of lobe indices (empty list == N/A)."""
+    """Return sorted list of lobe indices (empty list == 0)."""
     txt = region.strip().lower()
-    if txt in {"n/a", "na", ""}:
-        return [1]
     parts = []
     for chunk in txt.split(","):
         parts += [p.strip() for p in chunk.split(" and ")]      # handle “and”
+    if len(parts) == 0:
+        return [0]
     return sorted({lobe_map[p] for p in parts if p in lobe_map})
 
 
