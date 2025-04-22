@@ -5,7 +5,7 @@ import re
 
 
 QA_BLOCK_RE = re.compile(
-    r"Q:.*?(?:\nA:.*?)(?=\nQ:|\Z)",   # one complete “Q: … A: …” block
+    r"Q:.*?(?:\nA:.*?)(?=\nQ:|\Z|\n)",
     flags=re.S | re.M,
 )
 Q_AND_A_RE = re.compile(
@@ -73,9 +73,10 @@ def generate_clean_qa_dataset_from_openai(input_csv, question_col="question", an
 
 if __name__ == "__main__":
     #input_csv = "mri_dataset_draft.csv"
-    input_csv = "mri_dataset_draft_v1_combined.csv"
+    #input_csv = "mri_dataset_draft_v1_combined.csv"
+    input_csv = "mri_dataset_partially_unknown_combined.csv"
     # output_csv = "mri_dataset_draft_clean.csv"
-    output_csv = "mri_dataset_draft_v1_combined_clean.csv"
+    output_csv = "mri_dataset_partially_unknown_combined_clean.csv"
     df = generate_clean_qa_dataset_from_openai(input_csv)
     # mask out the chinese
     mask_with_cjk = df.applymap(has_chinese).any(axis=1)
