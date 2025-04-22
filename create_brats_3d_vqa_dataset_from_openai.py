@@ -415,16 +415,13 @@ if __name__ == "__main__":
     # create numeric entries for vqa
     for vqa_datum in train_vqa:
         vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum,
-                                                        add_partially_unknown=openai_partially_unknown_df_file is not None,
-                                                        add_unknown=openai_unknown_df_file is not None)
+                                                        add_unknown=(openai_partially_unknown_df_file is not None) or (openai_unknown_df_file is not None))
     for vqa_datum in val_vqa:
         vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum,
-                                                        add_partially_unknown=openai_partially_unknown_df_file is not None,
-                                                        add_unknown=openai_unknown_df_file is not None)
+                                                        add_unknown=(openai_partially_unknown_df_file is not None) or (openai_unknown_df_file is not None))
     for vqa_datum in test_vqa:
         vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum,
-                                                        add_partially_unknown=openai_partially_unknown_df_file is not None,
-                                                        add_unknown=openai_unknown_df_file is not None)
+                                                        add_unknown=(openai_partially_unknown_df_file is not None) or (openai_unknown_df_file is not None))
     # save the updated vqa dataset
     with open(train_vqa_file, 'w') as f:
         json.dump(train_vqa, f, indent=2)

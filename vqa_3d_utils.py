@@ -29,7 +29,7 @@ lobes = ["n/a", "frontal", "parietal", "occipital", "temporal",
 lobe_map = {lob: i+1 for i, lob in enumerate(lobes)}  # start at 1
 
 
-def region_to_codes(region: str) -> list[int]:
+def region_to_codes(region):
     """Return sorted list of lobe indices (empty list == 0)."""
     txt = region.strip().lower()
     parts = []
@@ -56,14 +56,12 @@ def answer_to_numeric(task_idx: int, ans: str):
     return 0
 
 
-def convert_entry(entry: dict, add_partially_unknown=False, add_unknown=False):
+def convert_entry(entry: dict, add_unknown=False):
     """
     Build [area, region(list), shape, satellite, unknown, unknown] for a single VQA entry.
     Defaults: 0 for scalar tasks, [] for region when task not answered.
     """
     numeric = [0, [0], 0, 0]                     # area, region, shape, satellite
-    if add_partially_unknown:
-        numeric = numeric + [0]
     if add_unknown:
         numeric = numeric + [0]
     for task_idx, answers in zip(entry["combo"], entry["answer_vqa"]):
