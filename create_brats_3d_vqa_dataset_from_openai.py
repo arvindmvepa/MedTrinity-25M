@@ -252,11 +252,11 @@ def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volum
         if add_partially_unknown:
             # just add the last datum as the partially unknown question as a placeholder
             if "partially_unknown" not in vqa_data_dict[seg_id][label]:
-                vqa_data_dict[seg_id][label]["partially_unknown"] = vqa_datum
+                vqa_data_dict[seg_id][label]["partially_unknown"] = dict(vqa_datum)
         if add_unknown:
             # just add the last datum as the unknown question as a placeholder
             if "unknown" not in vqa_data_dict[seg_id][label]:
-                vqa_data_dict[seg_id][label]["unknown"] = vqa_datum
+                vqa_data_dict[seg_id][label]["unknown"] = dict(vqa_datum)
     return vqa_data_dict
 
 
