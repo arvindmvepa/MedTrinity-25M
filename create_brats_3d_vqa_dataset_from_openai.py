@@ -254,12 +254,14 @@ def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volum
             # just add the last datum as the partially unknown question as a placeholder
             if "partially_unknown" not in vqa_data_dict[seg_id][label]:
                 new_vqa_datum = dict(vqa_datum)
+                new_vqa_datum[type_key] = "unknown"
                 new_vqa_datum["content_type"] = "partially_unknown"
                 vqa_data_dict[seg_id][label]["partially_unknown"] = new_vqa_datum
         if add_unknown:
             # just add the last datum as the unknown question as a placeholder
             if "unknown" not in vqa_data_dict[seg_id][label]:
                 new_vqa_datum = dict(vqa_datum)
+                new_vqa_datum[type_key] = "unknown"
                 new_vqa_datum["content_type"] = "unknown"
                 vqa_data_dict[seg_id][label]["unknown"] = new_vqa_datum
     return vqa_data_dict
@@ -325,6 +327,7 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                 vqa_datum["answer_vqa"] = new_answer_vqa
                 vqa_datum["answer_gen"] = answer
                 vqa_datum["combo"] = combo
+                vqa_datum["type"] = question_type
                 vqa_datum["content_type"] = question_type
     return vqa_data_dict
 
