@@ -200,7 +200,7 @@ def pick_question_from_df(df):
     answer = row["transformed_a"]
     combo = row["combo"]
     # convert the combo string to a tuple of integers
-    combo = tuple(map(int, combo[1:-1].split(",")))
+    combo = tuple([int(num) for num in combo.strip("()").split(",") if len(num) > 0])
     row_idx = row.name
     df.drop(row_idx, inplace=True)
     return question, answer, combo
