@@ -322,7 +322,7 @@ if __name__ == "__main__":
 
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
     openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
-    openai_unknown_df_file = "mri_dataset_partially_unknown_clean.csv"
+    openai_unknown_df_file = "mri_dataset_unknown_clean.csv"
     # rest of the parameters
     subjective_only = True
     dataset_seed = 0
