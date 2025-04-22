@@ -7,6 +7,7 @@ from vqa_3d_utils import convert_entry
 
 
 base_types = [1, 2, 3, 4]
+unknown_type = 5
 all_combos = [
     tuple(sorted(c))
     for r in range(1, len(base_types) + 1)
@@ -175,6 +176,34 @@ def map_df_cols_to_combo(df):
     return df
 
 
+def map_df_cols_to_combo_and_unknown(df):
+    # iterate over the rows of the dataframe
+    for i, row in df.iterrows():
+        # get the combo for the current row
+        original_qa_prompt = row["original_qa"][row["original_qa"].index("Q: "):]
+        combo = question_type_combo_map[original_qa_prompt] + (unknown_type,)
+        df.at[i, "combo"] = str(combo)
+    return df
+
+
+def map_df_cols_to_unknown(df):
+    # map all rows to unknown type
+    for i, row in df.iterrows():
+        combo = (unknown_type,)
+        df.at[i, "combo"] = str(combo)
+    return df
+
+
+def pick_question_from_df(df):
+    row = df.iloc[0]
+    question = row["transformed_q"]
+    answer = row["transformed_a"]
+    combo = row["combo"]
+    row_idx = row.name
+    df.drop(row_idx, inplace=True)
+    return question, answer, combo
+
+
 def pick_num_question_types_combos_and_rows(df, rng):
     shuffled_base_types = base_types[:]
     rng.shuffle(shuffled_base_types)
@@ -229,11 +258,11 @@ def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data):
     return vqa_data_list
 
 
-def generate_updated_vqa_data(vqa_data_dict, df, seed):
+def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_unknown_df=None, openai_unknown_df=None):
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
-            qas, used_combos = pick_num_question_types_combos_and_rows(df=df, rng=rng)
+            qas, used_combos = pick_num_question_types_combos_and_rows(df=openai_df, rng=rng)
             # collect all the answers for all the types
             for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
                 answer_vqa = vqa_datum["answer_vqa"]
@@ -245,6 +274,14 @@ def generate_updated_vqa_data(vqa_data_dict, df, seed):
                     shape = answer_vqa
                 if question_type == "satellite":
                     satellite = answer_vqa
+            if openai_partially_unknown_df is not None:
+                q, a, combo = pick_question_from_df(openai_partially_unknown_df)
+                qas.append((q, a))
+                used_combos.append(combo)
+            if openai_unknown_df is not None:
+                q, a, combo = pick_question_from_df(openai_unknown_df)
+                qas.append((q, a))
+                used_combos.append(combo)
             for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
                 question, answer = qas[i]
                 question = question.replace("{label}", label)
@@ -279,11 +316,13 @@ if __name__ == "__main__":
     ref_val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}.json"
     ref_test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}.json"
 
-    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_new.json"
-    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_new.json"
-    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_new.json"
+    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask.json"
+    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask.json"
+    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask.json"
 
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
+    openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
+    openai_unknown_df_file = "mri_dataset_partially_unknown_clean.csv"
     # rest of the parameters
     subjective_only = True
     dataset_seed = 0
@@ -316,17 +355,37 @@ if __name__ == "__main__":
         ref_test_vqa_data = json.load(f)
         ref_test_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_test_vqa_data)
 
-    # read the openai_df_file
+    # read the openai df files and map the combos
     openai_df = pd.read_csv(openai_df_file, header=0)
     openai_df = map_df_cols_to_combo(openai_df)
     openai_df = openai_df.sample(frac=1, random_state=new_dataset_seed)
 
+    openai_partially_unknown_df = pd.read_csv(openai_partially_unknown_df_file, header=0)
+    openai_partially_unknown_df = map_df_cols_to_combo_and_unknown(openai_partially_unknown_df)
+    openai_partially_unknown_df = openai_partially_unknown_df.sample(frac=1, random_state=new_dataset_seed)
+
+    openai_unknown_df = pd.read_csv(openai_unknown_df_file, header=0)
+    openai_unknown_df = map_df_cols_to_unknown(openai_unknown_df)
+    openai_unknown_df = openai_unknown_df.sample(frac=1, random_state=new_dataset_seed)
+
     # generate updated vqa dataset
-    train_vqa_data_dict = generate_updated_vqa_data(ref_train_vqa_data_dict, openai_df, seed=new_dataset_seed)
+    train_vqa_data_dict = generate_updated_vqa_data(ref_train_vqa_data_dict,
+                                                    openai_df=openai_df,
+                                                    openai_partially_unknown_df=openai_partially_unknown_df,
+                                                    openai_unknown_df=openai_unknown_df,
+                                                    seed=new_dataset_seed)
     train_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(train_vqa_data_dict)
-    val_vqa_data_dict = generate_updated_vqa_data(ref_val_vqa_data_dict, openai_df, seed=new_dataset_seed)
+    val_vqa_data_dict = generate_updated_vqa_data(ref_val_vqa_data_dict,
+                                                  openai_df=openai_df,
+                                                  openai_partially_unknown_df=openai_partially_unknown_df,
+                                                  openai_unknown_df=openai_unknown_df,
+                                                  seed=new_dataset_seed)
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
-    test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict, openai_df, seed=new_dataset_seed)
+    test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict,
+                                                   openai_df=openai_df,
+                                                   openai_partially_unknown_df=openai_partially_unknown_df,
+                                                   openai_unknown_df=openai_unknown_df,
+                                                   seed=new_dataset_seed)
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
 
     # create numeric entries for vqa
