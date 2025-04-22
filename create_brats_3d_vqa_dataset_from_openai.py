@@ -7,6 +7,7 @@ from vqa_3d_utils import convert_entry
 
 
 base_types = [1, 2, 3, 4]
+base_type_mapping = {1: "area", 2: "region", 3: "shape", 4: "satellite"}
 unknown_type = 5
 all_combos = [
     tuple(sorted(c))
@@ -213,7 +214,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
     rng.shuffle(shuffled_combos)
 
     used_combos = list()
-    qas = []
+    qas = {}
 
     for t in shuffled_base_types:
         for combo in shuffled_combos:
@@ -223,8 +224,8 @@ def pick_num_question_types_combos_and_rows(df, rng):
                 row = filt_df.iloc[0]
                 question = row["transformed_q"]
                 answer = row["transformed_a"]
-                qas.append((question, answer))
-                used_combos.append(combo)
+                question_type = base_type_mapping[t]
+                qas[question_type] = (question, answer, combo)
                 row_idx = row.name
                 df.drop(row_idx, inplace=True)
                 break
@@ -233,7 +234,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
                 f"No available question containing type {t} for this pair."
             )
 
-    return qas, used_combos
+    return qas
 
 
 def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volume_file_id", type_key="type",
@@ -277,9 +278,10 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
-            qas, used_combos = pick_num_question_types_combos_and_rows(df=openai_df, rng=rng)
+            qas = pick_num_question_types_combos_and_rows(df=openai_df, rng=rng)
             # collect all the answers for all the types
-            for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
+            enumerated_vqa_data = list(enumerate(question_types_vqa_datum.items()))
+            for i, (question_type, vqa_datum) in enumerated_vqa_data:
                 answer_vqa = vqa_datum["answer_vqa"]
                 if question_type == "area":
                     area = answer_vqa
@@ -291,14 +293,12 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                     satellite = answer_vqa
             if openai_partially_unknown_df is not None:
                 q, a, combo = pick_question_from_df(openai_partially_unknown_df)
-                qas.append((q, a))
-                used_combos.append(combo)
+                qas["partially_unknown"] = (q, a, combo)
             if openai_unknown_df is not None:
                 q, a, combo = pick_question_from_df(openai_unknown_df)
-                qas.append((q, a))
-                used_combos.append(combo)
-            for i, (question_type, vqa_datum) in enumerate(question_types_vqa_datum.items()):
-                question, answer = qas[i]
+                qas["unknown"] = (q, a, combo)
+            for i, (question_type, vqa_datum) in enumerated_vqa_data:
+                question, answer, combo = qas[question_type]
                 question = question.replace("{label}", label)
                 answer = answer.replace("{label}", label)
                 new_answer_vqa = []
@@ -324,7 +324,7 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                 vqa_datum["answer"] = answer
                 vqa_datum["answer_vqa"] = new_answer_vqa
                 vqa_datum["answer_gen"] = answer
-                vqa_datum["combo"] = used_combos[i]
+                vqa_datum["combo"] = combo
                 vqa_datum["content_type"] = question_type
     return vqa_data_dict
 
