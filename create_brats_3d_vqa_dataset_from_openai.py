@@ -235,7 +235,8 @@ def pick_num_question_types_combos_and_rows(df, rng):
 
 
 def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volume_file_id", type_key="type",
-                                                   label_key="label_name"):
+                                                   label_key="label_name", add_partially_unknown=True,
+                                                   add_unknown=True):
     vqa_data_dict = dict()
     for vqa_datum in vqa_data:
         seg_id = vqa_datum[question_key]
@@ -246,6 +247,14 @@ def organize_vqa_data_by_seg_id_and_label_and_type(vqa_data, question_key="volum
         if label not in vqa_data_dict[seg_id]:
             vqa_data_dict[seg_id][label] = {}
         vqa_data_dict[seg_id][label][question_type] = vqa_datum
+        if add_partially_unknown:
+            # just add the last datum as the partially unknown question as a placeholder
+            if "partially_unknown" not in vqa_data_dict[seg_id][label]:
+                vqa_data_dict[seg_id][label]["partially_unknown"] = vqa_datum
+        if add_unknown:
+            # just add the last datum as the unknown question as a placeholder
+            if "unknown" not in vqa_data_dict[seg_id][label]:
+                vqa_data_dict[seg_id][label]["unknown"] = vqa_datum
     return vqa_data_dict
 
 
@@ -347,13 +356,19 @@ if __name__ == "__main__":
     type_key = "type"
     with open(ref_train_vqa_file, 'r') as f:
         ref_train_vqa_data = json.load(f)
-        ref_train_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_train_vqa_data)
+        ref_train_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_train_vqa_data,
+                                                                                 add_partially_unknown=openai_partially_unknown_df_file is not None,
+                                                                                 add_unknown=openai_unknown_df_file is not None)
     with open(ref_val_vqa_file, 'r') as f:
         ref_val_vqa_data = json.load(f)
-        ref_val_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_val_vqa_data)
+        ref_val_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_val_vqa_data,
+                                                                               add_partially_unknown=openai_partially_unknown_df_file is not None,
+                                                                               add_unknown=openai_unknown_df_file is not None)
     with open(ref_test_vqa_file, 'r') as f:
         ref_test_vqa_data = json.load(f)
-        ref_test_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_test_vqa_data)
+        ref_test_vqa_data_dict = organize_vqa_data_by_seg_id_and_label_and_type(ref_test_vqa_data,
+                                                                                add_partially_unknown=openai_partially_unknown_df_file is not None,
+                                                                                add_unknown=openai_unknown_df_file is not None)
 
     # read the openai df files and map the combos
     openai_df = pd.read_csv(openai_df_file, header=0)
