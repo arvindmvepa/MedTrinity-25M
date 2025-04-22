@@ -50,15 +50,22 @@ def answer_to_numeric(task_idx: int, ans: str):
         return shape_map.get(ans, 0)
     if task_idx == 4:  # satellite
         return satellite_map.get(ans, 0)
+    if task_idx == 5:  # unknown
+        # hard code return 1 if the task id is passed
+        return 1
     return 0
 
 
-def convert_entry(entry: dict):
+def convert_entry(entry: dict, add_partially_unknown=False, add_unknown=False):
     """
-    Build [area, region(list), shape, satellite] for a single VQA entry.
+    Build [area, region(list), shape, satellite, unknown, unknown] for a single VQA entry.
     Defaults: 0 for scalar tasks, [] for region when task not answered.
     """
     numeric = [0, [0], 0, 0]                     # area, region, shape, satellite
+    if add_partially_unknown:
+        numeric = numeric + [0]
+    if add_unknown:
+        numeric = numeric + [0]
     for task_idx, answers in zip(entry["combo"], entry["answer_vqa"]):
         if answers:                             # answers is a 1‑element list
             numeric[task_idx - 1] = answer_to_numeric(task_idx, answers[0])

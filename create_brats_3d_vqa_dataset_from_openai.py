@@ -199,6 +199,8 @@ def pick_question_from_df(df):
     question = row["transformed_q"]
     answer = row["transformed_a"]
     combo = row["combo"]
+    # convert the combo string to a tuple of integers
+    combo = tuple(map(int, combo[1:-1].split(",")))
     row_idx = row.name
     df.drop(row_idx, inplace=True)
     return question, answer, combo
@@ -312,6 +314,8 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                     new_answer_vqa = new_answer_vqa + [satellite]
                     satellite_str = satellite[0]
                     answer = answer.replace("{satellite}", satellite_str)
+                if (question_type == "partially_unknown") or (question_type == "unknown"):
+                    new_answer_vqa = new_answer_vqa + ["unknown"]
                 vqa_datum["question"] = question
                 vqa_datum["answer"] = answer
                 vqa_datum["answer_vqa"] = new_answer_vqa
