@@ -23,7 +23,7 @@ def convert_dict_to_numeric(original_data):
 
             # Convert each one to numeric / codes
             area_num = area_map[area_str]
-            region_list = region_to_codes[region_str]
+            region_list = region_to_codes(region_str)
             shape_num = shape_map[shape_str]
             satellite_num = satellite_map[satellite_str]
 
