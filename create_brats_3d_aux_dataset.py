@@ -1,78 +1,7 @@
-import re
 from glob import glob
 import json
-from vqa_utils import label_names, ped_label_names, goat_label_names
-import re
-
-
-AREA_MAP = {
-    "none": 0,
-    "almost negligible": 1,
-    "tiny fraction": 2,
-    "very small fraction": 3,
-    "small portion": 4,
-    "moderate portion": 5,
-    "significant portion": 6,
-    "large portion": 7,
-    "major portion": 8,
-    "the vast majority": 9,
-}
-
-EXTENT_MAP = {
-    "none": 0,
-    "very sparse": 1,
-    "somewhat scattered": 2,
-    "partially filled": 3,
-    "nearly filled": 4,
-    "almost fully filled": 5,
-}
-
-SOLIDITY_MAP = {
-    "none": 0,
-    "highly irregular and scattered": 1,
-    "somewhat compact but irregular": 2,
-    "mostly compact": 3,
-}
-
-row_map = {"top": 0, "center": 1, "bottom": 2}
-col_map = {"left": 0, "center": 1, "right": 2}
-depth_map = {"front": 0, "middle": 1, "back": 2}
-
-
-def parse_bbox_quadrants(bbox_str):
-    """
-    Given a bbox string like:
-       "bottom-center-back, bottom-center-middle, center-left-back"
-    return a sorted list of integers representing each quadrant.
-    If bbox_str == 'none', return an empty list.
-    """
-    bbox_str = bbox_str.strip()
-    if bbox_str.lower() == "none":
-        return []
-
-    quadrants = bbox_str.split(",")
-    numeric_quads = []
-    for q in quadrants:
-        q = q.strip()
-        # q should look like "bottom-center-back"
-        parts = q.split("-")
-        if len(parts) != 3:
-            # Unexpected format, skip or handle error
-            continue
-        row_part, col_part, depth_part = parts
-        # Convert each part to numeric
-        r_val = row_map.get(row_part, 0)
-        c_val = col_map.get(col_part, 0)
-        d_val = depth_map.get(depth_part, 0)
-
-        # Combine into a single integer
-        # row * 9 + col * 3 + depth
-        numeric_code = r_val * 9 + c_val * 3 + d_val
-        numeric_quads.append(numeric_code)
-
-    # Optionally sort them
-    numeric_quads.sort()
-    return numeric_quads
+from vqa_utils import label_names, goat_label_names
+from vqa_3d_utils import area_map, region_to_codes, shape_map, satellite_map
 
 
 def convert_dict_to_numeric(original_data):
@@ -87,24 +16,23 @@ def convert_dict_to_numeric(original_data):
         # Each seg_file has multiple labels
         new_label_dict = {}
         for label_name, metrics in label_dict.items():
-            # metrics is like {"area": "...", "bbox": "...", "extent": "...", "solidity": "..."}
-            area_str = metrics.get("area", "none")
-            bbox_str = metrics.get("bbox", "none")
-            extent_str = metrics.get("extent", "none")
-            solidity_str = metrics.get("solidity", "none")
+            area_str = metrics["area"]
+            region_str = metrics["region"]
+            shape_str = metrics["shape"]
+            satellite_str = metrics["satellite"]
 
             # Convert each one to numeric / codes
-            area_num = AREA_MAP.get(area_str, 0)  # default to 0 if unknown
-            bbox_list = parse_bbox_quadrants(bbox_str)
-            extent_num = EXTENT_MAP.get(extent_str, 0)
-            solidity_num = SOLIDITY_MAP.get(solidity_str, 0)
+            area_num = area_map[area_str]
+            region_list = region_to_codes[region_str]
+            shape_num = shape_map[shape_str]
+            satellite_num = satellite_map[satellite_str]
 
             # Build the new metrics
             new_metrics = {
                 "area": area_num,
-                "bbox": bbox_list,        # list of ints
-                "extent": extent_num,
-                "solidity": solidity_num
+                "region": region_list,        # list of ints
+                "shape": shape_num,
+                "satellite": satellite_num
             }
             new_label_dict[label_name] = new_metrics
 
@@ -134,7 +62,7 @@ def convert_numeric_dict_to_list(numeric_data):
     return result_list
 
 
-def build_gt_lookup(vqa_questions, question_types=("area", "bbox", "extent", "solidity")):
+def build_gt_lookup(vqa_questions, question_types=("area", "region", "shape", "satellite")):
     gt_lookup = {}
     for entry in vqa_questions:
         seg_file = entry["volume_seg_file"]
@@ -148,7 +76,7 @@ def build_gt_lookup(vqa_questions, question_types=("area", "bbox", "extent", "so
     return gt_lookup
 
 
-def build_aux_tasks(all_vqa_questions, dataset="gli", question_types=("area", "bbox", "extent", "solidity")):
+def build_aux_tasks(all_vqa_questions, dataset="gli", question_types=("area", "region", "shape", "satellite")):
     """
     Convert the original Q&A JSON into
     one row per (volume_seg_file, label_name, type),
@@ -209,7 +137,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"v6_seed{seed}"
+    version = f"updated_v2_seed{seed}"
     volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     labels_order = (1, 2, 3, 4)
     pediatric = False
