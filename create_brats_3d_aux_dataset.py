@@ -68,7 +68,7 @@ def build_gt_lookup(vqa_questions, question_types=("area", "region", "shape", "s
         seg_file = entry["volume_seg_file"]
         label_name = entry["label_name"]
         q_type = entry["type"]
-        answer = entry["answer"].strip()
+        answer = entry["answer_vqa"].strip()
         if q_type not in question_types:
             continue
         key = (seg_file, label_name, q_type)
