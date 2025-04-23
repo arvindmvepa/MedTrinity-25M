@@ -16,10 +16,10 @@ def convert_dict_to_numeric(original_data):
         # Each seg_file has multiple labels
         new_label_dict = {}
         for label_name, metrics in label_dict.items():
-            area_str = metrics["area"]
-            region_str = metrics["region"]
-            shape_str = metrics["shape"]
-            satellite_str = metrics["satellite"]
+            area_str = metrics["area"].lower()
+            region_str = metrics["region"].lower()
+            shape_str = metrics["shape"].lower()
+            satellite_str = metrics["satellite"].lower()
 
             # Convert each one to numeric / codes
             area_num = area_map[area_str]
