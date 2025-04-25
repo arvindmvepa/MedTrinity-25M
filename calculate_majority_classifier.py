@@ -117,7 +117,7 @@ for attribute in ['area', 'shape', 'satellite']:
     for label_type in metrics.keys():
         if attribute not in overall_metrics:
             overall_metrics[attribute] = []
-        overall_metrics[attribute] += metrics[label_type][attribute]['accuracy']
+        overall_metrics[attribute] += [metrics[label_type][attribute]['accuracy']]
     overall_metrics[attribute] = sum(overall_metrics[attribute]) / len(overall_metrics[attribute])
 
 
