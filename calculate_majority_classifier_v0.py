@@ -12,7 +12,7 @@ with open(evaluation_file, 'r') as f:
 
 # --- Helper Function: Calculate IoU ---
 def calculate_iou(list1, list2):
-    """Calculates Intersection over Union (IoU) for two lists representing regions."""
+    """Calculates Intersection over Union (IoU) for two lists representing bboxs."""
     set1 = set(list1) if list1 is not None else set()
     set2 = set(list2) if list2 is not None else set()
     intersection = len(set1.intersection(set2))
@@ -39,11 +39,11 @@ for entry in data:
             attribute_collections[label_type]['extent'][attributes['extent']] += 1
         if 'solidity' in attributes:
             attribute_collections[label_type]['solidity'][attributes['solidity']] += 1
-        if 'region' in attributes:
-             region_list = attributes['region'] if isinstance(attributes['region'], list) else []
-             attribute_collections[label_type]['region'].append(region_list)
-        elif 'region' not in attributes and label_type in attribute_collections:
-             attribute_collections[label_type]['region'].append([])
+        if 'bbox' in attributes:
+             bbox_list = attributes['bbox'] if isinstance(attributes['bbox'], list) else []
+             attribute_collections[label_type]['bbox'].append(bbox_list)
+        elif 'bbox' not in attributes and label_type in attribute_collections:
+             attribute_collections[label_type]['bbox'].append([])
 
 
 # --- Determine Best Predictors ---
@@ -72,39 +72,39 @@ for label_type, collections_dict in attribute_collections.items():
     else:
         baseline_predictors[label_type]['solidity'] = None
 
-    # Region: Find candidate list maximizing average IoU
-    ground_truth_regions = collections_dict['region']
-    if not ground_truth_regions:
-         baseline_predictors[label_type]['region'] = []
+    # bbox: Find candidate list maximizing average IoU
+    ground_truth_bboxs = collections_dict['bbox']
+    if not ground_truth_bboxs:
+         baseline_predictors[label_type]['bbox'] = []
          continue
 
-    unique_region_tuples = set(tuple(sorted(lst)) for lst in ground_truth_regions if lst is not None)
-    candidate_regions = [list(t) for t in unique_region_tuples]
-    if any(not lst for lst in ground_truth_regions):
-        if [] not in candidate_regions:
-             candidate_regions.append([])
+    unique_bbox_tuples = set(tuple(sorted(lst)) for lst in ground_truth_bboxs if lst is not None)
+    candidate_bboxs = [list(t) for t in unique_bbox_tuples]
+    if any(not lst for lst in ground_truth_bboxs):
+        if [] not in candidate_bboxs:
+             candidate_bboxs.append([])
 
     best_candidate = []
     max_avg_iou = -1.0
 
-    if not candidate_regions:
-         baseline_predictors[label_type]['region'] = []
+    if not candidate_bboxs:
+         baseline_predictors[label_type]['bbox'] = []
          continue
 
-    for candidate in candidate_regions:
+    for candidate in candidate_bboxs:
         current_sum_iou = 0.0
-        # Ensure ground_truth_regions is not empty before division
-        if not ground_truth_regions: continue # Skip if no GT regions for this label type
-        for gt_region in ground_truth_regions:
-            current_sum_iou += calculate_iou(candidate, gt_region)
+        # Ensure ground_truth_bboxs is not empty before division
+        if not ground_truth_bboxs: continue # Skip if no GT bboxs for this label type
+        for gt_bbox in ground_truth_bboxs:
+            current_sum_iou += calculate_iou(candidate, gt_bbox)
 
-        average_iou = current_sum_iou / len(ground_truth_regions)
+        average_iou = current_sum_iou / len(ground_truth_bboxs)
 
         if average_iou > max_avg_iou:
             max_avg_iou = average_iou
             best_candidate = candidate
 
-    baseline_predictors[label_type]['region'] = best_candidate
+    baseline_predictors[label_type]['bbox'] = best_candidate
 
 
 print("--- Baseline Predictors (Area uses Median) ---")
@@ -118,7 +118,7 @@ evaluation_sums = collections.defaultdict(lambda: {
     'area': {'error_sum': 0.0, 'total': 0},
     'extent': {'correct': 0, 'total': 0},
     'solidity': {'correct': 0, 'total': 0},
-    'region': {'iou_sum': 0.0, 'total': 0}
+    'bbox': {'iou_sum': 0.0, 'total': 0}
 })
 
 # Iterate through data again for evaluation
@@ -150,22 +150,22 @@ for entry in data:
                 if actual_solidity == predicted_solidity:
                     evaluation_sums[label_type]['solidity']['correct'] += 1
 
-            # Evaluate 'region' (Average IoU)
-            actual_region = attributes.get('region', []) # Default to empty list
-            if actual_region is None: actual_region = [] # Ensure list type
+            # Evaluate 'bbox' (Average IoU)
+            actual_bbox = attributes.get('bbox', []) # Default to empty list
+            if actual_bbox is None: actual_bbox = [] # Ensure list type
 
-            predicted_region = predictions.get('region') # Best region list
-            # predicted_region should already be a list (or empty list)
+            predicted_bbox = predictions.get('bbox') # Best bbox list
+            # predicted_bbox should already be a list (or empty list)
 
-            evaluation_sums[label_type]['region']['total'] += 1
-            iou = calculate_iou(actual_region, predicted_region)
-            evaluation_sums[label_type]['region']['iou_sum'] += iou
+            evaluation_sums[label_type]['bbox']['total'] += 1
+            iou = calculate_iou(actual_bbox, predicted_bbox)
+            evaluation_sums[label_type]['bbox']['iou_sum'] += iou
 
 
 # --- Step 3: Calculate Final Metrics ---
 
 metrics = {}
-attributes_to_process = ['area', 'extent', 'solidity', 'region']
+attributes_to_process = ['area', 'extent', 'solidity', 'bbox']
 
 for label_type, sums in evaluation_sums.items():
     metrics[label_type] = {}
@@ -176,14 +176,14 @@ for label_type, sums in evaluation_sums.items():
 
         if attribute == 'area': metric_name = 'mae'
         elif attribute in ['extent', 'solidity']: metric_name = 'accuracy'
-        elif attribute == 'region': metric_name = 'avg_iou'
+        elif attribute == 'bbox': metric_name = 'avg_iou'
 
         if total > 0:
             if attribute == 'area':
                 metric_value = sums[attribute]['error_sum'] / total
             elif attribute in ['extent', 'solidity']:
                 metric_value = sums[attribute]['correct'] / total
-            elif attribute == 'region':
+            elif attribute == 'bbox':
                 metric_value = sums[attribute]['iou_sum'] / total
 
         metrics[label_type][attribute] = {metric_name: metric_value}
@@ -213,7 +213,7 @@ for attribute in attributes_to_process:
     # Ensure metric_name was found
     if not metric_name:
          if attribute in ['extent', 'solidity', 'area'] : metric_name = 'mae'
-         elif attribute == 'region': metric_name = 'avg_iou'
+         elif attribute == 'bbox': metric_name = 'avg_iou'
          else: metric_name = 'unknown_metric'
 
     if all_values:
