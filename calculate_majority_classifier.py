@@ -112,7 +112,17 @@ for label_type, counts in evaluation_counts.items():
         # metrics[label_type][attribute]['correct'] = correct
         # metrics[label_type][attribute]['total'] = total
 
+overall_metrics = {}
+for attribute in ['area', 'shape', 'satellite']:
+    for label_type in metrics.keys():
+        if attribute not in overall_metrics:
+            overall_metrics[attribute] = []
+        overall_metrics[attribute] += metrics[label_type][attribute]['accuracy']
+    overall_metrics[attribute] = sum(overall_metrics[attribute]) / len(overall_metrics[attribute])
+
 
 print("\n--- Majority Classifier Metrics (Accuracy) ---")
 print(json.dumps(metrics, indent=4))
+print("\n--- Overall Metrics ---")
+print(json.dumps(overall_metrics, indent=4))
 
