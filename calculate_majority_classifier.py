@@ -74,8 +74,10 @@ for entry in data:
                 actual_area = attributes['area']
                 predicted_area = predictions.get('area') # Get predicted majority value
                 evaluation_counts[label_type]['area']['total'] += 1
-                if actual_area == predicted_area:
-                    evaluation_counts[label_type]['area']['correct'] += 1
+                #if actual_area == predicted_area:
+                #    evaluation_counts[label_type]['area']['correct'] += 1
+                # calculate MAE instead of majority classifier for area
+                evaluation_counts[label_type]['area']['correct'] += abs(actual_area - predicted_area)
 
             # Evaluate 'shape'
             if 'shape' in attributes:
