@@ -211,11 +211,24 @@ def map_df_cols_to_unknown(df):
 
 def pick_question_from_df(df):
     row = df.iloc[0]
-    question = row["transformed_q"]
-    answer = row["transformed_a"]
-    combo = row["combo"]
-    # convert the combo string to a tuple of integers
-    combo = tuple([int(num) for num in combo.strip("()").split(",") if len(num) > 0])
+    temp_question = row["transformed_q"]
+    temp_answer = row["transformed_a"]
+    temp_combo_str = row["combo"]
+    temp_combo = tuple([int(num) for num in temp_combo_str.strip("()").split(",") if len(num) > 0])
+    row_idx = row.name
+    df.drop(row_idx, inplace=True)
+    while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+        print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
+        # TODO: check for length of filt_df to make sure there are valid rows left
+        temp_question = row["transformed_q"]
+        temp_answer = row["transformed_a"]
+        temp_combo_str = row["combo"]
+        temp_combo = tuple([int(num) for num in temp_combo_str.strip("()").split(",") if len(num) > 0])
+        row_idx = row.name
+        df.drop(row_idx, inplace=True)
+    question = temp_question
+    answer = temp_answer
+    combo = temp_combo
     row_idx = row.name
     df.drop(row_idx, inplace=True)
     return question, answer, combo
@@ -231,23 +244,30 @@ def pick_num_question_types_combos_and_rows(df, rng):
     qas = {}
 
     for t in shuffled_base_types:
-        for combo in shuffled_combos:
-            str_combo = str(tuple(combo))
-            filt_df = df[df["combo"] == str_combo]
-            if (t in combo) and (combo not in used_combos) and (len(filt_df) > 0):
+        for temp_combo in shuffled_combos:
+            temp_str_combo = str(tuple(temp_combo))
+            filt_df = df[df["combo"] == temp_str_combo]
+            if (t in temp_combo) and (temp_combo not in used_combos) and (len(filt_df) > 0):
                 row = filt_df.iloc[0]
                 temp_question = row["transformed_q"]
                 temp_answer = row["transformed_a"]
-                if validate_question_answer_combo(temp_question, temp_answer, combo):
-                    question = temp_question
-                    answer = temp_answer
-                    question_type = base_type_mapping[t]
-                    qas[question_type] = (question, answer, combo)
-                    break
-                else:
-                    print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {combo}")
                 row_idx = row.name
                 df.drop(row_idx, inplace=True)
+                while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+                    print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
+                    # TODO: check for length of filt_df to make sure there are valid rows left
+                    row = filt_df.iloc[0]
+                    temp_question = row["transformed_q"]
+                    temp_answer = row["transformed_a"]
+                    row_idx = row.name
+                    df.drop(row_idx, inplace=True)
+                question = temp_question
+                answer = temp_answer
+                combo = temp_combo
+                used_combos.append(combo)
+                question_type = base_type_mapping[t]
+                qas[question_type] = (question, answer, combo)
+                break
         else:
             raise ValueError(
                 f"No available question containing type {t} for this pair."
