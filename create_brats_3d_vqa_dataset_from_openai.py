@@ -312,17 +312,17 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
 
                 answer_vqa = []
                 if "{area}" in answer:
-                    answer  = answer.replace("{area}", [area])
-                    answer_vqa.append(area)
+                    answer  = answer.replace("{area}", area)
+                    answer_vqa.append([area])
                 if "{regions}" in answer:
-                    answer  = answer.replace("{regions}", [regions])
-                    answer_vqa.append(regions)
+                    answer  = answer.replace("{regions}", regions)
+                    answer_vqa.append([regions])
                 if "{shape}" in answer:
-                    answer  = answer.replace("{shape}", [shape])
-                    answer_vqa.append(shape)
+                    answer  = answer.replace("{shape}", shape)
+                    answer_vqa.append([shape])
                 if "{satellite}" in answer:
-                    answer  = answer.replace("{satellite}", [satellite])
-                    answer_vqa.append(satellite)
+                    answer  = answer.replace("{satellite}", satellite)
+                    answer_vqa.append([satellite])
                 if question_type in {"partially_unknown", "unknown"}:
                     answer_vqa.append(["unknown"])
 
