@@ -276,7 +276,8 @@ def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data):
     return vqa_data_list
 
 
-def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_unknown_df=None, openai_unknown_df=None):
+def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_unknown_df=None, openai_unknown_df=None,
+                              question_types=("area", "region", "shape", "satellite", "partially_unknown", "unknown")):
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
@@ -288,11 +289,12 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
             qas = pick_num_question_types_combos_and_rows(df=openai_df, rng=rng)
 
             # collect the per-label ground-truth answers
-            for question_type, vqa_datum in question_types_vqa_datum.items():
+            for question_type in question_types:
+                vqa_datum = question_types_vqa_datum[question_type]
                 ans = vqa_datum["answer_vqa"]
-                if   question_type == "area":      area      = ans[0]
-                elif question_type == "region":    regions   = ans[0]
-                elif question_type == "shape":     shape     = ans[0]
+                if question_type == "area": area = ans[0]
+                elif question_type == "region": regions = ans[0]
+                elif question_type == "shape": shape = ans[0]
                 elif question_type == "satellite": satellite = ans[0]
 
             # sample extra question types
@@ -304,36 +306,37 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                 qas["unknown"] = (q, a, combo)
 
             # now update each datum
-            for question_type, vqa_datum in question_types_vqa_datum.items():
+            for question_type in question_types:
+                vqa_datum = question_types_vqa_datum[question_type]
                 question, answer_tpl, combo = qas[question_type]
 
                 question = question.replace("{label}", label)
-                answer   = answer_tpl.replace("{label}", label)
+                answer = answer_tpl.replace("{label}", label)
 
                 answer_vqa = []
                 if "{area}" in answer:
-                    answer  = answer.replace("{area}", area)
+                    answer = answer.replace("{area}", area)
                     answer_vqa.append([area])
                 if "{regions}" in answer:
-                    answer  = answer.replace("{regions}", regions)
+                    answer = answer.replace("{regions}", regions)
                     answer_vqa.append([regions])
                 if "{shape}" in answer:
-                    answer  = answer.replace("{shape}", shape)
+                    answer = answer.replace("{shape}", shape)
                     answer_vqa.append([shape])
                 if "{satellite}" in answer:
-                    answer  = answer.replace("{satellite}", satellite)
+                    answer = answer.replace("{satellite}", satellite)
                     answer_vqa.append([satellite])
                 if question_type in {"partially_unknown", "unknown"}:
                     answer_vqa.append(["unknown"])
 
                 vqa_datum.update(
-                    question      = question,
-                    answer        = answer,
-                    answer_vqa    = answer_vqa,   # flat list of strings
-                    answer_gen    = answer,
-                    combo         = combo,
-                    type          = question_type,
-                    content_type  = question_type,
+                    question=question,
+                    answer=answer,
+                    answer_vqa=answer_vqa,   # flat list of strings
+                    answer_gen=answer,
+                    combo=combo,
+                    type=question_type,
+                    content_type=question_type,
                 )
 
     return vqa_data_dict
