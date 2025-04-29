@@ -220,6 +220,7 @@ def pick_question_from_df(df):
     while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
         print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
         # TODO: check for length of filt_df to make sure there are valid rows left
+        row = df.iloc[0]
         temp_question = row["transformed_q"]
         temp_answer = row["transformed_a"]
         temp_combo_str = row["combo"]
