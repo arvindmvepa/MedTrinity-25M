@@ -187,6 +187,20 @@ def map_df_cols_to_combo_and_unknown(df):
     return df
 
 
+def validate_question_answer_combo(question, answer_template, combo):
+    flag = True
+    flag = flag and "{label}" in question
+    if ("{area}" in answer_template) or (1 in combo):
+        flag = flag and (("{area}" in answer_template) and 1 in combo)
+    if ("{regions}" in answer_template or "{region}" in answer_template) or (2 in combo):
+        flag = flag and (("{regions}" in answer_template or "{region}" in answer_template) and (2 in combo))
+    if ("{shape}" in answer_template) or (3 in combo):
+        flag = flag and (("{shape}" in answer_template) and (3 in combo))
+    if ("{satellite}" in answer_template) or (4 in combo):
+        flag = flag and (("{satellite}" in answer_template) and (4 in combo))
+    return flag
+
+
 def map_df_cols_to_unknown(df):
     # map all rows to unknown type
     for i, row in df.iterrows():
@@ -222,13 +236,18 @@ def pick_num_question_types_combos_and_rows(df, rng):
             filt_df = df[df["combo"] == str_combo]
             if (t in combo) and (combo not in used_combos) and (len(filt_df) > 0):
                 row = filt_df.iloc[0]
-                question = row["transformed_q"]
-                answer = row["transformed_a"]
-                question_type = base_type_mapping[t]
-                qas[question_type] = (question, answer, combo)
+                temp_question = row["transformed_q"]
+                temp_answer = row["transformed_a"]
+                if validate_question_answer_combo(temp_question, temp_answer, combo):
+                    question = temp_question
+                    answer = temp_answer
+                    question_type = base_type_mapping[t]
+                    qas[question_type] = (question, answer, combo)
+                    break
+                else:
+                    print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {combo}")
                 row_idx = row.name
                 df.drop(row_idx, inplace=True)
-                break
         else:
             raise ValueError(
                 f"No available question containing type {t} for this pair."
