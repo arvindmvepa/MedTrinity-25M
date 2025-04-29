@@ -314,19 +314,27 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
                 answer = answer_tpl.replace("{label}", label)
 
                 answer_vqa = []
-                if "{area}" in answer:
+                if ("{area}" in answer) or (1 in combo):
+                    assert ("{area}" in answer) and 1 in combo
                     answer = answer.replace("{area}", area)
                     answer_vqa.append([area])
-                if "{regions}" in answer:
-                    answer = answer.replace("{regions}", regions)
+                if ("{regions}" in answer or "{region}" in answer) or (2 in combo):
+                    assert ("{regions}" in answer or "{region}" in answer) and (2 in combo)
+                    if "{regions}" in answer:
+                        answer = answer.replace("{regions}", regions)
+                    if "{region}" in answer:
+                        answer = answer.replace("{region}", regions)
                     answer_vqa.append([regions])
-                if "{shape}" in answer:
+                if ("{shape}" in answer) or (3 in combo):
+                    assert ("{shape}" in answer) and (3 in combo)
                     answer = answer.replace("{shape}", shape)
                     answer_vqa.append([shape])
-                if "{satellite}" in answer:
+                if ("{satellite}" in answer) or (4 in combo):
+                    assert ("{satellite}" in answer) and (4 in combo)
                     answer = answer.replace("{satellite}", satellite)
                     answer_vqa.append([satellite])
-                if question_type in {"partially_unknown", "unknown"}:
+                if (question_type in {"partially_unknown", "unknown"}) or (5 in combo):
+                    assert (question_type in {"partially_unknown", "unknown"}) and (5 in combo)
                     answer_vqa.append(["unknown"])
 
                 vqa_datum.update(
@@ -347,9 +355,9 @@ if __name__ == "__main__":
     ref_val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}.json"
     ref_test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}.json"
 
-    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask_again.json"
-    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask_again.json"
-    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask_again.json"
+    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask_fixed.json"
+    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask_fixed.json"
+    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask_fixed.json"
 
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
     openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
