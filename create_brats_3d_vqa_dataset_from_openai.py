@@ -275,7 +275,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
             raise ValueError(
                 f"No available question containing type {t} for this pair."
             )
-
+    assert len(qas) == len(shuffled_base_types), f"qas: {qas}, shuffled_base_types: {shuffled_base_types}"
     return qas
 
 
