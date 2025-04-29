@@ -280,55 +280,62 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
+
+            # ---- RESET PER-LABEL PLACEHOLDER VALUES ----
+            area = regions = shape = satellite = None
+
+            # -------------------------------------------
             qas = pick_num_question_types_combos_and_rows(df=openai_df, rng=rng)
-            # collect all the answers for all the types
-            enumerated_vqa_data = list(enumerate(question_types_vqa_datum.items()))
-            for i, (question_type, vqa_datum) in enumerated_vqa_data:
-                answer_vqa = vqa_datum["answer_vqa"]
-                if question_type == "area":
-                    area = answer_vqa
-                if question_type == "region":
-                    regions = answer_vqa
-                if question_type == "shape":
-                    shape = answer_vqa
-                if question_type == "satellite":
-                    satellite = answer_vqa
+
+            # collect the per-label ground-truth answers
+            for question_type, vqa_datum in question_types_vqa_datum.items():
+                ans = vqa_datum["answer_vqa"]
+                if   question_type == "area":      area      = ans[0]
+                elif question_type == "region":    regions   = ans[0]
+                elif question_type == "shape":     shape     = ans[0]
+                elif question_type == "satellite": satellite = ans[0]
+
+            # sample extra question types
             if openai_partially_unknown_df is not None:
                 q, a, combo = pick_question_from_df(openai_partially_unknown_df)
                 qas["partially_unknown"] = (q, a, combo)
             if openai_unknown_df is not None:
                 q, a, combo = pick_question_from_df(openai_unknown_df)
                 qas["unknown"] = (q, a, combo)
-            for i, (question_type, vqa_datum) in enumerated_vqa_data:
-                question, answer, combo = qas[question_type]
+
+            # now update each datum
+            for question_type, vqa_datum in question_types_vqa_datum.items():
+                question, answer_tpl, combo = qas[question_type]
+
                 question = question.replace("{label}", label)
-                answer = answer.replace("{label}", label)
-                new_answer_vqa = []
+                answer   = answer_tpl.replace("{label}", label)
+
+                answer_vqa = []
                 if "{area}" in answer:
-                    new_answer_vqa = new_answer_vqa + [area]
-                    area_str = area[0]
-                    answer = answer.replace("{area}", area_str)
+                    answer  = answer.replace("{area}", [area])
+                    answer_vqa.append(area)
                 if "{regions}" in answer:
-                    new_answer_vqa = new_answer_vqa + [regions]
-                    region_str = regions[0]
-                    answer = answer.replace("{regions}", region_str)
+                    answer  = answer.replace("{regions}", [regions])
+                    answer_vqa.append(regions)
                 if "{shape}" in answer:
-                    new_answer_vqa = new_answer_vqa + [shape]
-                    shape_str = shape[0]
-                    answer = answer.replace("{shape}", shape_str)
+                    answer  = answer.replace("{shape}", [shape])
+                    answer_vqa.append(shape)
                 if "{satellite}" in answer:
-                    new_answer_vqa = new_answer_vqa + [satellite]
-                    satellite_str = satellite[0]
-                    answer = answer.replace("{satellite}", satellite_str)
-                if (question_type == "partially_unknown") or (question_type == "unknown"):
-                    new_answer_vqa = new_answer_vqa + ["unknown"]
-                vqa_datum["question"] = question
-                vqa_datum["answer"] = answer
-                vqa_datum["answer_vqa"] = new_answer_vqa
-                vqa_datum["answer_gen"] = answer
-                vqa_datum["combo"] = combo
-                vqa_datum["type"] = question_type
-                vqa_datum["content_type"] = question_type
+                    answer  = answer.replace("{satellite}", [satellite])
+                    answer_vqa.append(satellite)
+                if question_type in {"partially_unknown", "unknown"}:
+                    answer_vqa.append(["unknown"])
+
+                vqa_datum.update(
+                    question      = question,
+                    answer        = answer,
+                    answer_vqa    = answer_vqa,   # flat list of strings
+                    answer_gen    = answer,
+                    combo         = combo,
+                    type          = question_type,
+                    content_type  = question_type,
+                )
+
     return vqa_data_dict
 
 
@@ -337,9 +344,9 @@ if __name__ == "__main__":
     ref_val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}.json"
     ref_test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}.json"
 
-    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask.json"
-    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask.json"
-    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask.json"
+    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask_again.json"
+    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask_again.json"
+    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask_again.json"
 
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
     openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
