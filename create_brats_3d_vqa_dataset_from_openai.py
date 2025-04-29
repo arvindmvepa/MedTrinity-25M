@@ -243,29 +243,33 @@ def pick_num_question_types_combos_and_rows(df, rng):
     qas = {}
 
     for t in shuffled_base_types:
-        for temp_combo in shuffled_combos:
+        # make sure we pick combos that contain the current type and haven't been used previously
+        filtered_shuffled_combos = [combo for combo in shuffled_combos if (t in combo) and (combo not in used_combos)]
+        for temp_combo in filtered_shuffled_combos:
+            question = None
+            answer = None
+            combo = None
             temp_str_combo = str(tuple(temp_combo))
-            filt_df = df[df["combo"] == temp_str_combo]
-            if (t in temp_combo) and (temp_combo not in used_combos) and (len(filt_df) > 0):
+            while len(df[df["combo"] == temp_str_combo]) > 0:
+                filt_df = df[df["combo"] == temp_str_combo]
                 row = filt_df.iloc[0]
                 temp_question = row["transformed_q"]
                 temp_answer = row["transformed_a"]
                 row_idx = row.name
                 df.drop(row_idx, inplace=True)
-                while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+                if validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+                    question = temp_question
+                    answer = temp_answer
+                    combo = temp_combo
+                    used_combos.append(combo)
+                    question_type = base_type_mapping[t]
+                    qas[question_type] = (question, answer, combo)
+                    break
+                else:
                     print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
-                    # TODO: check for length of filt_df to make sure there are valid rows left
-                    row = filt_df.iloc[0]
-                    temp_question = row["transformed_q"]
-                    temp_answer = row["transformed_a"]
-                    row_idx = row.name
-                    df.drop(row_idx, inplace=True)
-                question = temp_question
-                answer = temp_answer
-                combo = temp_combo
-                used_combos.append(combo)
-                question_type = base_type_mapping[t]
-                qas[question_type] = (question, answer, combo)
+                    continue
+            # break if a valid question/answer/combo was found; otherwise look at other combos
+            if (question is not None) and (answer is not None) and (combo is not None):
                 break
         else:
             raise ValueError(
