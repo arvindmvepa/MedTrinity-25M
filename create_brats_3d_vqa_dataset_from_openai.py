@@ -315,26 +315,26 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
 
                 answer_vqa = []
                 if ("{area}" in answer) or (1 in combo):
-                    assert ("{area}" in answer) and 1 in combo
+                    assert ("{area}" in answer) and 1 in combo, f"question: {question}, answer: {answer}, combo: {combo}"
                     answer = answer.replace("{area}", area)
                     answer_vqa.append([area])
                 if ("{regions}" in answer or "{region}" in answer) or (2 in combo):
-                    assert ("{regions}" in answer or "{region}" in answer) and (2 in combo)
+                    assert ("{regions}" in answer or "{region}" in answer) and (2 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
                     if "{regions}" in answer:
                         answer = answer.replace("{regions}", regions)
                     if "{region}" in answer:
                         answer = answer.replace("{region}", regions)
                     answer_vqa.append([regions])
                 if ("{shape}" in answer) or (3 in combo):
-                    assert ("{shape}" in answer) and (3 in combo)
+                    assert ("{shape}" in answer) and (3 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
                     answer = answer.replace("{shape}", shape)
                     answer_vqa.append([shape])
                 if ("{satellite}" in answer) or (4 in combo):
-                    assert ("{satellite}" in answer) and (4 in combo)
+                    assert ("{satellite}" in answer) and (4 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
                     answer = answer.replace("{satellite}", satellite)
                     answer_vqa.append([satellite])
                 if (question_type in {"partially_unknown", "unknown"}) or (5 in combo):
-                    assert (question_type in {"partially_unknown", "unknown"}) and (5 in combo)
+                    assert (question_type in {"partially_unknown", "unknown"}) and (5 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
                     answer_vqa.append(["unknown"])
 
                 vqa_datum.update(
