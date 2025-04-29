@@ -308,40 +308,40 @@ def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_u
             # now update each datum
             for question_type in question_types:
                 vqa_datum = question_types_vqa_datum[question_type]
-                question, answer_tpl, combo = qas[question_type]
+                question, answer_template, combo = qas[question_type]
 
                 question = question.replace("{label}", label)
-                answer = answer_tpl.replace("{label}", label)
+                filled_answer = answer_template.replace("{label}", label)
 
                 answer_vqa = []
-                if ("{area}" in answer) or (1 in combo):
-                    assert ("{area}" in answer) and 1 in combo, f"question: {question}, answer: {answer}, combo: {combo}"
-                    answer = answer.replace("{area}", area)
+                if ("{area}" in answer_template) or (1 in combo):
+                    assert ("{area}" in answer_template) and 1 in combo, f"question: {question}, answer: {answer_template}, combo: {combo}"
+                    filled_answer = filled_answer.replace("{area}", area)
                     answer_vqa.append([area])
-                if ("{regions}" in answer or "{region}" in answer) or (2 in combo):
-                    assert ("{regions}" in answer or "{region}" in answer) and (2 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
-                    if "{regions}" in answer:
-                        answer = answer.replace("{regions}", regions)
-                    if "{region}" in answer:
-                        answer = answer.replace("{region}", regions)
+                if ("{regions}" in answer_template or "{region}" in answer_template) or (2 in combo):
+                    assert ("{regions}" in answer_template or "{region}" in answer_template) and (2 in combo), f"question: {question}, answer: {answer_template}, combo: {combo}"
+                    if "{regions}" in filled_answer:
+                        filled_answer = filled_answer.replace("{regions}", regions)
+                    if "{region}" in filled_answer:
+                        filled_answer = filled_answer.replace("{region}", regions)
                     answer_vqa.append([regions])
-                if ("{shape}" in answer) or (3 in combo):
-                    assert ("{shape}" in answer) and (3 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
-                    answer = answer.replace("{shape}", shape)
+                if ("{shape}" in answer_template) or (3 in combo):
+                    assert ("{shape}" in answer_template) and (3 in combo), f"question: {question}, answer: {answer_template}, combo: {combo}"
+                    filled_answer = filled_answer.replace("{shape}", shape)
                     answer_vqa.append([shape])
-                if ("{satellite}" in answer) or (4 in combo):
-                    assert ("{satellite}" in answer) and (4 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
-                    answer = answer.replace("{satellite}", satellite)
+                if ("{satellite}" in answer_template) or (4 in combo):
+                    assert ("{satellite}" in answer_template) and (4 in combo), f"question: {question}, answer: {answer_template}, combo: {combo}"
+                    filled_answer = filled_answer.replace("{satellite}", satellite)
                     answer_vqa.append([satellite])
                 if (question_type in {"partially_unknown", "unknown"}) or (5 in combo):
-                    assert (question_type in {"partially_unknown", "unknown"}) and (5 in combo), f"question: {question}, answer: {answer}, combo: {combo}"
+                    assert (question_type in {"partially_unknown", "unknown"}) and (5 in combo), f"question: {question}, answer: {answer_template}, combo: {combo}"
                     answer_vqa.append(["unknown"])
 
                 vqa_datum.update(
                     question=question,
-                    answer=answer,
+                    answer=filled_answer,
                     answer_vqa=answer_vqa,   # flat list of strings
-                    answer_gen=answer,
+                    answer_gen=filled_answer,
                     combo=combo,
                     type=question_type,
                     content_type=question_type,
