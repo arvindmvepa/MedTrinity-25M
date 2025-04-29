@@ -229,8 +229,6 @@ def pick_question_from_df(df):
     question = temp_question
     answer = temp_answer
     combo = temp_combo
-    row_idx = row.name
-    df.drop(row_idx, inplace=True)
     return question, answer, combo
 
 
