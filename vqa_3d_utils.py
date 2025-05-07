@@ -1086,11 +1086,17 @@ def measure_3d_extent_compactness(mask, bbox):
     return extent, interpretation
 
 
-def compute_area_percentage_v1(mask, t1_n_3d):
+def compute_area_percentage_v1(mask, t1_n_3d, thr=1e-6):
     """
     Returns the percentage of 'mask' pixels relative to the total segmentation size.
     """
-    brain_mask = compute_brain_mask(t1_n_3d).get_fdata()
+    # NOTE: This should not be necessary because all non-zero voxels are brain voxels.
+    #brain_mask = compute_brain_mask(t1_n_3d).get_fdata()
+    #total_pixels = brain_mask.sum()
+    data = t1_n_3d.get_fdata()
+    brain_mask = data > thr
     total_pixels = brain_mask.sum()
+    if total_pixels == 0:
+        return 0.0
     return vqa_round((mask.sum() / total_pixels) * 100)
 
