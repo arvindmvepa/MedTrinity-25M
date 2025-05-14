@@ -52,7 +52,7 @@ def load_atlas_label_map(label_txt_path, use_lobes=True):
     return mapping
 
 
-def _squeeze_to_3d(img: Nifti1Image) -> Nifti1Image:
+def _squeeze_to_3d(img):
     """Return a 3‑D version of `img`.
        If the 4th dim has length 1, squeeze it;
        otherwise raise, because we don’t know which volume to keep."""
