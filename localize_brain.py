@@ -186,8 +186,8 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
     #seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
-    seg_path ="/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET-00759-000"
-    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-02235"
+    seg_path ="/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET-00759-000/BraTS-MET-00759-000-seg.nii.gz"
+    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-02235/BraTS-GoAT-02235-seg.nii.gz"
     atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
     #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
