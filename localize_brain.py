@@ -2,9 +2,10 @@ from nilearn import plotting
 import nibabel as nib
 import numpy as np
 from nilearn.image import resample_to_img, new_img_like
+import nilearn
 
 
-LOBE_MAP: dict[str, set[int]] = {
+LOBE_MAP = {
     "frontal": {
         21, 22, 23, 24, 25, 26, 27, 28,
         29, 30, 31, 32, 33, 34,
@@ -28,7 +29,7 @@ LOBE_MAP: dict[str, set[int]] = {
 
 
 # Build a quick reverse look‑up once so the function stays O(1)
-_ID_TO_LOBE: dict[int, str] = {
+_ID_TO_LOBE = {
     idx: lobe for lobe, indices in LOBE_MAP.items() for idx in indices
 }
 
@@ -53,10 +54,10 @@ def load_atlas_label_map(label_txt_path, use_lobes=True):
 def localize_to_brain_regions(
     tumour_img: nib.Nifti1Image,
     atlas_img: nib.Nifti1Image,
-    atlas_label_map: dict[int, str],
-    label_index: int = 1,
+    atlas_label_map,
+    label_index = 1,
     debug=False
-) -> dict:
+):
     """
     Parameters
     ----------
@@ -79,13 +80,23 @@ def localize_to_brain_regions(
           }
         }
     """
-    # --- 1. affine alignment (translation only) --------------------
+
+    # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
+    tumour_img = nib.processing.conform(tumour_img)  # isotropic, RAS
+    atlas_img = nib.processing.conform(atlas_img)
+
+    # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
+    if not all(np.less_equal(tumour_img.shape, atlas_img.shape)):
+        atlas_img = nilearn.image.crop_img(atlas_img, tumour_img.affine,
+                                           tumour_img.shape)
+
+    # --- 2. affine alignment (translation only) --------------------
     if not np.allclose(tumour_img.affine[:3, 3], atlas_img.affine[:3, 3]):
         corr_aff = tumour_img.affine.copy()
         corr_aff[:3, 3] = atlas_img.affine[:3, 3]
         tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corr_aff)
 
-    # --- 2. resample atlas to tumour space if needed ---------------
+    # --- 3. resample atlas to tumour space if needed ---------------
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation="nearest")
 
@@ -174,7 +185,9 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 # --------------------------------------------------------------------
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
-    seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
+    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
+    seg_path ="/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET-00759-000"
+    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-02235"
     atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
     #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
