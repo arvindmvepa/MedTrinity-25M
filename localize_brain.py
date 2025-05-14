@@ -97,6 +97,7 @@ def localize_to_brain_regions(
     """
 
     # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
+    tumor_img = _squeeze_to_3d(tumour_img)
     atlas_img = _squeeze_to_3d(atlas_img)
     tumour_img = nib_processing.conform(tumour_img)  # isotropic, RAS
     atlas_img = nib_processing.conform(atlas_img)
@@ -106,9 +107,21 @@ def localize_to_brain_regions(
         atlas_img = nilearn.image.crop_img(atlas_img, tumour_img.affine,
                                            tumour_img.shape)
 
-    # --- 2. resample atlas to tumour space if needed ---------------
+    # --- 2. affine alignment (translation only) --------------------
+    if not np.allclose(tumour_img.affine[:3, 3], atlas_img.affine[:3, 3]):
+        corr_aff = tumour_img.affine.copy()
+        corr_aff[:3, 3] = atlas_img.affine[:3, 3]
+        tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corr_aff)
+
+    # --- 3. resample atlas to tumour space if needed ---------------
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation="nearest")
+
+    # ---- NEW: drop trailing singleton dim if present --------------
+    if atlas_img.ndim == 4 and atlas_img.shape[-1] == 1:
+        atlas_img = new_img_like(atlas_img,
+                                 atlas_img.get_fdata()[..., 0],  # squeeze
+                                 atlas_img.affine)
 
     # --- 3. compute overlap ---------------------------------------
     tumour_mask = (tumour_img.get_fdata() == label_index)
