@@ -86,6 +86,8 @@ def localize_to_brain_regions(
 
     # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
     tumour_img = nib_processing.conform(tumour_img)  # isotropic, RAS
+    print(tumour_img.shape)
+    print(atlas_img.shape)
     atlas_img = nib_processing.conform(atlas_img)
 
     # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
