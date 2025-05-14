@@ -1,5 +1,6 @@
 from nilearn import plotting
 import nibabel as nib
+import nibabel.processing as nib_processing
 import numpy as np
 from nilearn.image import resample_to_img, new_img_like
 from tqdm import tqdm
@@ -84,8 +85,8 @@ def localize_to_brain_regions(
     """
 
     # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
-    tumour_img = nib.processing.conform(tumour_img)  # isotropic, RAS
-    atlas_img = nib.processing.conform(atlas_img)
+    tumour_img = nib_processing.conform(tumour_img)  # isotropic, RAS
+    atlas_img = nib_processing.conform(atlas_img)
 
     # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
     if not all(np.less_equal(tumour_img.shape, atlas_img.shape)):
