@@ -54,6 +54,20 @@ def load_atlas_label_map(label_txt_path, use_lobes=True):
     return mapping
 
 
+def _squeeze_to_3d(img: Nifti1Image) -> Nifti1Image:
+    """Return a 3‑D version of `img`.
+       If the 4th dim has length 1, squeeze it;
+       otherwise raise, because we don’t know which volume to keep."""
+    if img.ndim == 3:
+        return img
+    if img.ndim == 4 and img.shape[-1] == 1:
+        data3d = img.get_fdata()[..., 0]          # drop t‑dim
+        return new_img_like(img, data3d, img.affine, copy_header=True)
+    raise ValueError(
+        f'Expected 3‑D or 4‑D with singleton 4th dim; got shape={img.shape}'
+    )
+
+
 def localize_to_brain_regions(
     tumour_img: nib.Nifti1Image,
     atlas_img: nib.Nifti1Image,
@@ -85,9 +99,9 @@ def localize_to_brain_regions(
     """
 
     # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
+    tumor_img = _squeeze_to_3d(tumour_img)
+    atlas_img = _squeeze_to_3d(atlas_img)
     tumour_img = nib_processing.conform(tumour_img)  # isotropic, RAS
-    print(tumour_img.shape)
-    print(atlas_img.shape)
     atlas_img = nib_processing.conform(atlas_img)
 
     # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
