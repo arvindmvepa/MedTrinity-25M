@@ -7,7 +7,7 @@ import pydicom
 from tqdm import tqdm
 
 # ----------------------------------------------------------------------
-# NLST kernel-code lookup  (same as before + recent patches)
+# NLST kernel-code lookup
 # ----------------------------------------------------------------------
 FILTER_MAP = [
     # Siemens
@@ -135,11 +135,11 @@ def rows_for_pid(pid_dir: Path) -> List[Dict[str, str]]:
                 orig_cols[k] = str(vol)
                 break
 
-        # which dicom_t* column?
+        # ── dicom_t* columns (by StudyDate order) ──────────────────────
         dicom_cols = {"dicom_t0": "", "dicom_t1": "", "dicom_t2": ""}
         for k, d in dicom_tp_map.items():
             if d == date:
-                dicom_cols[f"dicom_{k}"] = date
+                dicom_cols[f"dicom_{k}"] = str(vol)
                 break
 
         rows.append({
@@ -150,7 +150,6 @@ def rows_for_pid(pid_dir: Path) -> List[Dict[str, str]]:
             "dicom_filter": kernel,               # raw text
         })
     return rows
-
 
 # ────────────────────────────────────────────────────────────────────────
 # 4.  Main
