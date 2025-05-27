@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 import argparse, csv, os, re, sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import pydicom
@@ -10,9 +11,9 @@ import pydicom
 FILTER_MAP = [
     # Siemens
     (re.compile(r"b50f?",        re.I), "7"),
-    (re.compile(r"b2\d+f?",      re.I), "8"),  # B20-B29
-    (re.compile(r"b3\d+f?",      re.I), "8"),  # B30-B39
-    (re.compile(r"b7\d+f?",      re.I), "9"),  # B70-B79
+    (re.compile(r"b2\d+f?",      re.I), "8"),  # B20–B29
+    (re.compile(r"b3\d+f?",      re.I), "8"),  # B30–B39
+    (re.compile(r"b7\d+f?",      re.I), "9"),  # B70–B79
     (re.compile(r"(spr|lspr)",   re.I), "9"),
     (re.compile(r"siem",         re.I), "9"),
 
@@ -39,23 +40,28 @@ FILTER_MAP = [
 ]
 MISSING_CODE = "M"
 
-def map_kernel(kernel_text: str) -> str:
+
+def map_kernel(text: str) -> str:
     for pat, code in FILTER_MAP:
-        if pat.search(kernel_text):
+        if pat.search(text):
             return code
     return MISSING_CODE
 
-# ----------------------------------------------------------------------
-def first_dicom_in(d: Path) -> Path:
-    """Return path of the first file in *d* that looks like DICOM."""
-    for f in d.iterdir():
+
+# ────────────────────────────────────────────────────────────────────────
+# 2.  Helpers
+# ────────────────────────────────────────────────────────────────────────
+def first_dicom(vol_dir):
+    """Return first file that *looks* like DICOM inside *vol_dir*."""
+    for f in vol_dir.iterdir():
         if f.is_file() and (f.suffix.lower() == ".dcm" or f.suffix == ""):
             return f
-    raise FileNotFoundError(f"No DICOM files in {d}")
+    raise FileNotFoundError(f"No DICOM slices in {vol_dir}")
 
-def series_meta(series_dir: Path):
-    """Return (StudyDate ISO str or '', ConvolutionKernel str) for a series."""
-    ds = pydicom.dcmread(first_dicom_in(series_dir),
+
+def series_meta(vol_dir):
+    """Return (StudyDate, ConvolutionKernel) from the first slice."""
+    ds = pydicom.dcmread(first_dicom(vol_dir),
                          stop_before_pixels=True, force=True)
 
     date = (ds.get("StudyDate") or
@@ -65,69 +71,92 @@ def series_meta(series_dir: Path):
     kernel = ds.get("ConvolutionKernel", "").strip()
     return date, kernel
 
-def assign_tp(values_sorted: List[str]) -> Dict[str, str]:
-    """Map first three items to t0/t1/t2; return possibly sparse dict."""
-    tp = {}
-    for i, v in enumerate(values_sorted[:3]):
-        tp[f"t{i}"] = v
-    return tp
 
-# ----------------------------------------------------------------------
-def build_rows(pid_dir: Path) -> List[Dict[str, str]]:
-    """
-    Build CSV rows for **one PID**.
-    """
+def sort_timepoints(tp_dirs: List[Path]) -> List[Path]:
+    """Sort time-point folders chronologically using a leading date token."""
+    def tp_key(p: Path):
+        token = p.name[:10]
+        for fmt in ("%d-%m-%Y", "%m-%d-%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(token, fmt)
+            except ValueError:
+                continue
+        return p.name            # lexical fallback
+
+    return sorted(tp_dirs, key=tp_key)
+
+
+def assign_tp(items: List[str]) -> Dict[str, str]:
+    """Map first 3 unique items to {'t0':item0, 't1':item1, 't2':item2}."""
+    mapping = {}
+    for i, v in enumerate(items[:3]):
+        mapping[f"t{i}"] = v
+    return mapping
+
+
+# ────────────────────────────────────────────────────────────────────────
+# 3.  Per-PID processing
+# ────────────────────────────────────────────────────────────────────────
+def rows_for_pid(pid_dir: Path) -> List[Dict[str, str]]:
     pid = pid_dir.name
-    uid_dirs = [d for d in sorted(pid_dir.iterdir()) if d.is_dir()]
-    if not uid_dirs:
+    tp_dirs = sort_timepoints([d for d in pid_dir.iterdir() if d.is_dir()])
+    if not tp_dirs:
         return []
 
-    # ── original (folder-order) time-points ────────────────────────────
-    orig_tp_map = assign_tp([d.name for d in uid_dirs])
+    orig_tp_map = assign_tp([d.name for d in tp_dirs])        # by folder order
 
-    # ── collect per-series DICOM metadata ──────────────────────────────
-    metas = []
-    for udir in uid_dirs:
-        try:
-            date, kernel = series_meta(udir)
-        except Exception as e:
-            print(f"⚠️  {udir} skipped ({e})", file=sys.stderr)
-            continue
-        metas.append((udir, date, kernel))
+    # collect metadata for every volume (=series)
+    series_info = []  # List[(vol_path, tp_name, study_date, kernel)]
+    for tp in tp_dirs:
+        for vol in tp.iterdir():
+            if not vol.is_dir():
+                continue
+            try:
+                date, kernel = series_meta(vol)
+            except Exception as e:
+                print(f"⚠️  Skip {vol}  ({e})", file=sys.stderr)
+                continue
+            series_info.append((vol, tp.name, date, kernel))
 
-    # derive DICOM-based tp mapping (by unique StudyDate)
-    unique_dates = sorted({d for _, d, _ in metas if d})
-    dicom_tp_map = assign_tp(unique_dates)   # 't0'→date, …
+    if not series_info:
+        return []
+
+    # derive DICOM-based time-points (unique StudyDates)
+    unique_dates = sorted({d for _, _, d, _ in series_info if d})
+    dicom_tp_map = assign_tp(unique_dates)                    # 't0'→date, …
 
     rows = []
-    for udir, date, kernel in metas:
-        # pick which original tp column this UID occupies
+    for vol, tp_name, date, kernel in series_info:
+        # which original t* column?
         orig_cols = {"t0": "", "t1": "", "t2": ""}
-        for k, uid_name in orig_tp_map.items():
-            if uid_name == udir.name:
-                orig_cols[k] = str(udir)
+        for k, n in orig_tp_map.items():
+            if n == tp_name:
+                orig_cols[k] = str(vol)
                 break
 
-        # pick which dicom_t* column this date occupies
-        dt_cols = {"dicom_t0": "", "dicom_t1": "", "dicom_t2": ""}
+        # which dicom_t* column?
+        dicom_cols = {"dicom_t0": "", "dicom_t1": "", "dicom_t2": ""}
         for k, d in dicom_tp_map.items():
             if d == date:
-                dt_cols[f"dicom_{k}"] = date
+                dicom_cols[f"dicom_{k}"] = date
                 break
 
         rows.append({
             "pid": pid,
             **orig_cols,
-            "filter": map_kernel(kernel),       # code 1-12 / M
-            **dt_cols,
-            "dicom_filter": kernel,             # raw kernel text
+            "filter": map_kernel(kernel),         # NLST code 1-12 / M
+            **dicom_cols,
+            "dicom_filter": kernel,               # raw text
         })
     return rows
 
-# ----------------------------------------------------------------------
+
+# ────────────────────────────────────────────────────────────────────────
+# 4.  Main
+# ────────────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("root", help="root folder containing PID sub-dirs")
+    ap.add_argument("root", help="root folder holding PID sub-dirs")
     ap.add_argument("csv_out", help="output CSV file")
     args = ap.parse_args()
 
@@ -138,9 +167,8 @@ def main():
     all_rows: List[Dict[str, str]] = []
     for pid_dir in sorted(root.iterdir()):
         if pid_dir.is_dir():
-            all_rows.extend(build_rows(pid_dir))
+            all_rows.extend(rows_for_pid(pid_dir))
 
-    # ── write CSV ────────────────────────────────────────────────────
     fieldnames = [
         "pid", "t0", "t1", "t2", "filter",
         "dicom_t0", "dicom_t1", "dicom_t2", "dicom_filter"
@@ -151,6 +179,7 @@ def main():
         w.writerows(all_rows)
 
     print(f"Wrote {len(all_rows)} rows to {args.csv_out}")
+
 
 if __name__ == "__main__":
     main()
