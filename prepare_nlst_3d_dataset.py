@@ -66,7 +66,8 @@ def load_dicom_series(series_dir: str) -> np.ndarray:
             z_pos = 0.0
         sort_keys.append(z_pos)
 
-    volume = np.stack([s for _, s in sorted(zip(sort_keys, slices))], axis=0)
+    order = np.argsort(sort_keys)  # indices that sort by z-pos
+    volume = np.stack([slices[i] for i in order], axis=0)
     return volume
 
 
