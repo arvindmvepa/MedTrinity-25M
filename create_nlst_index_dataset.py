@@ -98,7 +98,7 @@ def assign_tp(items: List[str]) -> Dict[str, str]:
 # ────────────────────────────────────────────────────────────────────────
 # 3.  Per-PID processing
 # ────────────────────────────────────────────────────────────────────────
-def rows_for_pid(pid_dir: Path) -> List[Dict[str, str]]:
+def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
     pid = pid_dir.name
     tp_dirs = sort_timepoints([d for d in pid_dir.iterdir() if d.is_dir()])
     if not tp_dirs:
@@ -112,6 +112,18 @@ def rows_for_pid(pid_dir: Path) -> List[Dict[str, str]]:
         for vol in tp.iterdir():
             if not vol.is_dir():
                 continue
+
+            # ---------- localizer filter (skip small volumes) ----------
+            n_slices = 0
+            for f in vol.iterdir():
+                if f.is_file() and (f.suffix.lower() == ".dcm" or f.suffix == ""):
+                    n_slices += 1
+                    if n_slices >= min_slices:                 # threshold here
+                        break
+            if n_slices < min_slices:
+                continue
+            # -----------------------------------------------------------
+
             try:
                 date, kernel = series_meta(vol)
             except Exception as e:
