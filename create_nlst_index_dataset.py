@@ -2,23 +2,32 @@ import argparse, csv, os, re, sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
+from collections import Counter, defaultdict
+import csv
 
 # -------------------------------------------------------------------------
 # 1.  Filter-code catalogue  (regex pattern ➜ NLST code)
 # -------------------------------------------------------------------------
 FILTER_MAP = [
-    (re.compile(r"b50",        re.I), "7"),   # Siemens B50F
-    (re.compile(r"b30",        re.I), "8"),   # Siemens B30
-    (re.compile(r"siem",       re.I), "9"),   # Siemens, other
-    (re.compile(r"\bbone\b",   re.I), "1"),   # GE Bone
-    (re.compile(r"\bstandard\b", re.I), "2"), # GE Standard
-    (re.compile(r"\bge\b",     re.I), "3"),   # GE, other
-    (re.compile(r"phil.*d",    re.I), "4"),   # Philips D
-    (re.compile(r"phil.*c",    re.I), "5"),   # Philips C
-    (re.compile(r"phil",       re.I), "6"),   # Philips, other
-    (re.compile(r"fc10",       re.I), "10"),  # Toshiba FC10
-    (re.compile(r"fc51",       re.I), "11"),  # Toshiba FC51
-    (re.compile(r"tosh",       re.I), "12"),  # Toshiba, other
+    # Siemens
+    (re.compile(r"b50",            re.I), "7"),   # Siemens B50f
+    (re.compile(r"b30",            re.I), "8"),   # Siemens B30
+    (re.compile(r"siem",           re.I), "9"),   # Siemens, other
+
+    # GE
+    (re.compile(r"bone",           re.I), "1"),   # GE Bone (+ “BONEPLUS”, “BONE_Y” …)
+    (re.compile(r"stand",          re.I), "2"),   # GE Standard (“STANDARD”, “STD”, …)
+    (re.compile(r"\bge\b",         re.I), "3"),   # GE, other  (keep word-bounds!)
+
+    # Philips
+    (re.compile(r"phil.*d",        re.I), "4"),   # Philips D (e.g. “PhilDLu”, “Phil_D”)
+    (re.compile(r"phil.*c",        re.I), "5"),   # Philips C
+    (re.compile(r"phil",           re.I), "6"),   # Philips, other
+
+    # Toshiba
+    (re.compile(r"fc10",           re.I), "10"),  # Toshiba FC10
+    (re.compile(r"fc51",           re.I), "11"),  # Toshiba FC51
+    (re.compile(r"tosh",           re.I), "12"),  # Toshiba, other
 ]
 MISSING_CODE = "M"
 
@@ -152,3 +161,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+    counts = Counter()
+    with open("nlst_index.csv") as f:
+        rdr = csv.DictReader(f)
+        for row in rdr:
+            counts[row["filter"]] += 1
+    print(counts)
