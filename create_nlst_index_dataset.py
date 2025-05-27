@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import pydicom
+from tqdm import tqdm
 
 # ----------------------------------------------------------------------
 # NLST kernel-code lookup  (same as before + recent patches)
@@ -165,7 +166,7 @@ def main():
         sys.exit(f"{root} not found or not a directory.")
 
     all_rows: List[Dict[str, str]] = []
-    for pid_dir in sorted(root.iterdir()):
+    for pid_dir in tqdm(sorted(root.iterdir())):
         if pid_dir.is_dir():
             all_rows.extend(rows_for_pid(pid_dir))
 
