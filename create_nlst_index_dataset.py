@@ -9,34 +9,36 @@ import csv
 # 1.  Filter-code catalogue  (regex pattern ➜ NLST code)
 # -------------------------------------------------------------------------
 FILTER_MAP = [
-    # ── Siemens kernels ──────────────────────────────────────────────────
-    (re.compile(r"\bb50f?\b",     re.I), "7"),   # B50 / B50f  (sharp)
-    (re.compile(r"\bb3[0-9]f?\b", re.I), "8"),   # B30-B39     (soft-tissue)
-    (re.compile(r"\bb7[0-9]f?\b", re.I), "9"),   # B70-B79     (very sharp)
-    (re.compile(r"(spr|lspr)",    re.I), "9"),   # LSPR16, SPR, etc.
-    (re.compile(r"siem",          re.I), "9"),   # Siemens, other
+    # ── Siemens kernels ────────────────────────────────────────────────
+    (re.compile(r"\bb50f?\b",      re.I), "7"),   # B50 / B50f
+    (re.compile(r"\bb3[0-9]f?\b",  re.I), "8"),   # B30–B39  (B30f …)  ← already
+    (re.compile(r"\bb7[0-9]f?\b",  re.I), "9"),   # B70–B79
+    (re.compile(r"(spr|lspr)",     re.I), "9"),   # LSPR16, SPR, …
+    (re.compile(r"siem",           re.I), "9"),   # Siemens, other
 
-    # ── GE kernels ───────────────────────────────────────────────────────
-    (re.compile(r"bone",          re.I), "1"),   # BONE, BONE3, BONEPLUS …
-    (re.compile(r"stand",         re.I), "2"),   # STANDARD, STD, STAND30 …
-    (re.compile(r"\bge\b",        re.I), "3"),   # GE, other (keep word bounds!)
+    # ── GE kernels ─────────────────────────────────────────────────────
+    (re.compile(r"bone",           re.I), "1"),   # GE Bone3, BONEPLUS …
+    (re.compile(r"stand",          re.I), "2"),   # GE Standard / STD …
+    # NEW: GE “LUNG / LSPLUS” kernels → GE other (code 3)
+    (re.compile(r"lsplus",         re.I), "3"),   # LSPLUSLUNG, LSPLUSD …
+    (re.compile(r"lung",           re.I), "3"),   # …LUNG…
+    (re.compile(r"\bge\b",         re.I), "3"),   # GE, other
 
-    # ── Philips kernels ─────────────────────────────────────────────────
-    (re.compile(r"phil.*d",       re.I), "4"),   # Philips D   (Br64D, PhilDLu …)
-    (re.compile(r"phil.*c",       re.I), "5"),   # Philips C
-    # Philips MX8000 scanners (MX8000B/C/D …)
-    (re.compile(r"phmx[0-9]*.*d", re.I), "4"),   # MX8000D …
-    (re.compile(r"phmx[0-9]*.*c", re.I), "5"),   # MX8000C …
-    (re.compile(r"phmx[0-9]*.*b", re.I), "6"),   # MX8000B … → Philips “other”
-    (re.compile(r"phil",          re.I), "6"),   # Philips, other
+    # ── Philips kernels ────────────────────────────────────────────────
+    (re.compile(r"phil.*d",        re.I), "4"),   # Philips D
+    (re.compile(r"phil.*c",        re.I), "5"),   # Philips C
+    (re.compile(r"phmx[0-9]*.*d",  re.I), "4"),   # MX8000D
+    (re.compile(r"phmx[0-9]*.*c",  re.I), "5"),   # MX8000C
+    (re.compile(r"phmx[0-9]*.*b",  re.I), "6"),   # MX8000B → Philips other
+    (re.compile(r"phil",           re.I), "6"),   # Philips, other
 
-    # ── Toshiba kernels ─────────────────────────────────────────────────
-    (re.compile(r"fc10",          re.I), "10"),  # Toshiba FC10
-    (re.compile(r"fc51",          re.I), "11"),  # Toshiba FC51
-    (re.compile(r"tosh",          re.I), "12"),  # Toshiba, other
+    # ── Toshiba kernels ────────────────────────────────────────────────
+    (re.compile(r"fc10",           re.I), "10"),  # FC10
+    (re.compile(r"fc51",           re.I), "11"),  # FC51
+    (re.compile(r"tosh",           re.I), "12"),  # Toshiba, other
 ]
 
-MISSING_CODE = "M"   # fallback when nothing matches
+MISSING_CODE = "M"
 
 LOCALIZER_PAT = re.compile(r"(local|scout)", re.I)
 
