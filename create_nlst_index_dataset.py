@@ -1,173 +1,156 @@
-import argparse, csv, os, re, sys
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional
 from collections import Counter, defaultdict
-import csv
+import argparse, csv, os, re, sys
+from pathlib import Path
+from typing import Dict, List
+import pydicom
 
-# -------------------------------------------------------------------------
-# 1.  Filter-code catalogue  (regex pattern ➜ NLST code)
-# -------------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# NLST kernel-code lookup  (same as before + recent patches)
+# ----------------------------------------------------------------------
 FILTER_MAP = [
-    # ── Siemens kernels ────────────────────────────────────────────────
-    (re.compile(r"b50f?",        re.I), "7"),   # B50 / B50f  (sharp)
-    (re.compile(r"b2\d+f?",      re.I), "8"),   # B20–B29
-    (re.compile(r"b3\d+f?",      re.I), "8"),   # B30-B39, B30f, B318 …
-    (re.compile(r"b7\d+f?",      re.I), "9"),   # B70-B79, B70f …
-    (re.compile(r"(spr|lspr)",   re.I), "9"),   # LSPR16, SPR …
-    (re.compile(r"siem",         re.I), "9"),   # Siemens, other
+    # Siemens
+    (re.compile(r"b50f?",        re.I), "7"),
+    (re.compile(r"b2\d+f?",      re.I), "8"),  # B20-B29
+    (re.compile(r"b3\d+f?",      re.I), "8"),  # B30-B39
+    (re.compile(r"b7\d+f?",      re.I), "9"),  # B70-B79
+    (re.compile(r"(spr|lspr)",   re.I), "9"),
+    (re.compile(r"siem",         re.I), "9"),
 
-    # ── GE kernels ─────────────────────────────────────────────────────
-    (re.compile(r"bone",         re.I), "1"),   # GE Bone3/BONEPLUS …
-    (re.compile(r"stand",        re.I), "2"),   # GE Standard/STD …
-    (re.compile(r"lsplus",       re.I), "3"),   # LSPLUSLUNG, LSPLUSD …
-    (re.compile(r"lung",         re.I), "3"),   # …LUNG…
-    (re.compile(r"qxd",          re.I), "3"),   # LSQXD…  ← NEW
-    (re.compile(r"\bge\b",       re.I), "3"),   # GE, other
+    # GE
+    (re.compile(r"bone",         re.I), "1"),
+    (re.compile(r"stand",        re.I), "2"),
+    (re.compile(r"lsplus",       re.I), "3"),
+    (re.compile(r"lung",         re.I), "3"),
+    (re.compile(r"qxd",          re.I), "3"),
+    (re.compile(r"\bge\b",       re.I), "3"),
 
-    # ── Philips kernels ────────────────────────────────────────────────
-    (re.compile(r"phil.*d",      re.I), "4"),   # Philips D
-    (re.compile(r"phil.*c",      re.I), "5"),   # Philips C
-    (re.compile(r"phmx[0-9]*.*d",re.I), "4"),   # MX8000D …
-    (re.compile(r"phmx[0-9]*.*c",re.I), "5"),   # MX8000C …
-    (re.compile(r"phmx[0-9]*.*b",re.I), "6"),   # MX8000B … → Philips other
-    (re.compile(r"phil",         re.I), "6"),   # Philips, other
+    # Philips
+    (re.compile(r"phil.*d",      re.I), "4"),
+    (re.compile(r"phil.*c",      re.I), "5"),
+    (re.compile(r"phmx.*d",      re.I), "4"),
+    (re.compile(r"phmx.*c",      re.I), "5"),
+    (re.compile(r"phmx.*b",      re.I), "6"),
+    (re.compile(r"phil",         re.I), "6"),
 
-    # ── Toshiba kernels ────────────────────────────────────────────────
-    (re.compile(r"fc10",         re.I), "10"),  # FC10
-    (re.compile(r"fc51",         re.I), "11"),  # FC51
-    (re.compile(r"tosh",         re.I), "12"),  # Toshiba, other
+    # Toshiba
+    (re.compile(r"fc10",         re.I), "10"),
+    (re.compile(r"fc51",         re.I), "11"),
+    (re.compile(r"tosh",         re.I), "12"),
 ]
-
 MISSING_CODE = "M"
 
-LOCALIZER_PAT = re.compile(r"(local|scout)", re.I)
-
-# -------------------------------------------------------------------------
-def extract_filter(description: str) -> str:
-    """Return NLST filter code (“1”…“12”, “M” if unknown)."""
+def map_kernel(kernel_text: str) -> str:
     for pat, code in FILTER_MAP:
-        if pat.search(description):
+        if pat.search(kernel_text):
             return code
     return MISSING_CODE
 
+# ----------------------------------------------------------------------
+def first_dicom_in(d: Path) -> Path:
+    """Return path of the first file in *d* that looks like DICOM."""
+    for f in d.iterdir():
+        if f.is_file() and (f.suffix.lower() == ".dcm" or f.suffix == ""):
+            return f
+    raise FileNotFoundError(f"No DICOM files in {d}")
 
-def is_localizer(series_path: Path) -> bool:
+def series_meta(series_dir: Path):
+    """Return (StudyDate ISO str or '', ConvolutionKernel str) for a series."""
+    ds = pydicom.dcmread(first_dicom_in(series_dir),
+                         stop_before_pixels=True, force=True)
+
+    date = (ds.get("StudyDate") or
+            ds.get("SeriesDate") or
+            ds.get("AcquisitionDate") or
+            "").strip()
+    kernel = ds.get("ConvolutionKernel", "").strip()
+    return date, kernel
+
+def assign_tp(values_sorted: List[str]) -> Dict[str, str]:
+    """Map first three items to t0/t1/t2; return possibly sparse dict."""
+    tp = {}
+    for i, v in enumerate(values_sorted[:3]):
+        tp[f"t{i}"] = v
+    return tp
+
+# ----------------------------------------------------------------------
+def build_rows(pid_dir: Path) -> List[Dict[str, str]]:
     """
-    A folder is a localizer if:
-    * name contains 'local' or 'scout' **or**
-    * it has < 10 DICOM slices.
+    Build CSV rows for **one PID**.
     """
-    if LOCALIZER_PAT.search(series_path.name):
-        return True
+    pid = pid_dir.name
+    uid_dirs = [d for d in sorted(pid_dir.iterdir()) if d.is_dir()]
+    if not uid_dirs:
+        return []
 
-    # cheap slice count – break at 10
-    n = 0
-    with os.scandir(series_path) as it:
-        for entry in it:
-            if entry.name.lower().endswith(".dcm"):
-                n += 1
-                if n >= 10:
-                    return False   # not a localizer
-    return True                   # we saw < 10 .dcm files
+    # ── original (folder-order) time-points ────────────────────────────
+    orig_tp_map = assign_tp([d.name for d in uid_dirs])
 
+    # ── collect per-series DICOM metadata ──────────────────────────────
+    metas = []
+    for udir in uid_dirs:
+        try:
+            date, kernel = series_meta(udir)
+        except Exception as e:
+            print(f"⚠️  {udir} skipped ({e})", file=sys.stderr)
+            continue
+        metas.append((udir, date, kernel))
 
-def sort_timepoints(tp_dirs: List[Path]) -> List[Path]:
-    """
-    Return *tp_dirs* sorted chronologically, trying to parse a leading
-    date like '01-02-1999' or '1999-02-01'.  If parsing fails, fallback
-    to lexical sort.
-    """
-    def tp_key(p: Path):
-        # grab first 10-char block that looks like a date
-        token = p.name[:10]
-        for fmt in ("%d-%m-%Y", "%m-%d-%Y", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(token, fmt)
-            except ValueError:
-                continue
-        return p.name  # lexical fallback
+    # derive DICOM-based tp mapping (by unique StudyDate)
+    unique_dates = sorted({d for _, d, _ in metas if d})
+    dicom_tp_map = assign_tp(unique_dates)   # 't0'→date, …
 
-    return sorted(tp_dirs, key=tp_key)
-
-
-def map_timepoints(tp_dirs_sorted: List[Path]) -> Dict[str, Path]:
-    """
-    Map first three time-points to t0/t1/t2 Path objects.
-    Keys missing if <3 time-points.
-    """
-    mapping = {}
-    for i, p in enumerate(tp_dirs_sorted[:3]):
-        mapping[f"t{i}"] = p
-    return mapping
-
-
-# -------------------------------------------------------------------------
-def make_index(nlst_root: Path) -> List[Dict[str, str]]:
     rows = []
+    for udir, date, kernel in metas:
+        # pick which original tp column this UID occupies
+        orig_cols = {"t0": "", "t1": "", "t2": ""}
+        for k, uid_name in orig_tp_map.items():
+            if uid_name == udir.name:
+                orig_cols[k] = str(udir)
+                break
 
-    # ─── iterate over PIDs ────────────────────────────────────────────────
-    for pid_dir in sorted(nlst_root.iterdir()):
-        if not pid_dir.is_dir():
-            continue
-        pid = pid_dir.name
+        # pick which dicom_t* column this date occupies
+        dt_cols = {"dicom_t0": "", "dicom_t1": "", "dicom_t2": ""}
+        for k, d in dicom_tp_map.items():
+            if d == date:
+                dt_cols[f"dicom_{k}"] = date
+                break
 
-        # discover time-point folders (level-2 subdirs)
-        tp_dirs = [d for d in pid_dir.iterdir() if d.is_dir()]
-        if not tp_dirs:
-            continue
-
-        tp_dirs_sorted = sort_timepoints(tp_dirs)
-        tp_map = map_timepoints(tp_dirs_sorted)           # 't0' → Path, …
-
-        # ─── for each time-point, enumerate series ───────────────────────
-        for tp_key, tp_path in tp_map.items():
-            for series_dir in tp_path.iterdir():
-                if not series_dir.is_dir():
-                    continue
-                if is_localizer(series_dir):
-                    continue
-
-                # SeriesDescription is the bit after first '-' and before second '-'
-                #   <num>.000000-<SeriesDescription>-<UID>
-                parts = series_dir.name.split("-", 2)
-                description = parts[1] if len(parts) >= 2 else series_dir.name
-                filt_code = extract_filter(description)
-
-                row = {
-                    "pid": pid,
-                    "t0":  str(series_dir) if tp_key == "t0" else "",
-                    "t1":  str(series_dir) if tp_key == "t1" else "",
-                    "t2":  str(series_dir) if tp_key == "t2" else "",
-                    "filter": filt_code,
-                }
-                rows.append(row)
-
+        rows.append({
+            "pid": pid,
+            **orig_cols,
+            "filter": map_kernel(kernel),       # code 1-12 / M
+            **dt_cols,
+            "dicom_filter": kernel,             # raw kernel text
+        })
     return rows
 
-
-# -------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("input_dir", help="Root NLST folder (…/NLST)")
-    ap.add_argument("csv_out",   help="Output CSV file")
+    ap.add_argument("root", help="root folder containing PID sub-dirs")
+    ap.add_argument("csv_out", help="output CSV file")
     args = ap.parse_args()
 
-    nlst_root = Path(args.input_dir).expanduser().resolve()
-    if not nlst_root.is_dir():
-        sys.exit(f"Input directory {nlst_root} not found.")
+    root = Path(args.root).expanduser().resolve()
+    if not root.is_dir():
+        sys.exit(f"{root} not found or not a directory.")
 
-    rows = make_index(nlst_root)
+    all_rows: List[Dict[str, str]] = []
+    for pid_dir in sorted(root.iterdir()):
+        if pid_dir.is_dir():
+            all_rows.extend(build_rows(pid_dir))
 
-    # ─── write CSV ────────────────────────────────────────────────────────
-    fieldnames = ["pid", "t0", "t1", "t2", "filter"]
+    # ── write CSV ────────────────────────────────────────────────────
+    fieldnames = [
+        "pid", "t0", "t1", "t2", "filter",
+        "dicom_t0", "dicom_t1", "dicom_t2", "dicom_filter"
+    ]
     with open(args.csv_out, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+        w = csv.DictWriter(fh, fieldnames=fieldnames)
+        w.writeheader()
+        w.writerows(all_rows)
 
-    print(f"Wrote {len(rows)} rows to {args.csv_out}")
-
+    print(f"Wrote {len(all_rows)} rows to {args.csv_out}")
 
 if __name__ == "__main__":
     main()
@@ -175,5 +158,5 @@ if __name__ == "__main__":
     with open("nlst_index.csv") as f:
         rdr = csv.DictReader(f)
         for row in rdr:
-            counts[row["filter"]] += 1
+            counts[row["dicom_filter"]] += 1
     print(counts)
