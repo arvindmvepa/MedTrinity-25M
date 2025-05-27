@@ -44,13 +44,15 @@ xform = mtf.Compose([
 # ------------------------------------------------------------------------- #
 # Utility: read one DICOM series ➜ np.ndarray  [D, H, W]  (float32)
 # ------------------------------------------------------------------------- #
-def load_dicom_series(series_dir: str) -> np.ndarray:
+def load_dicom_series(series_dir: str, min_slices=20) -> np.ndarray:
     """Read all *.dcm in *series_dir*, sort, return stacked volume."""
     dcm_files = [os.path.join(series_dir, f)
                  for f in os.listdir(series_dir)
                  if f.lower().endswith(".dcm")]
     if not dcm_files:
         raise RuntimeError(f"No DICOM files in {series_dir}")
+    if len(dcm_files) < min_slices:
+        raise RuntimeError(f"Too few DICOM files in {series_dir} (found {len(dcm_files)})")
 
     # sort slices – prefer ImagePositionPatient (z) then InstanceNumber
     slices = []
