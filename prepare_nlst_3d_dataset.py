@@ -1,14 +1,13 @@
-#!/usr/bin/env python
 """
-Pre-process NLST CT volumes:
-  ├── (input_dir)  NLST/001234/1.000000-…/3.000000-…/<DICOM slices>
-  └── (output_dir) NLST/001234/1.000000-…/3.000000-….npy
+preprocess_nlst.py  –  convert NLST DICOM series to fixed-size .npy volumes
 
-Usage
------
+Example
+-------
 python preprocess_nlst.py \
     --input_dir  /local/amvepa91/nlst_vqa_subset/manifest-1743585557797/NLST \
-    --output_dir /local/amvepa91/nlst_preproc
+    --output_dir /local/amvepa91/nlst_npy \
+    --min_slices 10 \
+    --skip_existing
 """
 import argparse, os, sys, traceback
 from multiprocessing import Pool
@@ -23,8 +22,12 @@ from tqdm import tqdm
 # ------------------------------------------------------------------------- #
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_dir",  required=True, help="root of raw NLST tree")
-parser.add_argument("--output_dir", required=True, help="root of *.npy* tree")
+parser.add_argument("--output_dir", required=True, help="root where *.npy go")
 parser.add_argument("--workers", type=int, default=32)
+parser.add_argument("--min_slices", type=int, default=20,
+                    help="skip series with fewer slices than this (0 = keep all)")
+parser.add_argument("--skip_existing", action="store_true",
+                    help="do NOT overwrite .npy files that already exist")
 args = parser.parse_args()
 
 in_root  = os.path.abspath(args.input_dir)
@@ -82,7 +85,7 @@ def process_series(series_dir: str):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     try:
-        vol = load_dicom_series(series_dir)                  # [D, H, W]
+        vol = load_dicom_series(series_dir, min_slices=args.min_slices)                  # [D, H, W]
         vol = vol[np.newaxis, ...]                           # [C=1, D, H, W]
 
         # min-max normalise (CTs occasionally have unusual bit-depths)
