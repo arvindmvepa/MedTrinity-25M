@@ -199,8 +199,8 @@ def summarize_vqa(final_vqa):
     return grouped_sorted
 
 
-def build_question(question, answer, pid=None, init_study_yr=None, final_study_yr=None, inst=None, is_lung_nodule=None,
-                   time_delta=None, img_files=None, filters=None):
+def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, time_delta, img_files,
+                   filters):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -218,8 +218,7 @@ def build_question(question, answer, pid=None, init_study_yr=None, final_study_y
     }
 
 
-def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, init_study_yr=None, final_study_yr=None,
-                  inst=None):
+def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst):
     q_list = []
 
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
@@ -265,7 +264,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"If there was an abnormality, was it pre-existing?",
+        question=f"If there will be an abnormality after {time_delta} years, is it pre-existing at least 1 year prior?",
         answer=qa2_answer,
         img_files=img_files,
         filters=filters,
