@@ -183,14 +183,16 @@ def summarize_vqa(final_vqa):
     return grouped_sorted
 
 
-def build_question(row, question, answer, img_files=None, filters=None):
+def build_question(question, answer, pid=None, init_study_yr=None, final_study_yr=None, inst=None, img_files=None,
+                   filters=None):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
     return {
-        "pid": row['pid'],
-        "study_yr": row['study_yr'],
-        "inst": row['cen'],
+        "pid": pid,
+        "init_study_yr": init_study_yr,
+        "final_study_yr": final_study_yr,
+        "inst": inst,
         "img_files": img_files,
         "filters": filters,
         "question": question,
@@ -198,7 +200,8 @@ def build_question(row, question, answer, img_files=None, filters=None):
     }
 
 
-def get_questions(rows, time_delta=1, img_files=None, filters=None):
+def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, init_study_yr=None, final_study_yr=None,
+                  inst=None):
 
     if len(rows) == 0:
         lesion_name = "none"
@@ -212,7 +215,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     # Q1: What type of abnormality is this?
     qa1_answer = lesion_name
     qa1 = build_question(
-        rows.iloc[0],
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"What type of abnormality will be seen in {time_delta} years?",
         answer=qa1_answer,
         img_files=img_files,
@@ -231,7 +237,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa2_answer = "NA"
     qa2 = build_question(
-        rows.iloc[0],
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"If there was an abnormality, was it pre-existing?",
         answer=qa2_answer,
         img_files=img_files,
@@ -249,7 +258,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_loc_answer = "NA"
     qa_loc = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
         answer=qa_loc_answer,
         img_files=img_files,
@@ -263,7 +275,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_attn_answer = "NA"
     qa_attn = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_attn_answer,
         img_files=img_files,
@@ -277,7 +292,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_gwth_answer = "NA"
     qa_gwth = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
         answer=qa_gwth_answer,
         img_files=img_files,
@@ -291,7 +309,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_invg_answer = "NA"
     qa_invg = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
         answer=qa_invg_answer,
         img_files=img_files,
@@ -305,7 +326,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_margin_answer = "NA"
     qa_margin = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
         answer=qa_margin_answer,
         img_files=img_files,
@@ -319,7 +343,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         qa_pre_att_answer = "NA"
     qa_pre_att = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_pre_att_answer,
         img_files=img_files,
@@ -335,7 +362,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         long_dia_str = "NA"
     qa_long = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=long_dia_str,
         img_files=img_files,
@@ -350,7 +380,10 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None):
     else:
         perp_dia_str = "NA"
     qa_perp = build_question(
-        rows,
+        pid=pid,
+        init_study_yr=init_study_yr,
+        final_study_yr=final_study_yr,
+        inst=inst,
         question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=perp_dia_str,
         img_files=img_files,
@@ -369,10 +402,12 @@ def generate_vqa_from_df(index_df, ann_df):
 
     for pid, group in index_df.groupby('pid'):
         pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
+        inst = pid_ann_df['cen'].iloc[0]
 
         grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
         grp_t0_filters = group["dicom_filter"].loc[~group["dicom_t0"].isnull()].tolist()
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
+
         grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
         grp_t1_filters = group["dicom_filter"].loc[~group["dicom_t1"].isnull()].tolist()
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
@@ -382,15 +417,18 @@ def generate_vqa_from_df(index_df, ann_df):
 
         # create t0 to t1 questions
         if len(grp_t0) > 0 and len(grp_t1) > 0:
-            qas = get_questions(pid_study_yr0_ann_df, time_delta=1, img_files=grp_t0, filters=grp_t0_filters)
+            qas = get_questions(pid_study_yr0_ann_df, time_delta=1, img_files=grp_t0, filters=grp_t0_filters, pid=pid,
+                                init_study_yr=0, final_study_yr=1, inst=inst)
             all_vqas.extend(qas)
         # create t1 to t2 questions
         if len(grp_t1) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t1, filters=grp_t1_filters)
+            qas = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t1, filters=grp_t1_filters, pid=pid,
+                                init_study_yr=1, final_study_yr=2, inst=inst)
             all_vqas.extend(qas)
         # create t0 to t2 questions
         if len(grp_t0) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0, filters=grp_t0_filters)
+            qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0, filters=grp_t0_filters, pid=pid,
+                                init_study_yr=0, final_study_yr=2, inst=inst)
             all_vqas.extend(qas)
 
     return all_vqas
@@ -421,10 +459,10 @@ if __name__ == "__main__":
     compare_df = pd.read_csv(comparison_file)
     combined_measure_comp_df = pd.merge(measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
-    combined_measure_comp_w_patient_info_df = pd.merge(combined_measure_comp_df,
-                                                       patient_df, on="pid", how="inner")
+    patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
+                                                       combined_measure_comp_df, on="pid", how="left")
     nlst_index_df = pd.read_csv(source_file)
-    all_vqas = generate_vqa_from_df(nlst_index_df, combined_measure_comp_w_patient_info_df)
+    all_vqas = generate_vqa_from_df(nlst_index_df, patient_info_w_combined_measure_comp_df)
     print(f"==========OVERALL VQA==========")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
