@@ -368,17 +368,16 @@ def generate_vqa_from_df(index_df, ann_df):
     all_vqas = []
 
     for pid, group in index_df.groupby('pid'):
-        filters = group["dicom_filter"].tolist()
         pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
 
         grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
-        grp_t0_filters = filters.loc[~group["dicom_t0"].isnull()].tolist()
+        grp_t0_filters = group["dicom_filter"].loc[~group["dicom_t0"].isnull()].tolist()
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
         grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
-        grp_t1_filters = filters.loc[~group["dicom_t1"].isnull()].tolist()
+        grp_t1_filters = group["dicom_filter"].loc[~group["dicom_t1"].isnull()].tolist()
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
         grp_t2 = group["dicom_t2"].loc[~group["dicom_t2"].isnull()].tolist()
-        grp_t2_filters = filters.loc[~group["dicom_t2"].isnull()].tolist()
+        grp_t2_filters = group["dicom_filter"].loc[~group["dicom_t2"].isnull()].tolist()
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
         # create t0 to t1 questions
