@@ -82,6 +82,9 @@ def load_dicom_series(series_dir: str, min_slices=20) -> np.ndarray:
 def process_series(series_dir: str):
     rel_path = os.path.relpath(series_dir, in_root)          # e.g. 123/1.../3...
     out_path = os.path.join(out_root, rel_path) + ".npy"     # keep tree, add .npy
+    if os.path.exists(out_path) and args.skip_existing:
+        print(f"Skipping existing {out_path}", file=sys.stderr)
+        return
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     try:
