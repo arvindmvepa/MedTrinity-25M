@@ -430,7 +430,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     return q_list
 
 
-def generate_vqa_from_df(index_df, ann_df):
+def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
     """
     Main function: iterates over the rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -463,11 +463,10 @@ def generate_vqa_from_df(index_df, ann_df):
                                 init_study_yr=1, final_study_yr=2, inst=inst)
             all_vqas.extend(qas)
         # create t0 to t2 questions
-        if len(grp_t0) > 0 and len(grp_t2) > 0:
+        if add_time_delta2 and len(grp_t0) > 0 and len(grp_t2) > 0:
             qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0, filters=grp_t0_filters, pid=pid,
                                 init_study_yr=0, final_study_yr=2, inst=inst)
             all_vqas.extend(qas)
-
     return all_vqas
 
 
