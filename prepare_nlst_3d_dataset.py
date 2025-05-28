@@ -83,7 +83,7 @@ def process_series(series_dir: str):
     rel_path = os.path.relpath(series_dir, in_root)          # e.g. 123/1.../3...
     out_path = os.path.join(out_root, rel_path) + ".npy"     # keep tree, add .npy
     if os.path.exists(out_path) and args.skip_existing:
-        print(f"Skipping existing {out_path}", file=sys.stderr)
+        #print(f"Skipping existing {out_path}", file=sys.stderr)
         return
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
@@ -98,7 +98,9 @@ def process_series(series_dir: str):
         vol = xform(vol)                                     # [1, 32, 256, 256]
         np.save(out_path, vol.astype(np.float32))
     except Exception as e:
-        print(f"Failed on {series_dir}\n{traceback.format_exc()}", file=sys.stderr)
+        error_msg = traceback.format_exc()
+        if "Too few" not in error_msg:
+            print(f"Failed on {series_dir}\n{error_msg}", file=sys.stderr)
 
 # ------------------------------------------------------------------------- #
 # Enumerate *leaf* dirs that contain DICOM files and queue them
