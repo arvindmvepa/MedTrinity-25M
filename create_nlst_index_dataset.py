@@ -95,6 +95,14 @@ def assign_tp(items: List[str]) -> Dict[str, str]:
     return mapping
 
 
+def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
+    volume_name = os.path.basename(volume_path)
+    time_point_dir = os.path.basename(os.path.dirname(volume_path))
+    pid_dir = os.path.basename(os.path.dirname(os.path.dirname(volume_path)))
+    volume_path_npy = os.path.join(img_root, pid_dir, time_point_dir, volume_name + ".npy")
+    return volume_path_npy
+
+
 # ────────────────────────────────────────────────────────────────────────
 # 3.  Per-PID processing
 # ────────────────────────────────────────────────────────────────────────
@@ -111,6 +119,11 @@ def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
     for tp in tp_dirs:
         for vol in tp.iterdir():
             if not vol.is_dir():
+                continue
+            volume_path = vol.resolve()
+            volume_path_npy = get_npy_path(volume_path)
+            if not os.path.exists(volume_path_npy):
+                print(f"⚠️  Skip {vol} (no .npy found)", file=sys.stderr)
                 continue
 
             # ---------- localizer filter (skip small volumes) ----------
