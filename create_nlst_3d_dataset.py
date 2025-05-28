@@ -483,13 +483,16 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     source_file = "nlst_index.csv"
-    save_file = "nlst_vqa.json"
+    add_time_delta2 = True
+    tag = "v0"
+
+    save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
-    filt_save_file = "nlst_vqa_filt.json"
-    filt_save_pid_list = "nlst_vqa_filt_pids.json"
-    train_save_file = "nlst_train_vqa.json"
-    val_save_file = "nlst_val_vqa.json"
-    test_save_file = "nlst_test_vqa.json"
+    filt_save_file = "nlst_vqa_filt_delta2{add_time_delta2}_{tag}.json"
+    filt_save_pid_list = f"nlst_vqa_filt_pids_delta2{add_time_delta2}_{tag}.json"
+    train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
+    val_save_file = f"nlst_val_vqa_delta2{add_time_delta2}_{tag}.json"
+    test_save_file = f"nlst_test_vqa_delta2{add_time_delta2}_{tag}.json"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -498,7 +501,8 @@ if __name__ == "__main__":
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
     nlst_index_df = pd.read_csv(source_file)
-    all_vqas = generate_vqa_from_df(nlst_index_df, patient_info_w_combined_measure_comp_df)
+    all_vqas = generate_vqa_from_df(nlst_index_df, patient_info_w_combined_measure_comp_df,
+                                    add_time_delta2=add_time_delta2)
     print(f"==========OVERALL VQA==========")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
