@@ -505,7 +505,7 @@ if __name__ == "__main__":
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
 
-    filtered_vqas = filter_by_instution(all_vqas, filter_inst, source_file)
+    filtered_vqas = filter_by_instution(all_vqas, filter_inst)
     print(f"==========FILTERED VQA==========")
     summarize_vqa(filtered_vqas)
     with open(filt_save_file, "w") as f:
