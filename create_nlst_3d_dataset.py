@@ -144,28 +144,46 @@ def summarize_vqa(final_vqa):
     n_lung_nodule = df["is_lung_nodule"].sum()
     pct_lung_nodule = (n_lung_nodule / n_questions * 100.0) if n_questions else 0.0
 
-    n_year1 = len(df[df["study_yr"] == 1])
-    n_year2 = len(df[df["study_yr"] == 2])
+    n_init_year0 = (df["init_study_yr"] == 0).sum()
+    n_init_year1 = (df["init_study_yr"] == 1).sum()
+    n_final_year1 = (df["final_study_yr"] == 1).sum()
+    n_final_year2 = (df["final_study_yr"] == 2).sum()
+    n_time_delta_1 = (df["time_delta"] == 1).sum()
+    n_time_delta_2 = (df["time_delta"] == 2).sum()
+
     n_pids = df["pid"].nunique()
 
     print("=== Overall Statistics ===")
     print(f"Total number of questions: {n_questions}")
     print(f"Number of Lung Nodule questions: {n_lung_nodule} ({pct_lung_nodule:.1f}%)")
-    print(f"Number of Study Year=1 questions: {n_year1}")
-    print(f"Number of Study Year=2 questions: {n_year2}")
+    print(f"Number of questions with initial year 0: {n_init_year0}")
+    print(f"Number of questions with initial year 1: {n_init_year1}")
+    print(f"Number of questions with final year 1: {n_final_year1}")
+    print(f"Number of questions with final year 2: {n_final_year2}")
+    print(f"Number of questions with time delta 1: {n_time_delta_1}")
+    print(f"Number of questions with time delta 2: {n_time_delta_2}")
     print(f"Number of unique pids: {n_pids}\n")
 
     # 3) Per-Institution Statistics
     df["lung_nodule_flag"] = df["is_lung_nodule"].astype(int)
-    df["year1_flag"] = (df["study_yr"] == 1).astype(int)
-    df["year2_flag"] = (df["study_yr"] == 2).astype(int)
+    df["init_year0_flag"] = df["init_study_yr"] == 0
+    df["init_year1_flag"] = df["init_study_yr"] == 1
+    df["final_year1_flag"] = df["final_study_yr"] == 1
+    df["final_year2_flag"] = df["final_study_yr"] == 2
+    df["time_delta1_flag"] = df["time_delta"] == 1
+    df["time_delta2_flag"] = df["time_delta"] == 2
+
 
     grouped = df.groupby("inst").agg(
-        total_questions = ("question", "count"),
-        total_lung_nodule = ("lung_nodule_flag", "sum"),
-        total_year1 = ("year1_flag", "sum"),
-        total_year2 = ("year2_flag", "sum"),
-        unique_pids = ("pid", "nunique")
+        total_questions=("question", "count"),
+        total_lung_nodule=("lung_nodule_flag", "sum"),
+        total_init_year0=("init_year0_flag", "sum"),
+        total_init_year1=("init_year1_flag", "sum"),
+        total_final_year1=("final_year1_flag", "sum"),
+        total_final_year2=("final_year2_flag", "sum"),
+        total_time_delta1=("time_delta1_flag", "sum"),
+        total_time_delta2=("time_delta2_flag", "sum"),
+        unique_pids=("pid", "nunique")
     ).reset_index()
 
     # 4) Compute percentage of Code 51 per institution
@@ -181,8 +199,8 @@ def summarize_vqa(final_vqa):
     return grouped_sorted
 
 
-def build_question(question, answer, pid=None, init_study_yr=None, final_study_yr=None, inst=None, img_files=None,
-                   filters=None, is_lung_nodule=None):
+def build_question(question, answer, pid=None, init_study_yr=None, final_study_yr=None, inst=None, is_lung_nodule=None,
+                   time_delta=None, img_files=None, filters=None):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -190,6 +208,7 @@ def build_question(question, answer, pid=None, init_study_yr=None, final_study_y
         "pid": pid,
         "init_study_yr": init_study_yr,
         "final_study_yr": final_study_yr,
+        "time_delta": time_delta,
         "inst": inst,
         "is_lung_nodule": is_lung_nodule,
         "img_files": img_files,
@@ -220,6 +239,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"What type of abnormality will be seen in {time_delta} years?",
         answer=qa1_answer,
@@ -243,6 +263,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"If there was an abnormality, was it pre-existing?",
         answer=qa2_answer,
@@ -261,6 +282,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
         answer=qa_loc_answer,
@@ -279,6 +301,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_attn_answer,
@@ -297,6 +320,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
         answer=qa_gwth_answer,
@@ -315,6 +339,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
         answer=qa_invg_answer,
@@ -333,6 +358,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
         answer=qa_margin_answer,
@@ -351,6 +377,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_pre_att_answer,
@@ -371,6 +398,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=long_dia_str,
@@ -390,6 +418,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
+        time_delta=time_delta,
         inst=inst,
         question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=perp_dia_str,
