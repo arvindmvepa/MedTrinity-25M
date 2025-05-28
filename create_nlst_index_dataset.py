@@ -120,13 +120,8 @@ def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
         for vol in tp.iterdir():
             if not vol.is_dir():
                 continue
-            volume_path = vol.resolve()
-            volume_path_npy = get_npy_path(volume_path)
-            if not os.path.exists(volume_path_npy):
-                print(f"⚠️  Skip {vol} (no .npy found)", file=sys.stderr)
-                continue
 
-            # ---------- localizer filter (skip small volumes) ----------
+            # localizer filter (skip small volumes)
             n_slices = 0
             for f in vol.iterdir():
                 if f.is_file() and (f.suffix.lower() == ".dcm" or f.suffix == ""):
@@ -135,7 +130,13 @@ def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
                         break
             if n_slices < min_slices:
                 continue
-            # -----------------------------------------------------------
+
+            volume_path = vol.resolve()
+            volume_path_npy = get_npy_path(volume_path)
+            if not os.path.exists(volume_path_npy):
+                print(f"⚠️  Skip {vol} (no .npy found)", file=sys.stderr)
+                continue
+
 
             try:
                 date, kernel = series_meta(vol)
