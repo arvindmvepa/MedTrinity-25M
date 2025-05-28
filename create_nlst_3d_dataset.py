@@ -206,9 +206,9 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     if len(rows) == 0:
         lesion_name = "none"
     elif len(rows) == 1:
-        lesion_name = get_dict_value(sct_ab_code_dict, rows[0]["sct_ab_code"])
+        lesion_name = get_dict_value(sct_ab_code_dict, rows.iloc[0]["sct_ab_code"])
     else:
-        lesion_name = ", ".join([get_dict_value(sct_ab_code_dict, row["sct_ab_code"]) for row in rows])
+        lesion_name = ", ".join([get_dict_value(sct_ab_code_dict, row["sct_ab_code"]) for _, row in rows.iterrows()])
 
     q_list = []
 
@@ -228,7 +228,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # Q2: Was the abnormality pre-existing?
     print("rows ", rows)
-    pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for row in rows]
+    pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for _, row in rows.iterrows()]
     if "2" in pre_existing_diseases:
         qa2_answer = "yes"
     elif "1" in pre_existing_diseases:
@@ -249,13 +249,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     )
     q_list.append(qa2)
 
-    nodule_rows = rows[rows["sct_ab_code"] == 51]
+    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
     # sort answers by longest diameter
     nodule_rows = nodule_rows.sort_values(by="sct_long_dia", ascending=False)
 
     # 3) Where is the abnormality located?
     if len(nodule_rows) > 0:
-        qa_loc_answer = ", ".join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for row in nodule_rows])
+        qa_loc_answer = ", ".join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_loc_answer = "NA"
     qa_loc = build_question(
@@ -272,7 +272,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 4) Did it have a suspicious interval change in attenuation?
     if len(nodule_rows) > 0:
-        qa_attn_answer = ", ".join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for row in nodule_rows])
+        qa_attn_answer = ", ".join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_attn_answer = "NA"
     qa_attn = build_question(
@@ -289,7 +289,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 5) Did the abnormality have interval growth?
     if len(nodule_rows) > 0:
-        qa_gwth_answer = ", ".join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for row in nodule_rows])
+        qa_gwth_answer = ", ".join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_gwth_answer = "NA"
     qa_gwth = build_question(
@@ -306,7 +306,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 6) Does interval change warrant further investigation?
     if len(nodule_rows) > 0:
-        qa_invg_answer = ", ".join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for row in nodule_rows])
+        qa_invg_answer = ", ".join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = "NA"
     qa_invg = build_question(
@@ -323,7 +323,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 7) What are the margins?
     if len(nodule_rows) > 0:
-        qa_margin_answer = ", ".join([get_dict_value(sct_margins_dict, row["sct_margins"]) for row in nodule_rows])
+        qa_margin_answer = ", ".join([get_dict_value(sct_margins_dict, row["sct_margins"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_margin_answer = "NA"
     qa_margin = build_question(
@@ -340,7 +340,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 8) What is the predominant attenuation?
     if len(nodule_rows) > 0:
-        qa_pre_att_answer = ", ".join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for row in nodule_rows])
+        qa_pre_att_answer = ", ".join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_pre_att_answer = "NA"
     qa_pre_att = build_question(
@@ -357,7 +357,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 9) What is the longest diameter (in mm)?
     if len(nodule_rows) > 0:
-        long_dia_str = ", ".join([row["sct_long_dia"] for row in nodule_rows if pd.notnull(row["sct_long_dia"])])
+        long_dia_str = ", ".join([row["sct_long_dia"] for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
         if not qa_pre_att_answer:
             long_dia_str = "NA"
     else:
@@ -375,7 +375,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     q_list.append(qa_long)
     # 10) What is the longest perpendicular diameter (in mm)?
     if len(nodule_rows) > 0:
-        perp_dia_str = ", ".join([row["sct_perp_dia"] for row in nodule_rows if pd.notnull(row["sct_perp_dia"])])
+        perp_dia_str = ", ".join([row["sct_perp_dia"] for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
         if not qa_pre_att_answer:
             perp_dia_str = "NA"
     else:
