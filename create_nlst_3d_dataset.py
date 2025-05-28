@@ -424,7 +424,8 @@ if __name__ == "__main__":
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
     combined_measure_comp_w_patient_info_df = pd.merge(combined_measure_comp_df,
                                                        patient_df, on="pid", how="inner")
-    all_vqas = generate_vqa_from_df(combined_measure_comp_w_patient_info_df)
+    nlst_index_df = pd.read_csv(source_file)
+    all_vqas = generate_vqa_from_df(nlst_index_df, combined_measure_comp_w_patient_info_df)
     print(f"==========OVERALL VQA==========")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
