@@ -227,7 +227,6 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     q_list.append(qa1)
 
     # Q2: Was the abnormality pre-existing?
-    print("rows ", rows)
     pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for _, row in rows.iterrows()]
     if "2" in pre_existing_diseases:
         qa2_answer = "yes"
@@ -357,7 +356,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
 
     # 9) What is the longest diameter (in mm)?
     if len(nodule_rows) > 0:
-        long_dia_str = ", ".join([row["sct_long_dia"] for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
+        long_dia_str = ", ".join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
         if not qa_pre_att_answer:
             long_dia_str = "NA"
     else:
@@ -375,7 +374,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     q_list.append(qa_long)
     # 10) What is the longest perpendicular diameter (in mm)?
     if len(nodule_rows) > 0:
-        perp_dia_str = ", ".join([row["sct_perp_dia"] for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
+        perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
         if not qa_pre_att_answer:
             perp_dia_str = "NA"
     else:
