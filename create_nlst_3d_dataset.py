@@ -183,7 +183,7 @@ def summarize_vqa(final_vqa):
     return grouped_sorted
 
 
-def build_question(row, question, answer, img_files=None):
+def build_question(row, question, answer, img_files=None, filters=None):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -192,12 +192,13 @@ def build_question(row, question, answer, img_files=None):
         "study_yr": row['study_yr'],
         "inst": row['cen'],
         "img_files": img_files,
+        "filters": filters,
         "question": question,
         "answer": answer
     }
 
 
-def get_questions(rows, time_delta=1, img_files=None):
+def get_questions(rows, time_delta=1, img_files=None, filters=None):
 
     if len(rows) == 0:
         lesion_name = "none"
@@ -214,7 +215,8 @@ def get_questions(rows, time_delta=1, img_files=None):
         rows.iloc[0],
         question=f"What type of abnormality will be seen in {time_delta} years?",
         answer=qa1_answer,
-        img_files=img_files
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa1)
 
@@ -231,7 +233,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa2 = build_question(
         rows.iloc[0],
         question=f"If there was an abnormality, was it pre-existing?",
-        answer=qa2_answer
+        answer=qa2_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa2)
 
@@ -247,7 +251,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_loc = build_question(
         rows,
         question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
-        answer=qa_loc_answer
+        answer=qa_loc_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_loc)
 
@@ -259,7 +265,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_attn = build_question(
         rows,
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
-        answer=qa_attn_answer
+        answer=qa_attn_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_attn)
 
@@ -271,7 +279,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_gwth = build_question(
         rows,
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
-        answer=qa_gwth_answer
+        answer=qa_gwth_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_gwth)
 
@@ -283,7 +293,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_invg = build_question(
         rows,
         question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
-        answer=qa_invg_answer
+        answer=qa_invg_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_invg)
 
@@ -295,7 +307,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_margin = build_question(
         rows,
         question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
-        answer=qa_margin_answer
+        answer=qa_margin_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_margin)
 
@@ -307,7 +321,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_pre_att = build_question(
         rows,
         question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
-        answer=qa_pre_att_answer
+        answer=qa_pre_att_answer,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_pre_att)
 
@@ -321,7 +337,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_long = build_question(
         rows,
         question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
-        answer=long_dia_str
+        answer=long_dia_str,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_long)
     # 10) What is the longest perpendicular diameter (in mm)?
@@ -334,7 +352,9 @@ def get_questions(rows, time_delta=1, img_files=None):
     qa_perp = build_question(
         rows,
         question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
-        answer=perp_dia_str
+        answer=perp_dia_str,
+        img_files=img_files,
+        filters=filters
     )
     q_list.append(qa_perp)
     return q_list
@@ -348,26 +368,30 @@ def generate_vqa_from_df(index_df, ann_df):
     all_vqas = []
 
     for pid, group in index_df.groupby('pid'):
+        filters = group["dicom_filter"].tolist()
         pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
+
         grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
+        grp_t0_filters = filters.loc[~group["dicom_t0"].isnull()].tolist()
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
         grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
+        grp_t1_filters = filters.loc[~group["dicom_t1"].isnull()].tolist()
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
         grp_t2 = group["dicom_t2"].loc[~group["dicom_t2"].isnull()].tolist()
+        grp_t2_filters = filters.loc[~group["dicom_t2"].isnull()].tolist()
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
-        filters = group["dicom_filter"].tolist()
 
         # create t0 to t1 questions
         if len(grp_t0) > 0 and len(grp_t1) > 0:
-            qas = get_questions(pid_study_yr0_ann_df, time_delta=1, img_files=grp_t0)
+            qas = get_questions(pid_study_yr0_ann_df, time_delta=1, img_files=grp_t0, filters=grp_t0_filters)
             all_vqas.extend(qas)
         # create t1 to t2 questions
         if len(grp_t1) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t1)
+            qas = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t1, filters=grp_t1_filters)
             all_vqas.extend(qas)
         # create t0 to t2 questions
         if len(grp_t0) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0)
+            qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0, filters=grp_t0_filters)
             all_vqas.extend(qas)
 
     return all_vqas
