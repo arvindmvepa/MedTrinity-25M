@@ -170,6 +170,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", help="root folder holding PID sub-dirs")
     ap.add_argument("csv_out", help="output CSV file")
+    ap.add_argument("--min_slices", type=int, default=20,
+                    help="skip series with fewer slices than this (0 = keep all)")
     args = ap.parse_args()
 
     root = Path(args.root).expanduser().resolve()
