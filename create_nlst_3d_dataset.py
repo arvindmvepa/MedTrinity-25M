@@ -136,15 +136,13 @@ def summarize_vqa(final_vqa):
     including the percentage of Code 51 questions.
     """
 
-    import pandas as pd
-
     # 1) Convert to DataFrame
     df = pd.DataFrame(final_vqa)
 
     # 2) Overall Statistics
     n_questions = len(df)
-    n_code51 = len(df[df["sct_ab_code"] == 51])
-    pct_code51 = (n_code51 / n_questions * 100.0) if n_questions else 0.0
+    n_lung_nodule = df["is_lung_nodule"].sum()
+    pct_lung_nodule = (n_lung_nodule / n_questions * 100.0) if n_questions else 0.0
 
     n_year1 = len(df[df["study_yr"] == 1])
     n_year2 = len(df[df["study_yr"] == 2])
@@ -152,26 +150,26 @@ def summarize_vqa(final_vqa):
 
     print("=== Overall Statistics ===")
     print(f"Total number of questions: {n_questions}")
-    print(f"Number of Code 51 questions: {n_code51} ({pct_code51:.1f}%)")
+    print(f"Number of Lung Nodule questions: {n_lung_nodule} ({pct_lung_nodule:.1f}%)")
     print(f"Number of Study Year=1 questions: {n_year1}")
     print(f"Number of Study Year=2 questions: {n_year2}")
     print(f"Number of unique pids: {n_pids}\n")
 
     # 3) Per-Institution Statistics
-    df["code51_flag"] = (df["sct_ab_code"] == 51).astype(int)
+    df["lung_nodule_flag"] = df["is_lung_nodule"].astype(int)
     df["year1_flag"] = (df["study_yr"] == 1).astype(int)
     df["year2_flag"] = (df["study_yr"] == 2).astype(int)
 
     grouped = df.groupby("inst").agg(
         total_questions = ("question", "count"),
-        total_code51    = ("code51_flag", "sum"),
-        total_year1     = ("year1_flag", "sum"),
-        total_year2     = ("year2_flag", "sum"),
-        unique_pids     = ("pid", "nunique")
+        total_lung_nodule = ("lung_nodule_flag", "sum"),
+        total_year1 = ("year1_flag", "sum"),
+        total_year2 = ("year2_flag", "sum"),
+        unique_pids = ("pid", "nunique")
     ).reset_index()
 
     # 4) Compute percentage of Code 51 per institution
-    grouped["pct_code51"] = (grouped["total_code51"] / grouped["total_questions"]) * 100
+    grouped["pct_lung_nodule"] = (grouped["total_lung_nodule"] / grouped["total_questions"]) * 100
 
     # 5) Sort descending by total questions
     grouped_sorted = grouped.sort_values(by="total_questions", ascending=False)
@@ -184,7 +182,7 @@ def summarize_vqa(final_vqa):
 
 
 def build_question(question, answer, pid=None, init_study_yr=None, final_study_yr=None, inst=None, img_files=None,
-                   filters=None):
+                   filters=None, is_lung_nodule=None):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -193,6 +191,7 @@ def build_question(question, answer, pid=None, init_study_yr=None, final_study_y
         "init_study_yr": init_study_yr,
         "final_study_yr": final_study_yr,
         "inst": inst,
+        "is_lung_nodule": is_lung_nodule,
         "img_files": img_files,
         "filters": filters,
         "question": question,
@@ -202,17 +201,20 @@ def build_question(question, answer, pid=None, init_study_yr=None, final_study_y
 
 def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, init_study_yr=None, final_study_yr=None,
                   inst=None):
+    q_list = []
 
+    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
+    # sort answers by longest diameter
+    nodule_rows = nodule_rows.sort_values(by="sct_long_dia", ascending=False)
+    is_lung_nodule = len(nodule_rows) > 0
+
+    # Q1: What type of abnormality is this?
     if len(rows) == 0:
         lesion_name = "none"
     elif len(rows) == 1:
         lesion_name = get_dict_value(sct_ab_code_dict, rows.iloc[0]["sct_ab_code"])
     else:
         lesion_name = ", ".join([get_dict_value(sct_ab_code_dict, row["sct_ab_code"]) for _, row in rows.iterrows()])
-
-    q_list = []
-
-    # Q1: What type of abnormality is this?
     qa1_answer = lesion_name
     qa1 = build_question(
         pid=pid,
@@ -222,7 +224,8 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"What type of abnormality will be seen in {time_delta} years?",
         answer=qa1_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa1)
 
@@ -244,16 +247,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"If there was an abnormality, was it pre-existing?",
         answer=qa2_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa2)
 
-    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
-    # sort answers by longest diameter
-    nodule_rows = nodule_rows.sort_values(by="sct_long_dia", ascending=False)
-
     # 3) Where is the abnormality located?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_loc_answer = ", ".join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_loc_answer = "NA"
@@ -265,12 +265,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
         answer=qa_loc_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_loc)
 
     # 4) Did it have a suspicious interval change in attenuation?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_attn_answer = ", ".join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_attn_answer = "NA"
@@ -282,12 +283,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_attn_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_attn)
 
     # 5) Did the abnormality have interval growth?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_gwth_answer = ", ".join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_gwth_answer = "NA"
@@ -299,12 +301,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
         answer=qa_gwth_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_gwth)
 
     # 6) Does interval change warrant further investigation?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_invg_answer = ", ".join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = "NA"
@@ -316,12 +319,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
         answer=qa_invg_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_invg)
 
     # 7) What are the margins?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_margin_answer = ", ".join([get_dict_value(sct_margins_dict, row["sct_margins"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_margin_answer = "NA"
@@ -333,12 +337,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
         answer=qa_margin_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_margin)
 
     # 8) What is the predominant attenuation?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         qa_pre_att_answer = ", ".join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_pre_att_answer = "NA"
@@ -350,12 +355,13 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_pre_att_answer,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_pre_att)
 
     # 9) What is the longest diameter (in mm)?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         long_dia_str = ", ".join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
         if not qa_pre_att_answer:
             long_dia_str = "NA"
@@ -369,11 +375,12 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=long_dia_str,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_long)
     # 10) What is the longest perpendicular diameter (in mm)?
-    if len(nodule_rows) > 0:
+    if is_lung_nodule:
         perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
         if not qa_pre_att_answer:
             perp_dia_str = "NA"
@@ -387,7 +394,8 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
         question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=perp_dia_str,
         img_files=img_files,
-        filters=filters
+        filters=filters,
+        is_lung_nodule=is_lung_nodule
     )
     q_list.append(qa_perp)
     return q_list
