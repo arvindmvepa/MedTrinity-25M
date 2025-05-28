@@ -227,6 +227,7 @@ def get_questions(rows, time_delta=1, img_files=None, filters=None, pid=None, in
     q_list.append(qa1)
 
     # Q2: Was the abnormality pre-existing?
+    print("rows ", rows)
     pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for row in rows]
     if "2" in pre_existing_diseases:
         qa2_answer = "yes"
