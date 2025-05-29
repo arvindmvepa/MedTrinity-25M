@@ -209,7 +209,7 @@ def summarize_vqa(final_vqa):
 
 
 def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, time_delta, img_files,
-                   filters, question_index):
+                   filters, question_index, content_type):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -224,7 +224,8 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "filters": filters,
         "question": question,
         "answer": answer,
-        "qid": question_index
+        "qid": question_index,
+        "content_type": content_type
     }
 
 
@@ -271,7 +272,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="abnormality_type"
     )
     q_list.append(qa1)
     question_index += 1
@@ -297,7 +299,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="pre-existing"
     )
     q_list.append(qa2)
     question_index += 1
@@ -318,7 +321,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type = "location"
     )
     q_list.append(qa_loc)
     question_index += 1
@@ -339,7 +343,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="interval_change"
     )
     q_list.append(qa_attn)
     question_index += 1
@@ -360,7 +365,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="interval_growth"
     )
     q_list.append(qa_gwth)
     question_index += 1
@@ -381,7 +387,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="further_investigation"
     )
     q_list.append(qa_invg)
     question_index += 1
@@ -402,7 +409,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="margins"
     )
     q_list.append(qa_margin)
     question_index += 1
@@ -423,7 +431,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="predominant_attenuation"
     )
     q_list.append(qa_pre_att)
     question_index += 1
@@ -446,7 +455,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="longest_diameter"
     )
     q_list.append(qa_long)
     question_index += 1
@@ -469,7 +479,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         img_files=img_files,
         filters=filters,
         is_lung_nodule=is_lung_nodule,
-        question_index=question_index
+        question_index=question_index,
+        content_type="longest_perpendicular_diameter"
     )
     q_list.append(qa_perp)
     question_index += 1
