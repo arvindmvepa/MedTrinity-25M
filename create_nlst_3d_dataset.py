@@ -4,6 +4,7 @@ import json
 from tqdm import tqdm
 import pandas as pd
 import random
+import os
 
 
 sct_ab_code_dict = {
@@ -84,12 +85,20 @@ sct_ab_preexist_dict = {
 }
 
 
+def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
+    volume_name = os.path.basename(volume_path)
+    time_point_dir = os.path.basename(os.path.dirname(volume_path))
+    pid_dir = os.path.basename(os.path.dirname(os.path.dirname(volume_path)))
+    volume_path_npy = os.path.join(img_root, pid_dir, time_point_dir, volume_name + ".npy")
+    return volume_path_npy
+
+
 # A small helper to handle "code not found in dict" => "NA"
 def get_dict_value(dictionary, key):
     return dictionary.get(key, "NA")
 
 
-def split_vqa_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
+def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     """
     Splits a list of VQA dicts into train, val, and test sets by PID.
     The val set is val_pct of unique PIDs,
@@ -105,7 +114,7 @@ def split_vqa_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     """
 
     # 1) Collect unique PIDs from the list
-    unique_pids = list({item["pid"] for item in final_vqa})
+    unique_pids = sorted({item["pid"] for item in final_vqa})
     total_pids = len(unique_pids)
 
     # 2) Shuffle PIDs
@@ -216,6 +225,22 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "question": question,
         "answer": answer,
         "qid": question_index
+    }
+
+
+def build_diffusion_prompt(pid, init_study_yr, final_study_yr, inst, time_delta, source_img_files, source_filters,
+                           target_img_files, target_filters, diffusion_prompt_index):
+    return {
+        "pid": pid,
+        "init_study_yr": init_study_yr,
+        "final_study_yr": final_study_yr,
+        "time_delta": time_delta,
+        "inst": inst,
+        "source_img_files": [get_npy_path(img_file) for img_file in source_img_files],
+        "source_filters": source_filters,
+        "target_img_files": [get_npy_path(img_file) for img_file in target_img_files],
+        "target_filters": target_filters,
+        "dpid": diffusion_prompt_index
     }
 
 
@@ -457,7 +482,9 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
+    all_diffusion_prompts = []
     question_index = 0
+    diffusion_prompt_index = 0
     for pid, group in index_df.groupby('pid'):
         pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
         inst = pid_ann_df['cen'].iloc[0]
@@ -479,19 +506,40 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
                                                filters=grp_t0_filters, pid=pid,init_study_yr=0, final_study_yr=1,
                                                inst=inst, question_index=question_index)
             all_vqas.extend(qas)
+            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=0, final_study_yr=1,
+                                                      inst=inst, time_delta=1, source_img_files=grp_t0,
+                                                      source_filters=grp_t0_filters, target_img_files=grp_t1,
+                                                      target_filters= grp_t1_filters,
+                                                      diffusion_prompt_index=diffusion_prompt_index)
+            all_diffusion_prompts.append(diffusion_prompt)
+            diffusion_prompt_index += 1
         # create t1 to t2 questions
         if len(grp_t1) > 0 and len(grp_t2) > 0:
             qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, img_files=grp_t1,
                                                 filters=grp_t1_filters, pid=pid,init_study_yr=1, final_study_yr=2,
                                                 inst=inst, question_index=question_index)
             all_vqas.extend(qas)
+            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=1, final_study_yr=2,
+                                                      inst=inst, time_delta=1, source_img_files=grp_t1,
+                                                      source_filters=grp_t1_filters, target_img_files=grp_t2,
+                                                      target_filters=grp_t2_filters,
+                                                      diffusion_prompt_index=diffusion_prompt_index)
+            all_diffusion_prompts.append(diffusion_prompt)
+            diffusion_prompt_index += 1
         # create t0 to t2 questions
         if add_time_delta2 and len(grp_t0) > 0 and len(grp_t2) > 0:
             qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0,
                                                 filters=grp_t0_filters, pid=pid, init_study_yr=0, final_study_yr=2,
                                                 inst=inst, question_index=question_index)
             all_vqas.extend(qas)
-    return all_vqas
+            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=0, final_study_yr=2,
+                                                      inst=inst, time_delta=2, source_img_files=grp_t0,
+                                                      source_filters=grp_t0_filters, target_img_files=grp_t2,
+                                                      target_filters=grp_t2_filters,
+                                                      diffusion_prompt_index=diffusion_prompt_index)
+            all_diffusion_prompts.append(diffusion_prompt)
+            diffusion_prompt_index += 1
+    return all_vqas, all_diffusion_prompts
 
 
 def filter_by_instution(all_vqas, inst_list):
@@ -508,15 +556,20 @@ if __name__ == "__main__":
     patient_file = "participant_d100814.sas7bdat"
     source_file = "nlst_index.csv"
     add_time_delta2 = True
-    tag = "v1"
+    tag = "v2"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
+    save_diff_file = f"nlst_diff_add_time_delta2{add_time_delta2}_{tag}.json"
     filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
     filt_save_file = f"nlst_vqa_filt_delta2{add_time_delta2}_{tag}.json"
+    filt_save_diff_file = f"nlst_diff_filt_delta2{add_time_delta2}_{tag}.json"
     filt_save_pid_list = f"nlst_vqa_filt_pids_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
     val_save_file = f"nlst_val_vqa_delta2{add_time_delta2}_{tag}.json"
     test_save_file = f"nlst_test_vqa_delta2{add_time_delta2}_{tag}.json"
+    train_save_diff_file = f"nlst_train_diff_delta2{add_time_delta2}_{tag}.json"
+    val_save_diff_file = f"nlst_val_diff_delta2{add_time_delta2}_{tag}.json"
+    test_save_diff_file = f"nlst_test_diff_delta2{add_time_delta2}_{tag}.json"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -525,28 +578,38 @@ if __name__ == "__main__":
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
     nlst_index_df = pd.read_csv(source_file)
-    all_vqas = generate_vqa_from_df(nlst_index_df, patient_info_w_combined_measure_comp_df,
-                                    add_time_delta2=add_time_delta2)
-    print(f"==========OVERALL VQA==========")
+    all_vqas, all_diffusion_prompts = generate_vqa_from_df(nlst_index_df,
+                                                           patient_info_w_combined_measure_comp_df,
+                                                           add_time_delta2=add_time_delta2)
+    print(f"==========OVERALL==========")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
+    with open(save_diff_file, "w") as f:
+        json.dump(all_diffusion_prompts, f, indent=4)
 
     filtered_vqas = filter_by_instution(all_vqas, filter_inst)
-    print(f"==========FILTERED VQA==========")
+    filtered_diffusion_prompts = filter_by_instution(all_diffusion_prompts, filter_inst)
+    print(f"==========FILTERED==========")
     summarize_vqa(filtered_vqas)
     with open(filt_save_file, "w") as f:
         json.dump(filtered_vqas, f, indent=4)
+    with open(filt_save_diff_file, "w") as f:
+        json.dump(filtered_diffusion_prompts, f, indent=4)
     filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
     with open(filt_save_pid_list, "w") as f:
         json.dump(filtered_pids, f)
 
-    train_vqas, val_vqas, test_vqas = split_vqa_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
-    print(f"==========TRAIN VQA==========")
+    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
+    train_diffusion_prompts, val_diffusion_prompts, test_diffusion_prompts = train_val_test_split_by_pid(filtered_diffusion_prompts,
+                                                                                                         val_pct=0.1,
+                                                                                                         test_pct=0.1,
+                                                                                                         seed=0)
+    print(f"==========TRAIN==========")
     summarize_vqa(train_vqas)
-    print(f"==========VAL VQA==========")
+    print(f"==========VAL==========")
     summarize_vqa(val_vqas)
-    print(f"==========TEST VQA==========")
+    print(f"==========TEST==========")
     summarize_vqa(test_vqas)
 
     with open(train_save_file, "w") as f:
@@ -555,3 +618,10 @@ if __name__ == "__main__":
         json.dump(val_vqas, f, indent=4)
     with open(test_save_file, "w") as f:
         json.dump(test_vqas, f, indent=4)
+
+    with open(train_save_diff_file, "w") as f:
+        json.dump(train_diffusion_prompts, f, indent=4)
+    with open(val_save_diff_file, "w") as f:
+        json.dump(val_diffusion_prompts, f, indent=4)
+    with open(test_save_diff_file, "w") as f:
+        json.dump(test_diffusion_prompts, f, indent=4)
