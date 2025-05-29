@@ -200,7 +200,7 @@ def summarize_vqa(final_vqa):
 
 
 def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, time_delta, img_files,
-                   filters):
+                   filters, question_index):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -214,11 +214,12 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "img_files": img_files,
         "filters": filters,
         "question": question,
-        "answer": answer
+        "answer": answer,
+        "qid": question_index
     }
 
 
-def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst):
+def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index):
     q_list = []
 
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
@@ -244,9 +245,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa1_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa1)
+    question_index += 1
 
     # Q2: Was the abnormality pre-existing?
     pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for _, row in rows.iterrows()]
@@ -268,9 +271,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa2_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa2)
+    question_index += 1
 
     # 3) Where is the abnormality located?
     if is_lung_nodule:
@@ -287,9 +292,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_loc_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_loc)
+    question_index += 1
 
     # 4) Did it have a suspicious interval change in attenuation?
     if is_lung_nodule:
@@ -306,9 +313,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_attn_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_attn)
+    question_index += 1
 
     # 5) Did the abnormality have interval growth?
     if is_lung_nodule:
@@ -325,9 +334,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_gwth_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_gwth)
+    question_index += 1
 
     # 6) Does interval change warrant further investigation?
     if is_lung_nodule:
@@ -344,9 +355,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_invg_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_invg)
+    question_index += 1
 
     # 7) What are the margins?
     if is_lung_nodule:
@@ -363,9 +376,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_margin_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_margin)
+    question_index += 1
 
     # 8) What is the predominant attenuation?
     if is_lung_nodule:
@@ -382,9 +397,11 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_pre_att_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_pre_att)
+    question_index += 1
 
     # 9) What is the longest diameter (in mm)?
     if is_lung_nodule:
@@ -403,9 +420,12 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=long_dia_str,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_long)
+    question_index += 1
+
     # 10) What is the longest perpendicular diameter (in mm)?
     if is_lung_nodule:
         perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
@@ -423,10 +443,12 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=perp_dia_str,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule
+        is_lung_nodule=is_lung_nodule,
+        question_index=question_index
     )
     q_list.append(qa_perp)
-    return q_list
+    question_index += 1
+    return q_list, question_index
 
 
 def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
@@ -435,7 +457,7 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
-
+    question_index = 0
     for pid, group in index_df.groupby('pid'):
         pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
         inst = pid_ann_df['cen'].iloc[0]
@@ -453,18 +475,21 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
 
         # create t0 to t1 questions
         if len(grp_t0) > 0 and len(grp_t1) > 0:
-            qas = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t0, filters=grp_t0_filters, pid=pid,
-                                init_study_yr=0, final_study_yr=1, inst=inst)
+            qa, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t0,
+                                               filters=grp_t0_filters, pid=pid,init_study_yr=0, final_study_yr=1,
+                                               inst=inst, question_index=question_index)
             all_vqas.extend(qas)
         # create t1 to t2 questions
         if len(grp_t1) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr2_ann_df, time_delta=1, img_files=grp_t1, filters=grp_t1_filters, pid=pid,
-                                init_study_yr=1, final_study_yr=2, inst=inst)
+            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, img_files=grp_t1,
+                                                filters=grp_t1_filters, pid=pid,init_study_yr=1, final_study_yr=2,
+                                                inst=inst, question_index=question_index)
             all_vqas.extend(qas)
         # create t0 to t2 questions
         if add_time_delta2 and len(grp_t0) > 0 and len(grp_t2) > 0:
-            qas = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0, filters=grp_t0_filters, pid=pid,
-                                init_study_yr=0, final_study_yr=2, inst=inst)
+            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0,
+                                                filters=grp_t0_filters, pid=pid, init_study_yr=0, final_study_yr=2,
+                                                inst=inst, question_index=question_index)
             all_vqas.extend(qas)
     return all_vqas
 
@@ -483,7 +508,7 @@ if __name__ == "__main__":
     patient_file = "participant_d100814.sas7bdat"
     source_file = "nlst_index.csv"
     add_time_delta2 = True
-    tag = "v0"
+    tag = "v1"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
