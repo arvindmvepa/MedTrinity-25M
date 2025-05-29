@@ -475,7 +475,7 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
 
         # create t0 to t1 questions
         if len(grp_t0) > 0 and len(grp_t1) > 0:
-            qa, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t0,
+            qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t0,
                                                filters=grp_t0_filters, pid=pid,init_study_yr=0, final_study_yr=1,
                                                inst=inst, question_index=question_index)
             all_vqas.extend(qas)
