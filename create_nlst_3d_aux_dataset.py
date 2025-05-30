@@ -39,8 +39,7 @@ def convert_dict_to_numeric(original_data):
     """
     new_data = {}
 
-    for img_files, content_type_dict, init_study_yr, final_study_yr in original_data.items():
-        new_content_type_dict = {}
+    for (img_files, init_study_yr, final_study_yr), content_type_dict in original_data.items():
 
         abnormality_type = content_type_dict.get("abnormality_type", "N/A").split(",")
         pre_existing = content_type_dict.get("pre-existing", "N/A").split(",")
