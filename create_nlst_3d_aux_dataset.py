@@ -5,14 +5,14 @@ from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margi
 
 
 
-abnormality_type_map = {index: val for index, val in enumerate(sct_ab_code_dict.values())}
-location_map = {index: val for index, val in enumerate(sct_epi_loc_dict.values())}
-margins_map = {index: val for index, val in enumerate(sct_margins_dict.values())}
-pre_att_map = {index: val for index, val in enumerate(sct_pre_att_dict.values())}
-interval_change_map = {index: val for index, val in enumerate(sct_ab_attn_dict.values())}
-interval_growth_map = {index: val for index, val in enumerate(sct_ab_gwth_dict.values())}
-further_investigation_map = {index: val for index, val in enumerate(sct_ab_invg_dict.values())}
-ab_preexist_map = {index: val for index, val in enumerate(sct_ab_preexist_dict.values())}
+abnormality_type_map = {val: index for index, val in enumerate(sct_ab_code_dict.values())}
+location_map = {val: index for index, val in enumerate(sct_epi_loc_dict.values())}
+margins_map = {val: index for index, val in enumerate(sct_margins_dict.values())}
+pre_att_map = {val: index for index, val in enumerate(sct_pre_att_dict.values())}
+interval_change_map = {val: index for index, val in enumerate(sct_ab_attn_dict.values())}
+interval_growth_map = {val: index for index, val in enumerate(sct_ab_gwth_dict.values())}
+further_investigation_map = {val: index for index, val in enumerate(sct_ab_invg_dict.values())}
+ab_preexist_map = {val: index for index, val in enumerate(sct_ab_preexist_dict.values())}
 
 EXTENT_MAP = {
     "none": 0,
