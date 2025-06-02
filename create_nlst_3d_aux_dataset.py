@@ -77,10 +77,7 @@ def convert_dict_to_numeric(original_data):
             "longest_diameter": longest_diameter,
             "longest_perpendicular_diameter": longest_perpendicular_diameter,
         }
-        print(img_files)
-        print(init_study_yr)
-        print(final_study_yr)
-        new_data[[(tuple(img_files), init_study_yr, final_study_yr)]] = new_content_type_dict
+        new_data[(tuple(img_files), init_study_yr, final_study_yr)] = new_content_type_dict
 
     return new_data
 
