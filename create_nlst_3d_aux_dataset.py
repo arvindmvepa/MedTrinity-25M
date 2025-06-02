@@ -53,6 +53,7 @@ def convert_dict_to_numeric(original_data):
         longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", np.nan).split(",")
 
         # Convert each one to numeric / codes
+        print(abnormality_type_map)
         abnormality_type = [abnormality_type_map[item.strip()] for item in abnormality_type]
         pre_existing = [ab_preexist_map[item.strip()] for item in pre_existing]
         location = [location_map[item.strip()] for item in location]
