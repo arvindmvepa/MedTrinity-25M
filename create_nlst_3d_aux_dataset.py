@@ -49,8 +49,8 @@ def convert_dict_to_numeric(original_data):
         further_investigation = content_type_dict.get("further_investigation", "N/A").split(",")
         margins = content_type_dict.get("margins", "N/A").split(",")
         predominant_attenuation = content_type_dict.get("predominant_attenuation", "N/A").split(",")
-        longest_diameter = content_type_dict.get("longest_diameter", np.nan).split(",")
-        longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", np.nan).split(",")
+        longest_diameter = content_type_dict.get("longest_diameter", "nan").split(",")
+        longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", "nan").split(",")
 
         # Convert each one to numeric / codes
         abnormality_type = [abnormality_type_map[item.strip()] for item in abnormality_type]
