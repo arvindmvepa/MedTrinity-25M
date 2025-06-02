@@ -5,14 +5,14 @@ from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margi
 
 
 
-abnormality_type_map = {val: index for index, val in enumerate(sct_ab_code_dict.values())}
-location_map = {val: index for index, val in enumerate(sct_epi_loc_dict.values())}
-margins_map = {val: index for index, val in enumerate(sct_margins_dict.values())}
-pre_att_map = {val: index for index, val in enumerate(sct_pre_att_dict.values())}
-interval_change_map = {val: index for index, val in enumerate(sct_ab_attn_dict.values())}
-interval_growth_map = {val: index for index, val in enumerate(sct_ab_gwth_dict.values())}
-further_investigation_map = {val: index for index, val in enumerate(sct_ab_invg_dict.values())}
-ab_preexist_map = {val: index for index, val in enumerate(sct_ab_preexist_dict.values())}
+abnormality_type_map = {index: val for index, val in enumerate(sct_ab_code_dict.values())}
+location_map = {index: val for index, val in enumerate(sct_epi_loc_dict.values())}
+margins_map = {index: val for index, val in enumerate(sct_margins_dict.values())}
+pre_att_map = {index: val for index, val in enumerate(sct_pre_att_dict.values())}
+interval_change_map = {index: val for index, val in enumerate(sct_ab_attn_dict.values())}
+interval_growth_map = {index: val for index, val in enumerate(sct_ab_gwth_dict.values())}
+further_investigation_map = {index: val for index, val in enumerate(sct_ab_invg_dict.values())}
+ab_preexist_map = {index: val for index, val in enumerate(sct_ab_preexist_dict.values())}
 
 EXTENT_MAP = {
     "none": 0,
@@ -53,16 +53,16 @@ def convert_dict_to_numeric(original_data):
         longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", np.nan).split(",")
 
         # Convert each one to numeric / codes
-        abnormality_type = [abnormality_type_map[item] for item in abnormality_type]
-        pre_existing = [ab_preexist_map[item] for item in pre_existing]
-        location = [location_map[item] for item in location]
-        interval_change = [interval_change_map[item] for item in interval_change]
-        interval_growth = [interval_growth_map[item] for item in interval_growth]
-        further_investigation = [further_investigation_map[item] for item in further_investigation]
-        margins = [margins_map[item] for item in margins]
-        predominant_attenuation = [pre_att_map[item] for item in predominant_attenuation]
-        longest_diameter = [float(item) for item in longest_diameter]
-        longest_perpendicular_diameter = [float(item) for item in longest_perpendicular_diameter]
+        abnormality_type = [abnormality_type_map[item.strip()] for item in abnormality_type]
+        pre_existing = [ab_preexist_map[item.strip()] for item in pre_existing]
+        location = [location_map[item.strip()] for item in location]
+        interval_change = [interval_change_map[item.strip()] for item in interval_change]
+        interval_growth = [interval_growth_map[item.strip()] for item in interval_growth]
+        further_investigation = [further_investigation_map[item.strip()] for item in further_investigation]
+        margins = [margins_map[item.strip()] for item in margins]
+        predominant_attenuation = [pre_att_map[item.strip()] for item in predominant_attenuation]
+        longest_diameter = [float(item.strip()) for item in longest_diameter]
+        longest_perpendicular_diameter = [float(item.strip()) for item in longest_perpendicular_diameter]
 
         # Build the new metrics
         new_content_type_dict = {
