@@ -1,5 +1,5 @@
 import json
-import numpy as np
+from collections import Counter
 from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margins_dict, sct_pre_att_dict, \
     sct_ab_attn_dict, sct_ab_gwth_dict, sct_ab_invg_dict, sct_ab_preexist_dict
 
@@ -29,6 +29,70 @@ SOLIDITY_MAP = {
     "somewhat compact but irregular": 2,
     "mostly compact": 3,
 }
+
+
+def summarize_aux(aux_list):
+    """
+    Produces summary statistics from the final aux list of dictionaries
+    """
+    abnormality_type_list = []
+    pre_existing_list = []
+    location_list = []
+    interval_change_list = []
+    interval_growth_list = []
+    further_investigation_list = []
+    margins_list = []
+    predominant_attenuation_list = []
+    longest_diameter_list = []
+    longest_perpendicular_diameter_list = []
+
+    for it in aux_list:
+        content_info = it["content_info"]
+        abnormality_type = content_info["abnormality_type"]
+        pre_existing = content_info["pre_existing"]
+        location = content_info["location"]
+        interval_change = content_info["interval_change"]
+        interval_growth = content_info["interval_growth"]
+        further_investigation = content_info["further_investigation"]
+        margins = content_info["margins"]
+        predominant_attenuation = content_info["predominant_attenuation"]
+        longest_diameter = content_info["longest_diameter"]
+        longest_perpendicular_diameter = content_info["longest_perpendicular_diameter"]
+
+        abnormality_type_list.extend(abnormality_type)
+        pre_existing_list.extend(pre_existing)
+        location_list.extend(location)
+        interval_change_list.extend(interval_change)
+        interval_growth_list.extend(interval_growth)
+        further_investigation_list.extend(further_investigation)
+        margins_list.extend(margins)
+        predominant_attenuation_list.extend(predominant_attenuation)
+        longest_diameter_list.extend(longest_diameter)
+        longest_perpendicular_diameter_list.extend(longest_perpendicular_diameter)
+
+    abnormality_type_counter = Counter([result for result in abnormality_type_list])
+    pre_existing_counter = Counter([result for result in pre_existing_list])
+    location_counter = Counter([result for result in location_list])
+    interval_change_counter = Counter([result for result in interval_change_list])
+    interval_growth_counter = Counter([result for result in interval_growth_list])
+    further_investigation_counter = Counter([result for result in further_investigation_list])
+    margins_counter = Counter([result for result in margins_list])
+    predominant_attenuation_counter = Counter([result for result in predominant_attenuation_list])
+    longest_diameter_counter = Counter([result for result in longest_diameter_list])
+    longest_perpendicular_diameter_counter = Counter([result for result in longest_perpendicular_diameter_list])
+
+    print("Summary of auxiliary data:")
+    print(f"Total entries: {len(aux_list)}")
+    print(f"Abnormality types: {abnormality_type_counter}")
+    print(f"Pre-existing conditions: {pre_existing_counter}")
+    print(f"Locations: {location_counter}")
+    print(f"Interval changes: {interval_change_counter}")
+    print(f"Interval growth: {interval_growth_counter}")
+    print(f"Further investigation: {further_investigation_counter}")
+    print(f"Margins: {margins_counter}")
+    print(f"Predominant attenuation: {predominant_attenuation_counter}")
+    print(f"Longest diameter: {longest_diameter_counter}")
+    print(f"Longest perpendicular diameter: {longest_perpendicular_diameter_counter}")
 
 
 def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep_string="|"):
@@ -203,3 +267,13 @@ if __name__ == "__main__":
     print(f"Wrote {len(train_vqa_aux_data)} auxiliary rows to {train_aux_file}")
     print(f"Wrote {len(val_vqa_aux_data)} auxiliary rows to {val_aux_file}")
     print(f"Wrote {len(test_vqa_aux_data)} auxiliary rows to {test_aux_file}")
+
+    # Summarize the auxiliary data
+    print("Summary of all auxiliary data")
+    summarize_aux(train_vqa_aux_data + val_vqa_aux_data + test_vqa_aux_data)
+    print("Summary of train auxiliary data")
+    summarize_aux(train_vqa_aux_data)
+    print("Summary of val auxiliary data")
+    summarize_aux(val_vqa_aux_data)
+    print("Summary of test auxiliary data")
+    summarize_aux(test_vqa_aux_data)
