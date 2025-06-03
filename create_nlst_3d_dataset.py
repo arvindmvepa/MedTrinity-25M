@@ -304,13 +304,12 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # Q2: Was the abnormality pre-existing?
     pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for _, row in rows.iterrows()]
-    print(f"Pre-existing diseases: {pre_existing_diseases}")
-    if "2" in pre_existing_diseases:
-        qa2_answer = "yes"
-    elif "1" in pre_existing_diseases:
-        qa2_answer = "no"
-    elif "9" in pre_existing_diseases:
-        qa2_answer = "unable to determine"
+    if "Yes" in pre_existing_diseases:
+        qa2_answer = "Yes"
+    elif "No" in pre_existing_diseases:
+        qa2_answer = "No"
+    elif "Unable to determine" in pre_existing_diseases:
+        qa2_answer = "Unable to determine"
     else:
         qa2_answer = na_string
     qa2 = build_question(
@@ -398,7 +397,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 6) Does interval change warrant further investigation?
     if is_lung_nodule:
-        print([row["sct_ab_invg"] for _, row in nodule_rows.iterrows()])
+        print([row for _, row in nodule_rows.iterrows()])
         qa_invg_answer = sep_string.join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = na_string
