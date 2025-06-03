@@ -59,16 +59,16 @@ def summarize_aux(aux_list):
         longest_diameter = content_info["longest_diameter"]
         longest_perpendicular_diameter = content_info["longest_perpendicular_diameter"]
 
-        abnormality_type_list.extend(abnormality_type)
-        pre_existing_list.extend(pre_existing)
-        location_list.extend(location)
-        interval_change_list.extend(interval_change)
-        interval_growth_list.extend(interval_growth)
-        further_investigation_list.extend(further_investigation)
-        margins_list.extend(margins)
-        predominant_attenuation_list.extend(predominant_attenuation)
-        longest_diameter_list.extend(longest_diameter)
-        longest_perpendicular_diameter_list.extend(longest_perpendicular_diameter)
+        abnormality_type_list.extend([str(it) for it in abnormality_type])
+        pre_existing_list.extend([str(it) for it in pre_existing])
+        location_list.extend([str(it) for it in location])
+        interval_change_list.extend([str(it) for it in interval_change])
+        interval_growth_list.extend([str(it) for it in interval_growth])
+        further_investigation_list.extend([str(it) for it in further_investigation])
+        margins_list.extend([str(it) for it in margins])
+        predominant_attenuation_list.extend([str(it) for it in predominant_attenuation])
+        longest_diameter_list.extend([str(it) for it in longest_diameter])
+        longest_perpendicular_diameter_list.extend([str(it) for it in longest_perpendicular_diameter])
 
     abnormality_type_counter = Counter([result for result in abnormality_type_list])
     pre_existing_counter = Counter([result for result in pre_existing_list])
