@@ -94,8 +94,8 @@ def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
 
 
 # A small helper to handle "code not found in dict" => "NA"
-def get_dict_value(dictionary, key):
-    return dictionary.get(key, "NA")
+def get_dict_value(dictionary, key, na_string="NA"):
+    return dictionary.get(key, na_string)
 
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
@@ -162,7 +162,7 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
     # statistics on different question types
     abnormality_type_counts = df.loc[df['content_type'] == 'abnormality_type']['answer'].str.split(pat=sep_string).explode().value_counts()
-    pre_existing_counts = df.loc[df['content_type'] == 'existing']['answer'].str.split(pat=sep_string).explode().value_counts()
+    pre_existing_counts = df.loc[df['content_type'] == 'pre-existing']['answer'].str.split(pat=sep_string).explode().value_counts()
     location_counts = df.loc[df['content_type'] == 'location']['answer'].str.split(pat=sep_string).explode().value_counts()
     interval_change_counts = df.loc[df['content_type'] == 'interval_change']['answer'].str.split(pat=sep_string).explode().value_counts()
     interval_growth_counts = df.loc[df['content_type'] == 'interval_growth']['answer'].str.split(pat=sep_string).explode().value_counts()
@@ -304,6 +304,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # Q2: Was the abnormality pre-existing?
     pre_existing_diseases = [get_dict_value(sct_ab_preexist_dict, row["sct_ab_preexist"]) for _, row in rows.iterrows()]
+    print(f"Pre-existing diseases: {pre_existing_diseases}")
     if "2" in pre_existing_diseases:
         qa2_answer = "yes"
     elif "1" in pre_existing_diseases:
@@ -397,6 +398,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 6) Does interval change warrant further investigation?
     if is_lung_nodule:
+        print([row["sct_ab_invg"] for _, row in nodule_rows.iterrows()])
         qa_invg_answer = sep_string.join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = na_string
