@@ -23,7 +23,6 @@ sct_ab_code_dict = {
     63: "Other potentially significant abnormality above the diaphragm",
     64: "Other potentially significant abnormality below the diaphragm",
     65: "Other minor abnormality noted",
-    0: "none"
     # .M, .N, etc. can be mapped as needed. If numeric codes are stored as strings, adjust keys accordingly
 }
 
@@ -246,7 +245,8 @@ def build_diffusion_prompt(pid, init_study_yr, final_study_yr, inst, time_delta,
     }
 
 
-def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index):
+def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index,
+                  na_string="NA"):
     q_list = []
 
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
@@ -256,7 +256,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # Q1: What type of abnormality is this?
     if len(rows) == 0:
-        lesion_name = get_dict_value(sct_ab_code_dict, 0) # no abnormality
+        lesion_name = na_string
     elif len(rows) == 1:
         lesion_name = get_dict_value(sct_ab_code_dict, rows.iloc[0]["sct_ab_code"])
     else:
@@ -288,7 +288,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     elif "9" in pre_existing_diseases:
         qa2_answer = "unable to determine"
     else:
-        qa2_answer = "NA"
+        qa2_answer = na_string
     qa2 = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -310,7 +310,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_loc_answer = ", ".join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_loc_answer = "NA"
+        qa_loc_answer = na_string
     qa_loc = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -332,7 +332,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_attn_answer = ", ".join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_attn_answer = "NA"
+        qa_attn_answer = na_string
     qa_attn = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -354,7 +354,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_gwth_answer = ", ".join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_gwth_answer = "NA"
+        qa_gwth_answer = na_string
     qa_gwth = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -376,7 +376,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_invg_answer = ", ".join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_invg_answer = "NA"
+        qa_invg_answer = na_string
     qa_invg = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -398,7 +398,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_margin_answer = ", ".join([get_dict_value(sct_margins_dict, row["sct_margins"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_margin_answer = "NA"
+        qa_margin_answer = na_string
     qa_margin = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -420,7 +420,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         qa_pre_att_answer = ", ".join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for _, row in nodule_rows.iterrows()])
     else:
-        qa_pre_att_answer = "NA"
+        qa_pre_att_answer = na_string
     qa_pre_att = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -442,9 +442,9 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         long_dia_str = ", ".join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
         if not qa_pre_att_answer:
-            long_dia_str = "NA"
+            long_dia_str = na_string
     else:
-        long_dia_str = "NA"
+        long_dia_str = na_string
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -466,9 +466,9 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     if is_lung_nodule:
         perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
         if not qa_pre_att_answer:
-            perp_dia_str = "NA"
+            perp_dia_str = na_string
     else:
-        perp_dia_str = "NA"
+        perp_dia_str = na_string
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
