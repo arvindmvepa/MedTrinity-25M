@@ -43,7 +43,7 @@ def convert_dict_to_numeric(original_data):
 
         abnormality_type = content_type_dict.get("abnormality_type", "NA").split(",")
         pre_existing = content_type_dict.get("pre-existing", "NA").split(",")
-        location = content_type_dict.get("location", "N/A").split(",")
+        location = content_type_dict.get("location", "NA").split(",")
         interval_change = content_type_dict.get("interval_change", "NA").split(",")
         interval_growth = content_type_dict.get("interval_growth", "NA").split(",")
         further_investigation = content_type_dict.get("further_investigation", "NA").split(",")
