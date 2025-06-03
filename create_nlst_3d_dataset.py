@@ -567,7 +567,7 @@ if __name__ == "__main__":
     patient_file = "participant_d100814.sas7bdat"
     source_file = "nlst_index.csv"
     add_time_delta2 = True
-    tag = "v2"
+    tag = "v3"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     save_diff_file = f"nlst_diff_add_time_delta2{add_time_delta2}_{tag}.json"
