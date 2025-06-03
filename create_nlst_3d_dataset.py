@@ -397,7 +397,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 6) Does interval change warrant further investigation?
     if is_lung_nodule:
-        print([row for _, row in nodule_rows.iterrows()])
         qa_invg_answer = sep_string.join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = na_string
