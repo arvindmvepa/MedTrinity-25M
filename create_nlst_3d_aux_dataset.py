@@ -31,7 +31,7 @@ SOLIDITY_MAP = {
 }
 
 
-def convert_dict_to_numeric(original_data):
+def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan"):
     """
     Given the nested dictionary structure shown above,
     return a new dictionary with numeric codes for
@@ -41,16 +41,16 @@ def convert_dict_to_numeric(original_data):
 
     for (img_files, init_study_yr, final_study_yr), content_type_dict in original_data.items():
 
-        abnormality_type = content_type_dict.get("abnormality_type", "NA").split(",")
-        pre_existing = content_type_dict.get("pre-existing", "NA").split(",")
-        location = content_type_dict.get("location", "NA").split(",")
-        interval_change = content_type_dict.get("interval_change", "NA").split(",")
-        interval_growth = content_type_dict.get("interval_growth", "NA").split(",")
-        further_investigation = content_type_dict.get("further_investigation", "NA").split(",")
-        margins = content_type_dict.get("margins", "NA").split(",")
-        predominant_attenuation = content_type_dict.get("predominant_attenuation", "NA").split(",")
-        longest_diameter = content_type_dict.get("longest_diameter", "nan").split(",")
-        longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", "nan").split(",")
+        abnormality_type = content_type_dict.get("abnormality_type", na_string).split(",")
+        pre_existing = content_type_dict.get("pre-existing", na_string).split(",")
+        location = content_type_dict.get("location", na_string).split(",")
+        interval_change = content_type_dict.get("interval_change", na_string).split(",")
+        interval_growth = content_type_dict.get("interval_growth", na_string).split(",")
+        further_investigation = content_type_dict.get("further_investigation", na_string).split(",")
+        margins = content_type_dict.get("margins", na_string).split(",")
+        predominant_attenuation = content_type_dict.get("predominant_attenuation", na_string).split(",")
+        longest_diameter = content_type_dict.get("longest_diameter", nan_string).split(",")
+        longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", nan_string).split(",")
 
         # Convert each one to numeric / codes
         abnormality_type = [abnormality_type_map[item.strip()] for item in abnormality_type]

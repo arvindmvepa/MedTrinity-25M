@@ -246,7 +246,7 @@ def build_diffusion_prompt(pid, init_study_yr, final_study_yr, inst, time_delta,
 
 
 def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index,
-                  na_string="NA"):
+                  na_string="NA", nan_string="nan"):
     q_list = []
 
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
@@ -441,10 +441,10 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     # 9) What is the longest diameter (in mm)?
     if is_lung_nodule:
         long_dia_str = ", ".join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
-        if not qa_pre_att_answer:
-            long_dia_str = na_string
+        if not long_dia_str:
+            long_dia_str = nan_string
     else:
-        long_dia_str = na_string
+        long_dia_str = nan_string
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -465,10 +465,10 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     # 10) What is the longest perpendicular diameter (in mm)?
     if is_lung_nodule:
         perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
-        if not qa_pre_att_answer:
-            perp_dia_str = na_string
+        if not perp_dia_str:
+            perp_dia_str = nan_string
     else:
-        perp_dia_str = na_string
+        perp_dia_str = nan_string
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
