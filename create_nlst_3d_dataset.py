@@ -246,7 +246,7 @@ def build_diffusion_prompt(pid, init_study_yr, final_study_yr, inst, time_delta,
 
 
 def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index,
-                  na_string="NA", nan_string="nan"):
+                  na_string="NA", nan_string="nan", sep_string="|"):
     q_list = []
 
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
@@ -260,7 +260,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     elif len(rows) == 1:
         lesion_name = get_dict_value(sct_ab_code_dict, rows.iloc[0]["sct_ab_code"])
     else:
-        lesion_name = ", ".join([get_dict_value(sct_ab_code_dict, row["sct_ab_code"]) for _, row in rows.iterrows()])
+        lesion_name = sep_string.join([get_dict_value(sct_ab_code_dict, row["sct_ab_code"]) for _, row in rows.iterrows()])
     qa1_answer = lesion_name
     qa1 = build_question(
         pid=pid,
@@ -308,7 +308,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 3) Where is the abnormality located?
     if is_lung_nodule:
-        qa_loc_answer = ", ".join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for _, row in nodule_rows.iterrows()])
+        qa_loc_answer = sep_string.join([get_dict_value(sct_epi_loc_dict, row["sct_epi_loc"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_loc_answer = na_string
     qa_loc = build_question(
@@ -330,7 +330,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 4) Did it have a suspicious interval change in attenuation?
     if is_lung_nodule:
-        qa_attn_answer = ", ".join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for _, row in nodule_rows.iterrows()])
+        qa_attn_answer = sep_string.join([get_dict_value(sct_ab_attn_dict, row["sct_ab_attn"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_attn_answer = na_string
     qa_attn = build_question(
@@ -352,7 +352,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 5) Did the abnormality have interval growth?
     if is_lung_nodule:
-        qa_gwth_answer = ", ".join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for _, row in nodule_rows.iterrows()])
+        qa_gwth_answer = sep_string.join([get_dict_value(sct_ab_gwth_dict, row["sct_ab_gwth"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_gwth_answer = na_string
     qa_gwth = build_question(
@@ -374,7 +374,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 6) Does interval change warrant further investigation?
     if is_lung_nodule:
-        qa_invg_answer = ", ".join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
+        qa_invg_answer = sep_string.join([get_dict_value(sct_ab_invg_dict, row["sct_ab_invg"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_invg_answer = na_string
     qa_invg = build_question(
@@ -396,7 +396,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 7) What are the margins?
     if is_lung_nodule:
-        qa_margin_answer = ", ".join([get_dict_value(sct_margins_dict, row["sct_margins"]) for _, row in nodule_rows.iterrows()])
+        qa_margin_answer = sep_string.join([get_dict_value(sct_margins_dict, row["sct_margins"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_margin_answer = na_string
     qa_margin = build_question(
@@ -418,7 +418,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 8) What is the predominant attenuation?
     if is_lung_nodule:
-        qa_pre_att_answer = ", ".join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for _, row in nodule_rows.iterrows()])
+        qa_pre_att_answer = sep_string.join([get_dict_value(sct_pre_att_dict, row["sct_pre_att"]) for _, row in nodule_rows.iterrows()])
     else:
         qa_pre_att_answer = na_string
     qa_pre_att = build_question(
@@ -440,7 +440,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 9) What is the longest diameter (in mm)?
     if is_lung_nodule:
-        long_dia_str = ", ".join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
+        long_dia_str = sep_string.join([str(row["sct_long_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_long_dia"])])
         if not long_dia_str:
             long_dia_str = nan_string
     else:
@@ -464,7 +464,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # 10) What is the longest perpendicular diameter (in mm)?
     if is_lung_nodule:
-        perp_dia_str = ", ".join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
+        perp_dia_str = sep_string.join([str(row["sct_perp_dia"]) for _, row in nodule_rows.iterrows() if pd.notnull(row["sct_perp_dia"])])
         if not perp_dia_str:
             perp_dia_str = nan_string
     else:
