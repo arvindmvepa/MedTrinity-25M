@@ -23,6 +23,7 @@ sct_ab_code_dict = {
     63: "Other potentially significant abnormality above the diaphragm",
     64: "Other potentially significant abnormality below the diaphragm",
     65: "Other minor abnormality noted",
+    0: "none"
     # .M, .N, etc. can be mapped as needed. If numeric codes are stored as strings, adjust keys accordingly
 }
 
@@ -255,7 +256,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
 
     # Q1: What type of abnormality is this?
     if len(rows) == 0:
-        lesion_name = "none"
+        lesion_name = get_dict_value(sct_ab_code_dict, 0) # no abnormality
     elif len(rows) == 1:
         lesion_name = get_dict_value(sct_ab_code_dict, rows.iloc[0]["sct_ab_code"])
     else:
