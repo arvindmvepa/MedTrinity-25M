@@ -23,7 +23,6 @@ sct_ab_code_dict = {
     63: "Other potentially significant abnormality above the diaphragm",
     64: "Other potentially significant abnormality below the diaphragm",
     65: "Other minor abnormality noted",
-    -1: "N/A"
     # .M, .N, etc. can be mapped as needed. If numeric codes are stored as strings, adjust keys accordingly
 }
 
@@ -35,7 +34,6 @@ sct_epi_loc_dict = {
     5: "Lingula",
     6: "Left Lower Lobe",
     8: "Other (see comments)",
-    -1: "N/A"
     # .N => "Not Applicable", etc.
 }
 
@@ -44,7 +42,6 @@ sct_margins_dict = {
     2: "Smooth",
     3: "Poorly defined",
     9: "Unable to determine",
-    -1: "N/A"
     # .N => "Not applicable", etc.
 }
 
@@ -55,40 +52,35 @@ sct_pre_att_dict = {
     4: "Fluid/water",
     6: "Fat",
     7: "Other",
-    9: "Unable to determine",
-    -1: "N/A"
+    9: "Unable to determine"
     # .M => "Missing", .N => "Not applicable", etc.
 }
 
 sct_ab_attn_dict = {
     1: "No interval change in attenuation",
     2: "Yes, suspicious change in attenuation",
-    9: "Unable to determine",
-    -1: "N/A"
+    9: "Unable to determine"
     # .M => "Missing", .N => "Not applicable", etc.
 }
 
 sct_ab_gwth_dict = {
     1: "No interval growth",
     2: "Yes, interval growth",
-    9: "Unable to determine",
-    -1: "N/A"
+    9: "Unable to determine"
     # .N => "Not applicable"
 }
 
 sct_ab_invg_dict = {
     1: "No further investigation needed",
     2: "Yes, warrants further investigation",
-    9: "Unable to determine",
-    -1: "N/A"
+    9: "Unable to determine"
     # .M => "Missing", .N => "Not applicable"
 }
 
 sct_ab_preexist_dict = {
     1: "No",
     2: "Yes",
-    9: "Unable to determine",
-    -1: "N/A"
+    9: "Unable to determine"
     # .M => "Missing"
 }
 

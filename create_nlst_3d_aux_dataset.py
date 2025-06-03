@@ -5,14 +5,14 @@ from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margi
 
 
 
-abnormality_type_map = {val: index for index, val in enumerate(sct_ab_code_dict.values())}
-location_map = {val: index for index, val in enumerate(sct_epi_loc_dict.values())}
-margins_map = {val: index for index, val in enumerate(sct_margins_dict.values())}
-pre_att_map = {val: index for index, val in enumerate(sct_pre_att_dict.values())}
-interval_change_map = {val: index for index, val in enumerate(sct_ab_attn_dict.values())}
-interval_growth_map = {val: index for index, val in enumerate(sct_ab_gwth_dict.values())}
-further_investigation_map = {val: index for index, val in enumerate(sct_ab_invg_dict.values())}
-ab_preexist_map = {val: index for index, val in enumerate(sct_ab_preexist_dict.values())}
+abnormality_type_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_code_dict.values()))}
+location_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_epi_loc_dict.values()))}
+margins_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_margins_dict.values()))}
+pre_att_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_pre_att_dict.values()))}
+interval_change_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_attn_dict.values()))}
+interval_growth_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_gwth_dict.values()))}
+further_investigation_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_invg_dict.values()))}
+ab_preexist_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_preexist_dict.values()))}
 
 EXTENT_MAP = {
     "none": 0,
@@ -41,14 +41,14 @@ def convert_dict_to_numeric(original_data):
 
     for (img_files, init_study_yr, final_study_yr), content_type_dict in original_data.items():
 
-        abnormality_type = content_type_dict.get("abnormality_type", "N/A").split(",")
-        pre_existing = content_type_dict.get("pre-existing", "N/A").split(",")
+        abnormality_type = content_type_dict.get("abnormality_type", "NA").split(",")
+        pre_existing = content_type_dict.get("pre-existing", "NA").split(",")
         location = content_type_dict.get("location", "N/A").split(",")
-        interval_change = content_type_dict.get("interval_change", "N/A").split(",")
-        interval_growth = content_type_dict.get("interval_growth", "N/A").split(",")
-        further_investigation = content_type_dict.get("further_investigation", "N/A").split(",")
-        margins = content_type_dict.get("margins", "N/A").split(",")
-        predominant_attenuation = content_type_dict.get("predominant_attenuation", "N/A").split(",")
+        interval_change = content_type_dict.get("interval_change", "NA").split(",")
+        interval_growth = content_type_dict.get("interval_growth", "NA").split(",")
+        further_investigation = content_type_dict.get("further_investigation", "NA").split(",")
+        margins = content_type_dict.get("margins", "NA").split(",")
+        predominant_attenuation = content_type_dict.get("predominant_attenuation", "NA").split(",")
         longest_diameter = content_type_dict.get("longest_diameter", "nan").split(",")
         longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", "nan").split(",")
 
