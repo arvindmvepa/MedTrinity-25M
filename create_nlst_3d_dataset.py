@@ -108,6 +108,7 @@ def get_string_from_numeric_lst(nodule_rows, key, nan_string="nan", sep_string="
     results = sep_string.join([str(row[key]) for _, row in nodule_rows.iterrows() if pd.notnull(row[key])])
     if not results:
         return nan_string
+    return results
 
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
