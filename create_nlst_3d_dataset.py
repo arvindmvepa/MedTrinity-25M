@@ -161,16 +161,16 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
     n_time_delta_2 = (df["time_delta"] == 2).sum()
 
     # statistics on different question types
-    abnormality_type_counts = df['abnormality_type'].value_counts()
-    pre_existing_counts = df['pre-existing'].value_counts()
-    location_counts = df['location'].value_counts()
-    interval_change_counts = df['interval_change'].value_counts()
-    interval_growth_counts = df['interval_growth'].value_counts()
-    further_investigation_counts = df['further_investigation'].value_counts()
-    margins_counts = df['margins'].value_counts()
-    predominant_attenuation_counts = df['predominant_attenuation'].value_counts()
-    longest_diameter_counts = df['longest_diameter'].value_counts()
-    longest_perpendicular_diameter_counts = df['longest_perpendicular_diameter'].value_counts()
+    abnormality_type_counts = df.loc[df['content_type'] == 'abnormality_type']['answer'].str.split(pat=sep_string).explode().value_counts()
+    pre_existing_counts = df.loc[df['content_type'] == 'existing']['answer'].str.split(pat=sep_string).explode().value_counts()
+    location_counts = df.loc[df['content_type'] == 'location']['answer'].str.split(pat=sep_string).explode().value_counts()
+    interval_change_counts = df.loc[df['content_type'] == 'interval_change']['answer'].str.split(pat=sep_string).explode().value_counts()
+    interval_growth_counts = df.loc[df['content_type'] == 'interval_growth']['answer'].str.split(pat=sep_string).explode().value_counts()
+    further_investigation_counts = df.loc[df['content_type'] == 'further_investigation']['answer'].str.split(pat=sep_string).explode().value_counts()
+    margins_counts = df.loc[df['content_type'] == 'margins']['answer'].str.split(pat=sep_string).explode().value_counts()
+    predominant_attenuation_counts = df.loc[df['content_type'] == 'predominant_attenuation']['answer'].str.split(pat=sep_string).explode().value_counts()
+    longest_diameter_counts = df.loc[df['content_type'] == 'longest_diameter']['answer'].str.split(pat=sep_string).explode().value_counts()
+    longest_perpendicular_diameter_counts = df.loc[df['content_type'] == 'longest_perpendicular_diameter']['answer'].str.split(pat=sep_string).explode().value_counts()
 
     n_pids = df["pid"].nunique()
 
