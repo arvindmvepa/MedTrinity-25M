@@ -104,11 +104,10 @@ def get_string_from_item_lst(rows, key, key_dict, na_string="NA", sep_string="|"
     return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in rows.iterrows()])
 
 
-def get_string_from_numeric_lst(nodule_rows, key, nan_string="nan", sep_string="|"):
-    results = sep_string.join([str(row[key]) for _, row in nodule_rows.iterrows() if pd.notnull(row[key])])
-    if not results:
+def get_string_from_numeric_lst(rows, key, nan_string="nan", sep_string="|"):
+    if len(rows) == 0:
         return nan_string
-    return results
+    return sep_string.join([str(row.get(key, nan_string)) for _, row in rows.iterrows()])
 
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
@@ -255,8 +254,6 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "final_study_yr": final_study_yr,
         "time_delta": time_delta,
         "inst": inst,
-        "is_lung_nodule": is_lung_nodule,
-        "is_not_lung_nodule": is_not_lung_nodule,
         "img_files": img_files,
         "filters": filters,
         "question": question,
@@ -286,15 +283,10 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
                   na_string="NA", nan_string="nan", sep_string="|"):
     q_list = []
 
-    # initially sort the rows by sct_ab_code
-    rows = rows.sort_values(by="sct_ab_code", ascending=False)
-    # filter by nodule and non-nodule rows
-    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
-    non_nodule_rows = rows.loc[rows["sct_ab_code"] != 51]
-    # sort answers by longest diameter
-    nodule_rows = nodule_rows.sort_values(by="sct_long_dia", ascending=False)
-    is_lung_nodule = len(nodule_rows) > 0
-    is_not_lung_nodule = len(non_nodule_rows) > 0
+    # sort the rows by sct_ab_code and then by sct_long_dia
+    rows = rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
+                            ascending=[False, False],
+                            kind="mergesort")
 
     # Q1: What type of abnormality is this?
     lesion_name = get_string_from_item_lst(rows, key="sct_ab_code", key_dict=sct_ab_code_dict, na_string=na_string)
@@ -309,8 +301,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa1_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="abnormality_type"
     )
@@ -331,8 +321,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa2_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="pre-existing"
     )
@@ -340,11 +328,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 3) Where is the abnormality located?
-    if is_lung_nodule:
-        qa_loc_answer = get_string_from_item_lst(rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,
-                                                 na_string=na_string)
-    else:
-        qa_loc_answer = na_string
+    qa_loc_answer = get_string_from_item_lst(rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
     qa_loc = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -355,8 +339,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_loc_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="location"
     )
@@ -364,11 +346,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 4) Did it have a suspicious interval change in attenuation?
-    if is_lung_nodule:
-        qa_attn_answer = get_string_from_item_lst(rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict,
-                                                  na_string=na_string)
-    else:
-        qa_attn_answer = na_string
+    qa_attn_answer = get_string_from_item_lst(rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
     qa_attn = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -379,8 +357,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_attn_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="interval_change"
     )
@@ -388,11 +364,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 5) Did the abnormality have interval growth?
-    if is_lung_nodule:
-        qa_gwth_answer = get_string_from_item_lst(rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict,
-                                                  na_string=na_string)
-    else:
-        qa_gwth_answer = na_string
+    qa_gwth_answer = get_string_from_item_lst(rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
     qa_gwth = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -403,8 +375,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_gwth_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="interval_growth"
     )
@@ -412,11 +382,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 6) Does interval change warrant further investigation?
-    if is_not_lung_nodule:
-        qa_invg_answer = get_string_from_item_lst(rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict,
-                                                  na_string=na_string)
-    else:
-        qa_invg_answer = na_string
+    qa_invg_answer = get_string_from_item_lst(rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
     qa_invg = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -427,8 +393,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_invg_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="further_investigation"
     )
@@ -436,11 +400,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 7) What are the margins?
-    if is_lung_nodule:
-        qa_margin_answer = get_string_from_item_lst(rows, key="sct_margins", key_dict=sct_margins_dict,
-                                                    na_string=na_string)
-    else:
-        qa_margin_answer = na_string
+    qa_margin_answer = get_string_from_item_lst(rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
     qa_margin = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -451,8 +411,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_margin_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="margins"
     )
@@ -460,11 +418,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 8) What is the predominant attenuation?
-    if is_lung_nodule:
-        qa_pre_att_answer = get_string_from_item_lst(rows, key="sct_pre_att", key_dict=sct_pre_att_dict,
-                                                     na_string=na_string)
-    else:
-        qa_pre_att_answer = na_string
+    qa_pre_att_answer = get_string_from_item_lst(rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
     qa_pre_att = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -475,8 +429,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_pre_att_answer,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="predominant_attenuation"
     )
@@ -484,11 +436,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 9) What is the longest diameter (in mm)?
-    if is_lung_nodule:
-        long_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_long_dia", sep_string=sep_string,
-                                                   nan_string=nan_string)
-    else:
-        long_dia_str = nan_string
+    long_dia_str = get_string_from_numeric_lst(rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -499,8 +447,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=long_dia_str,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="longest_diameter"
     )
@@ -508,10 +454,7 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     question_index += 1
 
     # 10) What is the longest perpendicular diameter (in mm)?
-    if is_lung_nodule:
-        perp_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
-    else:
-        perp_dia_str = nan_string
+    perp_dia_str = get_string_from_numeric_lst(rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -522,8 +465,6 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=perp_dia_str,
         img_files=img_files,
         filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="longest_perpendicular_diameter"
     )
