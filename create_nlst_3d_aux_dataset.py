@@ -46,6 +46,7 @@ def summarize_aux(aux_list):
     longest_diameter_list = []
     longest_perpendicular_diameter_list = []
 
+    abnormality_type_multiplicity_counter = Counter()
     for it in aux_list:
         content_info = it["content_info"]
         abnormality_type = content_info["abnormality_type"]
@@ -59,6 +60,14 @@ def summarize_aux(aux_list):
         longest_diameter = content_info["longest_diameter"]
         longest_perpendicular_diameter = content_info["longest_perpendicular_diameter"]
 
+        # Count multiplicity of abnormality types
+        abnormality_type_multiplicity_counter_dict = dict()
+        for it in abnormality_type:
+            if it not in abnormality_type_multiplicity_counter_dict:
+                abnormality_type_multiplicity_counter_dict[it] = 0
+            abnormality_type_multiplicity_counter_dict[it] += 1
+        abnormality_type_multiplicity_counter.update([str(key)+"_" + str(value) for key, value in abnormality_type_multiplicity_counter_dict.items()])
+        # Collect all the values into lists
         abnormality_type_list.extend([str(it) for it in abnormality_type])
         pre_existing_list.extend([str(it) for it in pre_existing])
         location_list.extend([str(it) for it in location])
@@ -83,6 +92,7 @@ def summarize_aux(aux_list):
 
     print("Summary of auxiliary data:")
     print(f"Total entries: {len(aux_list)}")
+    print(f"Abnormality types multiplicity: {abnormality_type_multiplicity_counter}")
     print(f"Abnormality types: {abnormality_type_counter}")
     print(f"Pre-existing conditions: {pre_existing_counter}")
     print(f"Locations: {location_counter}")
