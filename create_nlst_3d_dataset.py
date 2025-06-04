@@ -243,8 +243,8 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
         return grouped_sorted
 
 
-def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, is_not_lung_nodule,
-                   time_delta, img_files, filters, question_index, content_type):
+def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, time_delta, img_files, filters,
+                   question_index, content_type):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
