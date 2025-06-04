@@ -186,13 +186,14 @@ def build_gt_lookup(vqa_questions, content_types=("abnormality_type", "pre-exist
     gt_lookup = {}
     for entry in vqa_questions:
         img_files = tuple(entry["img_files"])
+        filters = tuple(entry["filters"])
         content_type = entry["content_type"]
         init_study_yr = entry["init_study_yr"]
         final_study_yr = entry["final_study_yr"]
         answer = entry["answer"].strip()
         if content_type not in content_types:
             continue
-        key = (img_files, content_type, init_study_yr, final_study_yr)
+        key = (img_files, filters, content_type, init_study_yr, final_study_yr)
         gt_lookup[key] = answer
     return gt_lookup
 
@@ -210,22 +211,21 @@ def build_aux_tasks(all_vqa_questions, content_types=("abnormality_type", "pre-e
     gt_lookup = build_gt_lookup(all_vqa_questions)
 
     # 2) Identify all seg_files in the data
-    img_files_set = set(tuple(entry["img_files"]) for entry in all_vqa_questions)
-
+    img_files_and_filters_set = set((tuple(entry["img_files"]), tuple(entry["filters"])) for entry in all_vqa_questions)
 
     # 5) Build the final list of rows
     aux_dict = {}
-    for img_files in sorted(img_files_set):
+    for img_files, filters in sorted(img_files_and_filters_set):
         for init_study_yr, final_study_yr in [(0, 1), (1, 2), (0, 2)]:
             content_type_dict = {}
             for content_type in content_types:
-                key = (img_files, content_type, init_study_yr, final_study_yr)
+                key = (img_files, filters, content_type, init_study_yr, final_study_yr)
                 if key in gt_lookup:
                     gt_value = gt_lookup[key]
                 else:
                     continue
                 content_type_dict[content_type] = gt_value
-            aux_dict[(img_files, init_study_yr, final_study_yr)] = content_type_dict
+            aux_dict[(img_files, filters, init_study_yr, final_study_yr)] = content_type_dict
     return aux_dict
 
 
