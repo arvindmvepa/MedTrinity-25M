@@ -243,8 +243,8 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
         return grouped_sorted
 
 
-def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, time_delta, img_files, filters,
-                   question_index, content_type):
+def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, is_not_lung_nodule,
+                   time_delta, img_files, filters, question_index, content_type):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -254,6 +254,8 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, t
         "final_study_yr": final_study_yr,
         "time_delta": time_delta,
         "inst": inst,
+        "is_lung_nodule": is_lung_nodule,
+        "is_not_lung_nodule": is_not_lung_nodule,
         "img_files": img_files,
         "filters": filters,
         "question": question,
@@ -283,10 +285,16 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
                   na_string="NA", nan_string="nan", sep_string="|"):
     q_list = []
 
-    # sort the rows by sct_ab_code and then by sct_long_dia
+    # initially sort the rows by sct_ab_code
     rows = rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
                             ascending=[False, False],
                             kind="mergesort")
+    # filter by nodule and non-nodule rows
+    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
+    non_nodule_rows = rows.loc[rows["sct_ab_code"] != 51]
+
+    is_lung_nodule = len(nodule_rows) > 0
+    is_not_lung_nodule = len(non_nodule_rows) > 0
 
     # Q1: What type of abnormality is this?
     lesion_name = get_string_from_item_lst(rows, key="sct_ab_code", key_dict=sct_ab_code_dict, na_string=na_string)
@@ -301,6 +309,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa1_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="abnormality_type"
     )
@@ -321,6 +331,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa2_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="pre-existing"
     )
@@ -339,6 +351,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_loc_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="location"
     )
@@ -357,6 +371,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_attn_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="interval_change"
     )
@@ -375,6 +391,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_gwth_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="interval_growth"
     )
@@ -393,6 +411,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_invg_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="further_investigation"
     )
@@ -411,6 +431,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_margin_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="margins"
     )
@@ -429,6 +451,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=qa_pre_att_answer,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="predominant_attenuation"
     )
@@ -447,6 +471,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=long_dia_str,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="longest_diameter"
     )
@@ -465,6 +491,8 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         answer=perp_dia_str,
         img_files=img_files,
         filters=filters,
+        is_lung_nodule=is_lung_nodule,
+        is_not_lung_nodule=is_not_lung_nodule,
         question_index=question_index,
         content_type="longest_perpendicular_diameter"
     )
