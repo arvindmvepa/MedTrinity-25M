@@ -5,14 +5,22 @@ from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margi
 
 
 
-abnormality_type_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_code_dict.values()))}
-location_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_epi_loc_dict.values()))}
-margins_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_margins_dict.values()))}
-pre_att_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_pre_att_dict.values()))}
-interval_change_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_attn_dict.values()))}
-interval_growth_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_gwth_dict.values()))}
-further_investigation_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_invg_dict.values()))}
-ab_preexist_map = {val: index for index, val in enumerate(["NA"] + sorted(sct_ab_preexist_dict.values()))}
+abnormality_type_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_ab_code_dict.items(),
+                                                                                    key=lambda x: x[0]))}
+location_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_epi_loc_dict.items(),
+                                                                            key=lambda x: x[0]))}
+margins_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_margins_dict.items(),
+                                                                           key=lambda x: x[0]))}
+pre_att_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_pre_att_dict.items(),
+                                                                           key=lambda x: x[0]))}
+interval_change_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_ab_attn_dict.items(),
+                                                                                   key=lambda x: x[0]))}
+interval_growth_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_ab_gwth_dict.items(),
+                                                                                   key=lambda x: x[0]))}
+further_investigation_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_ab_invg_dict.items(),
+                                                                                         key=lambda x: x[0]))}
+ab_preexist_map = {val: index for index, (_, val) in enumerate(["NA"] + sorted(sct_ab_preexist_dict.items(),
+                                                                               key=lambda x: x[0]))}
 
 EXTENT_MAP = {
     "none": 0,
