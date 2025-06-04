@@ -113,8 +113,7 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
     """
     new_data = {}
 
-    for (img_files, init_study_yr, final_study_yr), content_type_dict in original_data.items():
-
+    for (img_files, filters, init_study_yr, final_study_yr), content_type_dict in original_data.items():
         abnormality_type = content_type_dict.get("abnormality_type", na_string).split(sep_string)
         pre_existing = content_type_dict.get("pre-existing", na_string).split(sep_string)
         location = content_type_dict.get("location", na_string).split(sep_string)
@@ -151,7 +150,7 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
             "longest_diameter": longest_diameter,
             "longest_perpendicular_diameter": longest_perpendicular_diameter,
         }
-        new_data[(tuple(img_files), init_study_yr, final_study_yr)] = new_content_type_dict
+        new_data[(tuple(img_files), tuple(filters), init_study_yr, final_study_yr)] = new_content_type_dict
 
     return new_data
 
@@ -165,11 +164,12 @@ def convert_numeric_dict_to_list(numeric_data):
     keys_sorted = sorted(numeric_data.keys(), key= lambda x: str(x[0]))  # sort by seg_file path
     result_list = []
 
-    for i, (img_files, init_study_yr, final_study_yr) in enumerate(keys_sorted):
+    for i, (img_files, filters, init_study_yr, final_study_yr) in enumerate(keys_sorted):
         content_info = numeric_data[(img_files, init_study_yr, final_study_yr)]
         entry = {
             "id": i,
             "img_files": img_files,
+            "filters": filters,
             "init_study_yr": init_study_yr,
             "final_study_yr": final_study_yr,
             "content_info": content_info
