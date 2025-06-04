@@ -5,14 +5,14 @@ from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margi
 
 
 
-abnormality_type_map = {sct_ab_code_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_ab_code_dict.keys()))}
-location_map = {sct_epi_loc_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_epi_loc_dict.keys()))}
-margins_map = {sct_margins_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_margins_dict.keys()))}
-pre_att_map = {sct_pre_att_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_pre_att_dict.keys()))}
-interval_change_map = {sct_ab_attn_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_ab_attn_dict.keys()))}
-interval_growth_map = {sct_ab_gwth_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_ab_gwth_dict.keys()))}
-further_investigation_map = {sct_ab_invg_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_ab_invg_dict.keys()))}
-ab_preexist_map = {sct_ab_preexist_dict[key]: index for index, key in enumerate(["NA"] + sorted(sct_ab_preexist_dict.keys()))}
+abnormality_type_map = {sct_ab_code_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_code_dict.keys()))}
+location_map = {sct_epi_loc_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_epi_loc_dict.keys()))}
+margins_map = {sct_margins_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_margins_dict.keys()))}
+pre_att_map = {sct_pre_att_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_pre_att_dict.keys()))}
+interval_change_map = {sct_ab_attn_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_attn_dict.keys()))}
+interval_growth_map = {sct_ab_gwth_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_gwth_dict.keys()))}
+further_investigation_map = {sct_ab_invg_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_invg_dict.keys()))}
+ab_preexist_map = {sct_ab_preexist_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_preexist_dict.keys()))}
 
 EXTENT_MAP = {
     "none": 0,
