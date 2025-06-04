@@ -165,7 +165,7 @@ def convert_numeric_dict_to_list(numeric_data):
     result_list = []
 
     for i, (img_files, filters, init_study_yr, final_study_yr) in enumerate(keys_sorted):
-        content_info = numeric_data[(img_files, init_study_yr, final_study_yr)]
+        content_info = numeric_data[(img_files, filters, init_study_yr, final_study_yr)]
         entry = {
             "id": i,
             "img_files": img_files,
