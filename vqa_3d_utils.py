@@ -830,7 +830,7 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     # satellite label
     if num_cc == 1:
         desc["satellite_interp"] = "single lesion"
-    elif core_fraction >= 0.70:
+    elif core_fraction >= 0.60:
         desc["satellite_interp"] = "core with satellite lesions"
     else:
         desc["satellite_interp"] = "scattered lesions"
@@ -838,7 +838,7 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     # ------------------------------------------------------------------
     # Metric extraction: use core OR mean of all components
     # ------------------------------------------------------------------
-    if num_cc == 1 or core_fraction >= 0.70:
+    if num_cc == 1 or core_fraction >= 0.60:
         # use the core component
         core_mask = (labeled == core_idx)
         sph, elg, flat, sol, comp = _metrics_for_component(
@@ -868,11 +868,11 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     if total_V * 1e-3 < 0.1:
         shape_word = "focus"
     else:
-        if sph >= 0.85 and elg <= 1.3:
+        if sph >= 0.80 and elg <= 1.4:
             shape_word = "round"
-        elif 0.60 <= sph < 0.85 and 1.3 < elg <= 2.5:
+        elif 0.50 <= sph < 0.80 and 1.4 < elg <= 3.0:
             shape_word = "oval"
-        elif elg > 2.5:
+        elif elg > 3.0:
             shape_word = "elongated"
         else:
             shape_word = "irregular"
