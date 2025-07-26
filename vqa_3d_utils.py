@@ -1098,5 +1098,5 @@ def compute_area_percentage_v1(mask, t1_n_3d, thr=1e-6):
     total_pixels = brain_mask.sum()
     if total_pixels == 0:
         return 0.0
-    return vqa_round((mask.sum() / total_pixels) * 100)
+    return vqa_round((mask.sum() / total_pixels) * 250)
 
