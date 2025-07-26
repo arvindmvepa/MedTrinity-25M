@@ -132,20 +132,20 @@ if __name__ == "__main__":
     seed = 0
 
     # GLI dataset settings
-    #dataset_type = "gli"
-    #version = f"updated_v2_seed{seed}"
-    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
-    #labels_order = (1, 2, 3, 4)
-    #pediatric = False
-    #goat = False
-
-    # MET dataset settings
-    dataset_type = "met"
-    version = f"updated_v2_seed{seed}"
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
-    labels_order = (1, 2, 3)
+    dataset_type = "gli"
+    version = f"updated_v5_seed{seed}"
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
+    labels_order = (1, 2, 3, 4)
     pediatric = False
     goat = False
+
+    # MET dataset settings
+    #dataset_type = "met"
+    #version = f"updated_v2_seed{seed}"
+    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
+    #labels_order = (1, 2, 3)
+    #pediatric = False
+    #goat = False
 
     # GoAT dataset settings
     #dataset_type = "goat"
