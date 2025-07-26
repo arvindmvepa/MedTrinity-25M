@@ -410,18 +410,18 @@ if __name__ == "__main__":
     new_dataset_seed = 0
 
     # GLI dataset settings
-    #dataset_type = "gli"
-    #version = f"updated_v2_seed{dataset_seed}"
-    #labels_order = (1, 2, 3, 4)
-    #pediatric = False
-    #goat = False
-
-    # MET dataset settings
-    dataset_type = "met"
-    version = f"updated_v2_seed{dataset_seed}"
-    labels_order = (1, 2, 3)
+    dataset_type = "gli"
+    version = f"updated_v10_seed{dataset_seed}"
+    labels_order = (1, 2, 3, 4)
     pediatric = False
     goat = False
+
+    # MET dataset settings
+    #dataset_type = "met"
+    #version = f"updated_v2_seed{dataset_seed}"
+    #labels_order = (1, 2, 3)
+    #pediatric = False
+    #goat = False
 
     # GoAT dataset settings
     #dataset_type = "goat"
