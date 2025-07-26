@@ -15,7 +15,7 @@ def load_data():
     with open('clinical_annotations_groundtruth_format.json', 'r') as f:
         clinical_data = json.load(f)
     
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v3_seed0.json', 'r') as f:
+    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v10_seed0.json', 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data

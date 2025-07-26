@@ -4,7 +4,7 @@ Generate comprehensive metrics for clinical annotations evaluation.
 
 This script compares:
 - Clinical annotations (ground truth): clinical_annotations_groundtruth_format.json
-- Model predictions: brats_gli_3d_vqa_subjTrue_test_aux_updated_v3_seed0.json
+- Model predictions: brats_gli_3d_vqa_subjTrue_test_aux_updated_v4_seed0.json
 
 Metrics:
 - Multi-class accuracy for area, shape, satellite
@@ -27,7 +27,7 @@ def load_data():
         clinical_data = json.load(f)
     
     # Load model predictions
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v3_seed0.json', 'r') as f:
+    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v10_seed0.json', 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data
