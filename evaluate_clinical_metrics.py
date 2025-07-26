@@ -4,7 +4,7 @@ Generate comprehensive metrics for clinical annotations evaluation.
 
 This script compares:
 - Clinical annotations (ground truth): clinical_annotations_groundtruth_format.json
-- Model predictions: brats_gli_3d_vqa_subjTrue_test_aux_updated_v2_seed0.json
+- Model predictions: brats_gli_3d_vqa_subjTrue_test_aux_updated_v3_seed0.json
 
 Metrics:
 - Multi-class accuracy for area, shape, satellite
@@ -27,7 +27,7 @@ def load_data():
         clinical_data = json.load(f)
     
     # Load model predictions
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v2_seed0.json', 'r') as f:
+    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v3_seed0.json', 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data
@@ -128,12 +128,16 @@ def evaluate_metrics(clinical_data, prediction_data):
                     continue
                 
                 if task == 'region':  # Multi-label task
+                    # Convert predictions from 1-indexed to 0-indexed for regions
+                    pred_regions_corrected = [r - 1 for r in pred_label[task]]
                     accuracy = multi_label_accuracy(
                         clinical_label[task], 
-                        pred_label[task]
+                        pred_regions_corrected
                     )
-                else:  # Multi-class tasks
-                    accuracy = 1.0 if clinical_label[task] == pred_label[task] else 0.0
+                else:  # Multi-class tasks (area, shape, satellite)
+                    # Convert predictions from 1-indexed to 0-indexed
+                    pred_val_corrected = pred_label[task] - 1
+                    accuracy = 1.0 if clinical_label[task] == pred_val_corrected else 0.0
                 
                 results['per_label_per_task'][label_type][task].append(accuracy)
     
