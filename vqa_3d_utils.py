@@ -830,7 +830,7 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     # satellite label
     if num_cc == 1:
         desc["satellite_interp"] = "single lesion"
-    elif core_fraction >= 0.80:
+    elif core_fraction >= 0.85:
         desc["satellite_interp"] = "core with satellite lesions"
     else:
         desc["satellite_interp"] = "scattered lesions"
@@ -838,7 +838,7 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     # ------------------------------------------------------------------
     # Metric extraction: use core OR mean of all components
     # ------------------------------------------------------------------
-    if num_cc == 1 or core_fraction >= 0.80:
+    if num_cc == 1 or core_fraction >= 0.85:
         # use the core component
         core_mask = (labeled == core_idx)
         sph, elg, flat, sol, comp = _metrics_for_component(
