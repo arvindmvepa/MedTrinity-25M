@@ -469,24 +469,28 @@ if __name__ == "__main__":
     openai_unknown_df = map_df_cols_to_unknown(openai_unknown_df)
     openai_unknown_df = openai_unknown_df.sample(frac=1, random_state=new_dataset_seed)
 
+    print(f"OpenAI DataFrame sizes: {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
     # generate updated vqa dataset
     train_vqa_data_dict = generate_updated_vqa_data(ref_train_vqa_data_dict,
                                                     openai_df=openai_df,
                                                     openai_partially_unknown_df=openai_partially_unknown_df,
                                                     openai_unknown_df=openai_unknown_df,
                                                     seed=new_dataset_seed)
+    print(f"OpenAI DataFrame sizes (after train): {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
     train_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(train_vqa_data_dict)
     val_vqa_data_dict = generate_updated_vqa_data(ref_val_vqa_data_dict,
                                                   openai_df=openai_df,
                                                   openai_partially_unknown_df=openai_partially_unknown_df,
                                                   openai_unknown_df=openai_unknown_df,
                                                   seed=new_dataset_seed)
+    print(f"OpenAI DataFrame sizes (after val): {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict,
                                                    openai_df=openai_df,
                                                    openai_partially_unknown_df=openai_partially_unknown_df,
                                                    openai_unknown_df=openai_unknown_df,
                                                    seed=new_dataset_seed)
+    print(f"OpenAI DataFrame sizes (after test): {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
 
     # create numeric entries for vqa
@@ -500,9 +504,9 @@ if __name__ == "__main__":
         vqa_datum["answer_vqa_numeric"] = convert_entry(vqa_datum,
                                                         add_unknown=(openai_partially_unknown_df_file is not None) or (openai_unknown_df_file is not None))
     # save the updated vqa dataset
-    with open(train_vqa_file, 'w') as f:
-        json.dump(train_vqa, f, indent=2)
-    with open(val_vqa_file, 'w') as f:
-        json.dump(val_vqa, f, indent=2)
-    with open(test_vqa_file, 'w') as f:
-        json.dump(test_vqa, f, indent=2)
+    #with open(train_vqa_file, 'w') as f:
+    #    json.dump(train_vqa, f, indent=2)
+    #with open(val_vqa_file, 'w') as f:
+    #    json.dump(val_vqa, f, indent=2)
+    #with open(test_vqa_file, 'w') as f:
+    #    json.dump(test_vqa, f, indent=2)
