@@ -218,7 +218,7 @@ def pick_question_from_df(df):
     row_idx = row.name
     df.drop(row_idx, inplace=True)
     while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
-        print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
+        #print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
         # TODO: check for length of filt_df to make sure there are valid rows left
         row = df.iloc[0]
         temp_question = row["transformed_q"]
@@ -266,7 +266,7 @@ def pick_num_question_types_combos_and_rows(df, rng):
                     qas[question_type] = (question, answer, combo)
                     break
                 else:
-                    print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
+                    #print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
                     continue
             # break if a valid question/answer/combo was found; otherwise look at other combos
             if (question is not None) and (answer is not None) and (combo is not None):
