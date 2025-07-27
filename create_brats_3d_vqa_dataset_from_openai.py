@@ -404,6 +404,11 @@ if __name__ == "__main__":
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
     openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
     openai_unknown_df_file = "mri_dataset_unknown_clean.csv"
+
+    filt_openai_df_file = "int_mri_dataset_draft_v1_combined_clean_validity.csv"
+    filt_openai_partially_unknown_df_file = "int_mri_dataset_partially_unknown_combined1_clean_validity1.csv"
+    filt_openai_unknown_df_file = "int_mri_dataset_unknown_clean_validity1.csv"
+
     # rest of the parameters
     subjective_only = True
     dataset_seed = 0
@@ -485,13 +490,20 @@ if __name__ == "__main__":
                                                   seed=new_dataset_seed)
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
     print(f"OpenAI DataFrame sizes (after val): {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
-    openai_df.to_csv(f"int_{openai_df_file}", index=False)
-    openai_partially_unknown_df.to_csv(f"int_{openai_partially_unknown_df_file}", index=False)
-    openai_unknown_df.to_csv(f"int_{openai_unknown_df_file}", index=False)
+    #openai_df.to_csv(f"int_{openai_df_file}", index=False)
+    #openai_partially_unknown_df.to_csv(f"int_{openai_partially_unknown_df_file}", index=False)
+    #openai_unknown_df.to_csv(f"int_{openai_unknown_df_file}", index=False)
+    filt_openai_df = pd.read_csv(filt_openai_df_file, header=0)
+    filt_openai_df = filt_openai_df.sample(frac=1, random_state=new_dataset_seed)
+    filt_openai_partially_unknown_df = pd.read_csv(filt_openai_partially_unknown_df_file, header=0)
+    filt_openai_partially_unknown_df = filt_openai_partially_unknown_df.sample(frac=1, random_state=new_dataset_seed)
+    filt_openai_unknown_df = pd.read_csv(filt_openai_unknown_df_file, header=0)
+    filt_openai_unknown_df = filt_openai_unknown_df.sample(frac=1, random_state=new_dataset_seed)
+    print(f"OpenAI DataFrame sizes (before test, filtered): {len(filt_openai_df)}, {len(filt_openai_partially_unknown_df)}, {len(filt_openai_unknown_df)}")
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict,
-                                                   openai_df=openai_df,
-                                                   openai_partially_unknown_df=openai_partially_unknown_df,
-                                                   openai_unknown_df=openai_unknown_df,
+                                                   openai_df=filt_openai_df,
+                                                   openai_partially_unknown_df=filt_openai_partially_unknown_df,
+                                                   openai_unknown_df=filt_openai_unknown_df,
                                                    seed=new_dataset_seed)
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
     print(f"OpenAI DataFrame sizes (after test): {len(openai_df)}, {len(openai_partially_unknown_df)}, {len(openai_unknown_df)}")
@@ -511,5 +523,5 @@ if __name__ == "__main__":
     #    json.dump(train_vqa, f, indent=2)
     #with open(val_vqa_file, 'w') as f:
     #    json.dump(val_vqa, f, indent=2)
-    #with open(test_vqa_file, 'w') as f:
-    #    json.dump(test_vqa, f, indent=2)
+    with open("filt_" + test_vqa_file, 'w') as f:
+        json.dump(test_vqa, f, indent=2)
