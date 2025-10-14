@@ -187,6 +187,8 @@ if __name__ == "__main__":
     filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
     with open(filt_save_pid_list, "w") as f:
         json.dump(filtered_pids, f)
+    print(f"Wrote {len(filtered_vqas)} auxiliary rows to {filtered_vqas}")
+    print(f"Number of cancer rows {len([vqa for vqa in filtered_vqas if vqa['numeric_answer'] == 1])}")
 
     train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
 
