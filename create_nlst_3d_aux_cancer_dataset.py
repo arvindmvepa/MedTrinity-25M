@@ -83,6 +83,8 @@ def filter_by_pid(all_vqas, pid_list):
     """
     Filter the VQA list by patient ID.
     """
+    print(pid_list)
+    print(all_vqas[0]["pid"])
     filt_pid_list = [qa for qa in all_vqas if qa["pid"] in pid_list]
     return filt_pid_list
 
@@ -92,7 +94,7 @@ def load_pids_from_file(pid_file):
     Load PIDs from a text file where each line contains one PID.
     """
     with open(pid_file, 'r') as f:
-        pids = [line.strip() for line in f if line.strip()]
+        pids = [int(line.strip()) for line in f if line.strip()]
     return pids
 
 
