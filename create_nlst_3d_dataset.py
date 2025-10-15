@@ -585,7 +585,8 @@ if __name__ == "__main__":
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     save_diff_file = f"nlst_diff_add_time_delta2{add_time_delta2}_{tag}.json"
-    filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
+    #filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
+    filter_by_pid_list = ""
     filt_save_file = f"nlst_vqa_filt_delta2{add_time_delta2}_{tag}.json"
     filt_save_diff_file = f"nlst_diff_filt_delta2{add_time_delta2}_{tag}.json"
     filt_save_pid_list = f"nlst_vqa_filt_pids_delta2{add_time_delta2}_{tag}.json"
