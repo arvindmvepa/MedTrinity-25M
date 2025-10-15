@@ -79,6 +79,23 @@ def filter_by_instution(all_vqas, inst_list):
     return filt_inst_list
 
 
+def filter_by_pid(all_vqas, pid_list):
+    """
+    Filter the VQA list by patient ID.
+    """
+    filt_pid_list = [qa for qa in all_vqas if qa["pid"] in pid_list]
+    return filt_pid_list
+
+
+def load_pids_from_file(pid_file):
+    """
+    Load PIDs from a text file where each line contains one PID.
+    """
+    with open(pid_file, 'r') as f:
+        pids = [line.strip() for line in f if line.strip()]
+    return pids
+
+
 def build_cancer_question(img_files, filters, pid, study_yr, inst, question_index, question, answer, numeric_answer,
                           content_type="cancer"):
     """
@@ -161,10 +178,11 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     source_file = "nlst_index.csv"
-    tag = "v4"
+    tag = "v5"
 
     save_file = f"nlst_aux_cancer_{tag}.json"
-    filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
+    #filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
+    pid_file = "/home/avepa/nlst_pid_list.txt" 
     filt_save_file = f"nlst_aux_cancer_filt_{tag}.json"
     filt_save_pid_list = f"nlst_aux_cancer_filt_pids_{tag}.json"
     train_save_file = f"nlst_aux_cancer_train_{tag}.json"
@@ -181,7 +199,9 @@ if __name__ == "__main__":
         json.dump(all_cancer_vqa, f, indent=4)
 
     print(f"==========FILTERED==========")
-    filtered_vqas = filter_by_instution(all_cancer_vqa, filter_inst)
+    #filtered_vqas = filter_by_instution(all_cancer_vqa, filter_inst)
+    filter_pids = load_pids_from_file(pid_file)
+    filtered_vqas = filter_by_pid(all_cancer_vqa, filter_pids)
     with open(filt_save_file, "w") as f:
         json.dump(filtered_vqas, f, indent=4)
     filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
