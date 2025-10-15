@@ -83,8 +83,6 @@ def filter_by_pid(all_vqas, pid_list):
     """
     Filter the VQA list by patient ID.
     """
-    print(pid_list)
-    print(all_vqas[0]["pid"])
     filt_pid_list = [qa for qa in all_vqas if qa["pid"] in pid_list]
     return filt_pid_list
 
@@ -203,6 +201,7 @@ if __name__ == "__main__":
     print(f"==========FILTERED==========")
     #filtered_vqas = filter_by_instution(all_cancer_vqa, filter_inst)
     filter_pids = load_pids_from_file(pid_file)
+    print("# of filter PIDs loaded:", len(filter_pids))
     filtered_vqas = filter_by_pid(all_cancer_vqa, filter_pids)
     with open(filt_save_file, "w") as f:
         json.dump(filtered_vqas, f, indent=4)
