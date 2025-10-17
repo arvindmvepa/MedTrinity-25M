@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List
 import pydicom
 from tqdm import tqdm
+import numpy as np
 
 # ----------------------------------------------------------------------
 # NLST kernel-code lookup
@@ -136,7 +137,17 @@ def rows_for_pid(pid_dir: Path, img_root, min_slices=20) -> List[Dict[str, str]]
             if not os.path.exists(volume_path_npy):
                 print(f"⚠️  Skip {vol} (no .npy found)", file=sys.stderr)
                 continue
-
+            
+            # Load and check .npy file dimensions
+            try:
+                npy_data = np.load(volume_path_npy)
+                # Check if dimensions are [1, 32, 256, 256] (accounting for channel dimension)
+                if npy_data.shape != (1, 32, 256, 256) and npy_data.shape != (32, 256, 256):
+                    print(f"⚠️  Skip {vol} (wrong dimensions: {npy_data.shape}, expected (1, 32, 256, 256))", file=sys.stderr)
+                    continue
+            except Exception as e:
+                print(f"⚠️  Skip {vol} (failed to load .npy: {e})", file=sys.stderr)
+                continue
 
             try:
                 date, kernel = series_meta(vol)
