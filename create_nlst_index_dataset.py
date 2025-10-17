@@ -106,7 +106,7 @@ def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
 # ────────────────────────────────────────────────────────────────────────
 # 3.  Per-PID processing
 # ────────────────────────────────────────────────────────────────────────
-def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
+def rows_for_pid(pid_dir: Path, img_root, min_slices=20) -> List[Dict[str, str]]:
     pid = pid_dir.name
     tp_dirs = sort_timepoints([d for d in pid_dir.iterdir() if d.is_dir()])
     if not tp_dirs:
@@ -132,7 +132,7 @@ def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
                 continue
 
             volume_path = vol.resolve()
-            volume_path_npy = get_npy_path(volume_path)
+            volume_path_npy = get_npy_path(volume_path, img_root=img_root)
             if not os.path.exists(volume_path_npy):
                 print(f"⚠️  Skip {vol} (no .npy found)", file=sys.stderr)
                 continue
@@ -183,6 +183,7 @@ def rows_for_pid(pid_dir: Path, min_slices=20) -> List[Dict[str, str]]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", help="root folder holding PID sub-dirs")
+    ap.add_argument("npy_root", help="npyroot folder holding PID sub-dirs")
     ap.add_argument("csv_out", help="output CSV file")
     ap.add_argument("--min_slices", type=int, default=20,
                     help="skip series with fewer slices than this (0 = keep all)")
@@ -195,7 +196,7 @@ def main():
     all_rows: List[Dict[str, str]] = []
     for pid_dir in tqdm(sorted(root.iterdir())):
         if pid_dir.is_dir():
-            all_rows.extend(rows_for_pid(pid_dir))
+            all_rows.extend(rows_for_pid(pid_dir, img_root=Path(args.npy_root)))
 
     fieldnames = [
         "pid", "t0", "t1", "t2", "filter",
