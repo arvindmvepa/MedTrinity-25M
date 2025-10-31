@@ -107,7 +107,7 @@ def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
 # ────────────────────────────────────────────────────────────────────────
 # 3.  Per-PID processing
 # ────────────────────────────────────────────────────────────────────────
-def rows_for_pid(pid_dir: Path, img_root, min_slices=20) -> List[Dict[str, str]]:
+def rows_for_pid(pid_dir: Path, img_root, min_slices=20, check_normal_dims=False) -> List[Dict[str, str]]:
     pid = pid_dir.name
     tp_dirs = sort_timepoints([d for d in pid_dir.iterdir() if d.is_dir()])
     if not tp_dirs:
@@ -142,7 +142,7 @@ def rows_for_pid(pid_dir: Path, img_root, min_slices=20) -> List[Dict[str, str]]
             try:
                 npy_data = np.load(volume_path_npy)
                 # Check if dimensions are [1, 32, 256, 256] (accounting for channel dimension)
-                if npy_data.shape != (1, 32, 256, 256) and npy_data.shape != (32, 256, 256):
+                if check_normal_dims and npy_data.shape != (1, 32, 256, 256) and npy_data.shape != (32, 256, 256):
                     print(f"⚠️  Skip {vol} (wrong dimensions: {npy_data.shape}, expected (1, 32, 256, 256))", file=sys.stderr)
                     continue
             except Exception as e:
@@ -198,6 +198,8 @@ def main():
     ap.add_argument("csv_out", help="output CSV file")
     ap.add_argument("--min_slices", type=int, default=20,
                     help="skip series with fewer slices than this (0 = keep all)")
+    ap.add_argument("--check_normal_dims", action="store_true",
+                    help="skip checking if .npy files have 32 slices")
     args = ap.parse_args()
 
     root = Path(args.root).expanduser().resolve()
@@ -207,8 +209,8 @@ def main():
     all_rows: List[Dict[str, str]] = []
     for pid_dir in tqdm(sorted(root.iterdir())):
         if pid_dir.is_dir():
-            all_rows.extend(rows_for_pid(pid_dir, img_root=Path(args.npy_root)))
-
+            all_rows.extend(rows_for_pid(pid_dir, img_root=Path(args.npy_root),
+            min_slices=args.min_slices, check_normal_dims=args.check_normal_dims))
     fieldnames = [
         "pid", "t0", "t1", "t2", "filter",
         "dicom_t0", "dicom_t1", "dicom_t2", "dicom_filter"
