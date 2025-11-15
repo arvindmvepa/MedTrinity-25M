@@ -174,7 +174,8 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 # --------------------------------------------------------------------
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
-    seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
+    seg_paths = ["/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00063-101/BraTS-GLI-00063-101-seg.nii.gz", 
+                 "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-02071-100/BraTS-GLI-02071-100-seg.nii.gz"]
     atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
     #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
@@ -182,14 +183,16 @@ if __name__ == "__main__":
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
 
-    summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
-                                      tumour_labels=tumour_labels)
+    for seg_path in seg_paths:
+        print(seg_path)
+        summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
+                                        tumour_labels=tumour_labels)
 
-    for tumor_label, info in summ.items():
-        print(f"\nTumor label: {tumor_label}")
-        print("Total voxels:", info["total_voxels"])
-        for idx_, info_ in info["overlap"].items():
-            print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
-                  f"({info_['percent']:5.2f}%)")
-        print("Regions:", get_region_str(info["regions"]))
+        for tumor_label, info in summ.items():
+            print(f"\nTumor label: {tumor_label}")
+            print("Total voxels:", info["total_voxels"])
+            for idx_, info_ in info["overlap"].items():
+                print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
+                    f"({info_['percent']:5.2f}%)")
+            print("Regions:", get_region_str(info["regions"]))
 
