@@ -9,7 +9,7 @@ def add_region_info(vqa_data):
             study_name = entry["study_name"]
             # extract index of region answer from the combo list
             region_answer_index = entry["combo"].index(2)
-            region_value = entry["answer_vqa"][region_answer_index]
+            region_value = entry["answer_vqa"][region_answer_index][0]
             region_info_dict[study_name] = region_value
     for q_i in range(len(vqa_data)):
         entry = vqa_data[q_i]
