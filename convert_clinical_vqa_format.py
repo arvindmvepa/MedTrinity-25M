@@ -126,7 +126,7 @@ def convert_to_numerical_vqa_format(case_id, case_data):
     # Add aliases for satellite mapping
     satellite_mapping["scattered"] = satellite_mapping["scattered lesions"]  # Handle "scattered" as "scattered lesions"
     
-    brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
+    brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum"]
     lobe_mapping = {region.lower(): i for i, region in enumerate(brain_regions)}
     
     # Label names mapping to match JSON structure

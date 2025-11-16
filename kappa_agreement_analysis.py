@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agreement metrics analysis using Cohen's kappa for clinical annotations vs v10 predictions.
+Agreement metrics analysis using Cohen's kappa for clinical annotations vs v11 predictions.
 Computes kappa for multi-class tasks and binary labels in multi-label region task.
 """
 
@@ -63,7 +63,7 @@ def load_data():
     with open('clinical_annotations_groundtruth_format.json', 'r') as f:
         clinical_data = json.load(f)
     
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v10_seed0.json', 'r') as f:
+    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v11_seed0.json', 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data

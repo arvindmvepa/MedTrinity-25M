@@ -27,7 +27,7 @@ def load_data():
         clinical_data = json.load(f)
     
     # Load model predictions
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v10_seed0.json', 'r') as f:
+    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v11_seed0.json', 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data
