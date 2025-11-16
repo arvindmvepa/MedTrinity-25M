@@ -362,9 +362,10 @@ if __name__ == "__main__":
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
     atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
     for seg_path in tqdm(seg_paths):
-        summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels)
+        summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
         for tumor_label, info in summ.items():
-            atlas_overlap[tumor_label].append(info['overlap_fraction']*100)
+            if info['total_voxels'] > 0:
+                atlas_overlap[tumor_label].append(info['overlap_fraction']*100)
     print("\n\nSummary of atlas overlap percentages (%):")
     for tumor_label, overlaps in atlas_overlap.items():
-        print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}")
+        print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}, #samples: {len(overlaps)}")
