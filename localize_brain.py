@@ -79,17 +79,13 @@ def localize_to_brain_regions(
           }
         }
     """
-    # --- 1. affine alignment (translation only) --------------------
-    if not np.allclose(tumour_img.affine[:3, 3], atlas_img.affine[:3, 3]):
-        corr_aff = tumour_img.affine.copy()
-        corr_aff[:3, 3] = atlas_img.affine[:3, 3]
-        tumour_img = new_img_like(tumour_img, tumour_img.get_fdata(), corr_aff)
-
-    # --- 2. resample atlas to tumour space if needed ---------------
+    # --- 1. resample atlas to tumour space if needed ---------------
+    # (assumes atlas has been registered to the same physical space;
+    #  we already reoriented both to canonical on load)
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation="nearest")
 
-    # ---- NEW: drop trailing singleton dim if present --------------
+    # ---- drop trailing singleton dim if present --------------
     if atlas_img.ndim == 4 and atlas_img.shape[-1] == 1:
         atlas_img = new_img_like(atlas_img,
                                  atlas_img.get_fdata()[..., 0],  # squeeze
@@ -109,8 +105,11 @@ def localize_to_brain_regions(
 
 
     overlapped = atlas_data[tumour_mask]
-    unique, counts = np.unique(overlapped[overlapped > 0], return_counts=True)
+    nonzero = overlapped[overlapped > 0]
+    unique, counts = np.unique(nonzero, return_counts=True)
     total = int(tumour_mask.sum())
+    overlap_voxels = int(nonzero.size)
+    overlap_fraction = float(overlap_voxels) / float(total) if total else 0.0
 
     # --- 4. pack results ------------------------------------------
     overlap_dict = {}
@@ -125,7 +124,13 @@ def localize_to_brain_regions(
             }
             region_list.append(region)
 
-    return {"total_voxels": total, "overlap": overlap_dict, "regions": sorted(set(region_list))}
+    return {
+        "total_voxels": total,
+        "overlap_voxels": overlap_voxels,
+        "overlap_fraction": overlap_fraction,
+        "overlap": overlap_dict,
+        "regions": sorted(set(region_list)),
+    }
 
 
 def get_region_str(region_list):
@@ -158,8 +163,8 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
     summary : dict keyed by your tumour label
               e.g. summary['ET']['overlap'][46]['region'] → 'left‑MFG'
     """
-    tumour_img = nib.load(seg_path)
-    atlas_img = nib.load(atlas_path)
+    tumour_img = nib.as_closest_canonical(nib.load(seg_path))
+    atlas_img = nib.as_closest_canonical(nib.load(atlas_path))
     atlas_label_map = load_atlas_label_map(label_txt)
 
     summary = {}
@@ -190,7 +195,9 @@ if __name__ == "__main__":
 
         for tumor_label, info in summ.items():
             print(f"\nTumor label: {tumor_label}")
-            print("Total voxels:", info["total_voxels"])
+            print(f"Total voxels: {info['total_voxels']} | "
+                  f"Atlas-labeled: {info['overlap_voxels']} "
+                  f"({info['overlap_fraction']*100:5.2f}%)")
             for idx_, info_ in info["overlap"].items():
                 print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
                     f"({info_['percent']:5.2f}%)")
