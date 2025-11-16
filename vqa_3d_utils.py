@@ -8,7 +8,7 @@ from nilearn.masking import compute_brain_mask
 from skimage.morphology import ball
 import nibabel as nib
 import pandas as pd
-from localize_brain import localize_to_brain_regions, load_atlas_label_map, get_region_str
+from localize_brain import localize_to_brain_regions, load_aal_atlas_label_map, get_region_str
 from vqa_utils import compute_area_percentage, vqa_round, label_names, goat_label_names, ped_label_names
 
 
@@ -671,9 +671,7 @@ def generate_3d_labal_vqa_questions_v3(
 
 
 def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, width, depth, total_pixels,
-                             labels_order=(1, 2, 3, 4), pediatric=False, goat=False,
-                             atlas_path="/local2/amvepa91/sri24/lpba40.nii",
-                             label_txt_path="/local2/amvepa91/sri24/LPBA40-labels.txt"):
+                             labels_order=(1, 2, 3, 4), aal_version="SPM12", pediatric=False, goat=False):
     """
     For each label (1..4), compute:
       - area percentage + subjective interpretation
@@ -682,8 +680,8 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, wid
       - extent-based "compactness" measure
     """
     label_summaries = []
-    atlas_img = nib.load(atlas_path)
-    atlas_map = load_atlas_label_map(label_txt_path)
+    atlas_img, atlas_label_map = load_aal_atlas_label_map(version=aal_version)
+    atlas_img = nib.as_closest_canonical(atlas_img)
 
     for lbl in labels_order:
         summ = {}
@@ -702,7 +700,7 @@ def analyze_3d_label_summary(nib_seg_map_3d, seg_map_3d, nib_t1n_3d, height, wid
             summ['shape_interp'] = "N/A"
             summ['regions'] = "N/A"
         else:
-            regions = localize_to_brain_regions(nib_seg_map_3d, atlas_img, atlas_map, label_index=lbl)['regions']
+            regions = localize_to_brain_regions(nib_seg_map_3d, atlas_img, atlas_label_map, label_index=lbl)['regions']
             region_str = get_region_str(regions)
             summ['regions'] = region_str
             summ.update(compute_shape_descriptors(mask))

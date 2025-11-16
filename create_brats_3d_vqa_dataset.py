@@ -75,6 +75,8 @@ def generate_vqa_data_from_seg_file_joblib(
     """
     all_vqa_questions = []
 
+    generate_vqa_from_seg_map
+
     # Wrap Parallel execution with tqdm_joblib for the progress bar:
     with tqdm_joblib(desc="Processing segmentation files", total=len(volume_file_dirs)):
         results = Parallel(n_jobs=n_jobs)(
