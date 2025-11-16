@@ -3,6 +3,8 @@ import nibabel as nib
 import numpy as np
 from nilearn.image import resample_to_img, new_img_like
 from nilearn.datasets import fetch_atlas_aal
+import glob
+from tqdm import tqdm
 
 
 # ---- 1. AAL names and indices  -------------------
@@ -335,6 +337,7 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 # --------------------------------------------------------------------
 # 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
+    """
     seg_paths = ["/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00063-101/BraTS-GLI-00063-101-seg.nii.gz", 
                  "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-02071-100/BraTS-GLI-02071-100-seg.nii.gz"]
 
@@ -353,4 +356,15 @@ if __name__ == "__main__":
                 print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
                     f"({info_['percent']:5.2f}%)")
             print("Regions:", get_region_str(info["regions"]))
+    """
+    seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
 
+    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
+    atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
+    for seg_path in tqdm(seg_paths):
+        summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels)
+        for tumor_label, info in summ.items():
+            atlas_overlap[tumor_label].append(info['overlap_fraction']*100)
+    print("\n\nSummary of atlas overlap percentages (%):")
+    for tumor_label, overlaps in atlas_overlap.items():
+        print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}")
