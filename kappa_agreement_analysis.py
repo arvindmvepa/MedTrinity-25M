@@ -130,7 +130,7 @@ def collect_task_data(clinical_data, prediction_data):
         }
     
     # Initialize region binary collectors
-    region_names = get_category_mappings()['region'][1:]  # Skip "N/A" at index 0
+    region_names = get_category_mappings()['region']
     for region in region_names:
         task_data['region'][region] = {'true': [], 'pred': []}
         for label_type in label_types:
