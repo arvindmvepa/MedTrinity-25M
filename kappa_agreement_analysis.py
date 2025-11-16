@@ -454,11 +454,23 @@ def create_detailed_kappa_report(results, task_data):
     print("-" * 30)
     
     region_kappas = [r['kappa'] for r in results['region'].values() if r['kappa'] is not None]
+    region_accuracies = []
+
+    # Compute accuracies for each region
+    for region_name, region_data in results['region'].items():
+        if region_data['kappa'] is not None:
+            true_binary = np.array(task_data['region'][region_name]['true'])
+            pred_binary = np.array(task_data['region'][region_name]['pred'])
+            accuracy = np.mean(true_binary == pred_binary)
+            region_accuracies.append(accuracy)
+
     if region_kappas:
         print(f"Number of region labels: {len(region_kappas)}")
         print(f"Kappa range: {min(region_kappas):.4f} to {max(region_kappas):.4f}")
         print(f"Mean kappa: {np.mean(region_kappas):.4f}")
         print(f"Std kappa: {np.std(region_kappas):.4f}")
+        print(f"Mean accuracy: {np.mean(region_accuracies):.4f}")
+        print(f"Std accuracy: {np.std(region_accuracies):.4f}")
         
         # Identify best and worst performing regions
         best_region = max(results['region'].items(), key=lambda x: x[1]['kappa'] if x[1]['kappa'] is not None else -1)
