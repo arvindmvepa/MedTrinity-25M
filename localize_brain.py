@@ -2,52 +2,212 @@ from nilearn import plotting
 import nibabel as nib
 import numpy as np
 from nilearn.image import resample_to_img, new_img_like
+from nilearn.datasets import fetch_atlas_aal
 
 
-LOBE_MAP: dict[str, set[int]] = {
-    "frontal": {
-        21, 22, 23, 24, 25, 26, 27, 28,
-        29, 30, 31, 32, 33, 34,
-    },
-    "parietal": {
-        41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-    },
-    "occipital": {
-        61, 62, 63, 64, 65, 66, 67, 68, 89, 90,
-    },
-    "temporal": {
-        81, 82, 83, 84, 85, 86, 87, 88, 91, 92,
-    },
-    "limbic": {121, 122, 165, 166},
-    "insula": {101, 102},
-    "subcortical": {161, 162, 163, 164},
-    "cerebellum": {181},
-    "brainstem": {182},
-    "background": {0},        # keep 0 → background
+# ---- 1. AAL names and indices  -------------------
+AAL_NAMES = [
+    'Precentral_L', 'Precentral_R',
+    'Frontal_Sup_L', 'Frontal_Sup_R',
+    'Frontal_Sup_Orb_L', 'Frontal_Sup_Orb_R',
+    'Frontal_Mid_L', 'Frontal_Mid_R',
+    'Frontal_Mid_Orb_L', 'Frontal_Mid_Orb_R',
+    'Frontal_Inf_Oper_L', 'Frontal_Inf_Oper_R',
+    'Frontal_Inf_Tri_L', 'Frontal_Inf_Tri_R',
+    'Frontal_Inf_Orb_L', 'Frontal_Inf_Orb_R',
+    'Rolandic_Oper_L', 'Rolandic_Oper_R',
+    'Supp_Motor_Area_L', 'Supp_Motor_Area_R',
+    'Olfactory_L', 'Olfactory_R',
+    'Frontal_Sup_Medial_L', 'Frontal_Sup_Medial_R',
+    'Frontal_Med_Orb_L', 'Frontal_Med_Orb_R',
+    'Rectus_L', 'Rectus_R',
+    'Insula_L', 'Insula_R',
+    'Cingulum_Ant_L', 'Cingulum_Ant_R',
+    'Cingulum_Mid_L', 'Cingulum_Mid_R',
+    'Cingulum_Post_L', 'Cingulum_Post_R',
+    'Hippocampus_L', 'Hippocampus_R',
+    'ParaHippocampal_L', 'ParaHippocampal_R',
+    'Amygdala_L', 'Amygdala_R',
+    'Calcarine_L', 'Calcarine_R',
+    'Cuneus_L', 'Cuneus_R',
+    'Lingual_L', 'Lingual_R',
+    'Occipital_Sup_L', 'Occipital_Sup_R',
+    'Occipital_Mid_L', 'Occipital_Mid_R',
+    'Occipital_Inf_L', 'Occipital_Inf_R',
+    'Fusiform_L', 'Fusiform_R',
+    'Postcentral_L', 'Postcentral_R',
+    'Parietal_Sup_L', 'Parietal_Sup_R',
+    'Parietal_Inf_L', 'Parietal_Inf_R',
+    'SupraMarginal_L', 'SupraMarginal_R',
+    'Angular_L', 'Angular_R',
+    'Precuneus_L', 'Precuneus_R',
+    'Paracentral_Lobule_L', 'Paracentral_Lobule_R',
+    'Caudate_L', 'Caudate_R',
+    'Putamen_L', 'Putamen_R',
+    'Pallidum_L', 'Pallidum_R',
+    'Thalamus_L', 'Thalamus_R',
+    'Heschl_L', 'Heschl_R',
+    'Temporal_Sup_L', 'Temporal_Sup_R',
+    'Temporal_Pole_Sup_L', 'Temporal_Pole_Sup_R',
+    'Temporal_Mid_L', 'Temporal_Mid_R',
+    'Temporal_Pole_Mid_L', 'Temporal_Pole_Mid_R',
+    'Temporal_Inf_L', 'Temporal_Inf_R',
+    'Cerebelum_Crus1_L', 'Cerebelum_Crus1_R',
+    'Cerebelum_Crus2_L', 'Cerebelum_Crus2_R',
+    'Cerebelum_3_L', 'Cerebelum_3_R',
+    'Cerebelum_4_5_L', 'Cerebelum_4_5_R',
+    'Cerebelum_6_L', 'Cerebelum_6_R',
+    'Cerebelum_7b_L', 'Cerebelum_7b_R',
+    'Cerebelum_8_L', 'Cerebelum_8_R',
+    'Cerebelum_9_L', 'Cerebelum_9_R',
+    'Cerebelum_10_L', 'Cerebelum_10_R',
+    'Vermis_1_2', 'Vermis_3', 'Vermis_4_5',
+    'Vermis_6', 'Vermis_7', 'Vermis_8',
+    'Vermis_9', 'Vermis_10',
+]
+
+AAL_INDICES = [
+    '2001', '2002', '2101', '2102', '2111', '2112', '2201', '2202', '2211', '2212',
+    '2301', '2302', '2311', '2312', '2321', '2322', '2331', '2332', '2401', '2402',
+    '2501', '2502', '2601', '2602', '2611', '2612', '2701', '2702', '3001', '3002',
+    '4001', '4002', '4011', '4012', '4021', '4022', '4101', '4102', '4111', '4112',
+    '4201', '4202', '5001', '5002', '5011', '5012', '5021', '5022', '5101', '5102',
+    '5201', '5202', '5301', '5302', '5401', '5402', '6001', '6002', '6101', '6102',
+    '6201', '6202', '6211', '6212', '6221', '6222', '6301', '6302', '6401', '6402',
+    '7001', '7002', '7011', '7012', '7021', '7022', '7101', '7102', '8101', '8102',
+    '8111', '8112', '8121', '8122', '8201', '8202', '8211', '8212', '8301', '8302',
+    '9001', '9002', '9011', '9012', '9021', '9022', '9031', '9032', '9041', '9042',
+    '9051', '9052', '9061', '9062', '9071', '9072', '9081', '9082', '9100', '9110',
+    '9120', '9130', '9140', '9150', '9160', '9170',
+]
+
+
+# ---- Define lobe membership by region name ---------------------
+
+_FRONTAL = {
+    'Precentral_L', 'Precentral_R',
+    'Frontal_Sup_L', 'Frontal_Sup_R',
+    'Frontal_Sup_Orb_L', 'Frontal_Sup_Orb_R',
+    'Frontal_Mid_L', 'Frontal_Mid_R',
+    'Frontal_Mid_Orb_L', 'Frontal_Mid_Orb_R',
+    'Frontal_Inf_Oper_L', 'Frontal_Inf_Oper_R',
+    'Frontal_Inf_Tri_L', 'Frontal_Inf_Tri_R',
+    'Frontal_Inf_Orb_L', 'Frontal_Inf_Orb_R',
+    'Rolandic_Oper_L', 'Rolandic_Oper_R',
+    'Supp_Motor_Area_L', 'Supp_Motor_Area_R',
+    'Olfactory_L', 'Olfactory_R',
+    'Frontal_Sup_Medial_L', 'Frontal_Sup_Medial_R',
+    'Frontal_Med_Orb_L', 'Frontal_Med_Orb_R',
+    'Rectus_L', 'Rectus_R',
+}
+
+_INSULA = {'Insula_L', 'Insula_R'}
+
+_LIMBIC = {
+    'Cingulum_Ant_L', 'Cingulum_Ant_R',
+    'Cingulum_Mid_L', 'Cingulum_Mid_R',
+    'Cingulum_Post_L', 'Cingulum_Post_R',
+    'Hippocampus_L', 'Hippocampus_R',
+    'ParaHippocampal_L', 'ParaHippocampal_R',
+    'Amygdala_L', 'Amygdala_R',
+}
+
+_OCCIPITAL = {
+    'Calcarine_L', 'Calcarine_R',
+    'Cuneus_L', 'Cuneus_R',
+    'Lingual_L', 'Lingual_R',
+    'Occipital_Sup_L', 'Occipital_Sup_R',
+    'Occipital_Mid_L', 'Occipital_Mid_R',
+    'Occipital_Inf_L', 'Occipital_Inf_R',
+}
+
+_TEMPORAL = {
+    'Fusiform_L', 'Fusiform_R',
+    'Heschl_L', 'Heschl_R',
+    'Temporal_Sup_L', 'Temporal_Sup_R',
+    'Temporal_Pole_Sup_L', 'Temporal_Pole_Sup_R',
+    'Temporal_Mid_L', 'Temporal_Mid_R',
+    'Temporal_Pole_Mid_L', 'Temporal_Pole_Mid_R',
+    'Temporal_Inf_L', 'Temporal_Inf_R',
+}
+
+_PARietal = {
+    'Postcentral_L', 'Postcentral_R',
+    'Parietal_Sup_L', 'Parietal_Sup_R',
+    'Parietal_Inf_L', 'Parietal_Inf_R',
+    'SupraMarginal_L', 'SupraMarginal_R',
+    'Angular_L', 'Angular_R',
+    'Precuneus_L', 'Precuneus_R',
+    'Paracentral_Lobule_L', 'Paracentral_Lobule_R',
+}
+
+_SUBCORTICAL = {
+    'Caudate_L', 'Caudate_R',
+    'Putamen_L', 'Putamen_R',
+    'Pallidum_L', 'Pallidum_R',
+    'Thalamus_L', 'Thalamus_R',
+}
+
+_CEREBELLUM = {
+    'Cerebelum_Crus1_L', 'Cerebelum_Crus1_R',
+    'Cerebelum_Crus2_L', 'Cerebelum_Crus2_R',
+    'Cerebelum_3_L', 'Cerebelum_3_R',
+    'Cerebelum_4_5_L', 'Cerebelum_4_5_R',
+    'Cerebelum_6_L', 'Cerebelum_6_R',
+    'Cerebelum_7b_L', 'Cerebelum_7b_R',
+    'Cerebelum_8_L', 'Cerebelum_8_R',
+    'Cerebelum_9_L', 'Cerebelum_9_R',
+    'Cerebelum_10_L', 'Cerebelum_10_R',
+    'Vermis_1_2', 'Vermis_3', 'Vermis_4_5',
+    'Vermis_6', 'Vermis_7', 'Vermis_8',
+    'Vermis_9', 'Vermis_10',
+}
+
+def _lobe_for_name(name: str) -> str:
+    if name in _FRONTAL:
+        return "frontal"
+    if name in _PARietal:
+        return "parietal"
+    if name in _OCCIPITAL:
+        return "occipital"
+    if name in _TEMPORAL:
+        return "temporal"
+    if name in _LIMBIC:
+        return "limbic"
+    if name in _INSULA:
+        return "insula"
+    if name in _SUBCORTICAL:
+        return "subcortical"
+    if name in _CEREBELLUM:
+        return "cerebellum"
+    return "unknown"
+    # (no brainstem regions in this particular list)
+
+
+# ---- 3. Final index → lobe map ------------------------------------
+AAL_INDEX_TO_LOBE: dict[int, str] = {
+    int(idx): _lobe_for_name(name)
+    for name, idx in zip(AAL_NAMES, AAL_INDICES)
 }
 
 
-# Build a quick reverse look‑up once so the function stays O(1)
-_ID_TO_LOBE: dict[int, str] = {
-    idx: lobe for lobe, indices in LOBE_MAP.items() for idx in indices
-}
+# add background explicitly
+AAL_INDEX_TO_LOBE[0] = "background"
 
 
-def load_atlas_label_map(label_txt_path, use_lobes=True):
-    mapping = {}
-    with open(label_txt_path, "r") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            idx, name = line.strip().split(maxsplit=1)
-            if use_lobes:
-                idx = int(idx)
-                mapping[idx] = _ID_TO_LOBE[idx]
-            else:
-                name = name.split("\t")[0]
-                name = name.replace('"', "")
-                mapping[int(idx)] = name
-    return mapping
+def load_aal_atlas_label_map(version: str = "SPM12"):
+    """
+    Load AAL atlas from nilearn and build a mapping from atlas value -> label or lobe.
+
+    For AAL, the integer values in the atlas image are in `indices`,
+    and the human-readable names are in `labels`. We must use `indices`
+    rather than assuming 1..N.  :contentReference[oaicite:0]{index=0}
+    """
+    aal = fetch_atlas_aal(version=version)
+    atlas_img = nib.load(aal.maps)
+    atlas_label_map = AAL_INDEX_TO_LOBE
+
+    return atlas_img, atlas_label_map
 
 
 def localize_to_brain_regions(
@@ -102,8 +262,6 @@ def localize_to_brain_regions(
         display.savefig(f"tumour_affine_alignment_check.png")
         display.close()
 
-
-
     overlapped = atlas_data[tumour_mask]
     nonzero = overlapped[overlapped > 0]
     unique, counts = np.unique(nonzero, return_counts=True)
@@ -149,9 +307,7 @@ def get_region_str(region_list):
 
 
 def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz",
-                               atlas_path="/local2/amvepa91/sri24/lpba40.nii",
-                               label_txt="/local2/amvepa91/sri24/LPBA40-labels.txt",
-                               tumour_labels=None, debug=True):
+                               aal_version="SPM12", tumour_labels=None, debug=True):
     """
     seg_path      : path to your multi‑label tumour segmentation (NIfTI)
     atlas_path    : path to LPBA40 (or other) atlas NIfTI
@@ -164,8 +320,8 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
               e.g. summary['ET']['overlap'][46]['region'] → 'left‑MFG'
     """
     tumour_img = nib.as_closest_canonical(nib.load(seg_path))
-    atlas_img = nib.as_closest_canonical(nib.load(atlas_path))
-    atlas_label_map = load_atlas_label_map(label_txt)
+    atlas_img, atlas_label_map = load_aal_atlas_label_map(version=aal_version)
+    atlas_img = nib.as_closest_canonical(atlas_img)
 
     summary = {}
     for name, label_index in tumour_labels.items():
@@ -181,17 +337,12 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 if __name__ == "__main__":
     seg_paths = ["/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00063-101/BraTS-GLI-00063-101-seg.nii.gz", 
                  "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-02071-100/BraTS-GLI-02071-100-seg.nii.gz"]
-    atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
-    #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
-    label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
-    #label_txt = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
 
     for seg_path in seg_paths:
         print(seg_path)
-        summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
-                                        tumour_labels=tumour_labels)
+        summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels)
 
         for tumor_label, info in summ.items():
             print(f"\nTumor label: {tumor_label}")
