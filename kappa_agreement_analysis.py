@@ -99,7 +99,7 @@ def get_category_mappings():
         },
         'region': [
             "N/A", "subcortical", "frontal", "temporal", "parietal", 
-            "occipital", "limbic", "insula", "cerebellum", "brainstem", "corpus callosum"
+            "occipital", "limbic", "insula", "cerebellum"
         ]
     }
 
