@@ -135,6 +135,10 @@ def collect_task_data(clinical_data, prediction_data):
         task_data['region'][region] = {'true': [], 'pred': []}
         for label_type in label_types:
             per_label_data[label_type]['region'][region] = {'true': [], 'pred': []}
+    task_data['region']['overall'] = {'true': [], 'pred': []}  # Overall region presence
+    for label_type in label_types:
+        per_label_data[label_type]['region']['overall'] = {'true': [], 'pred': []}
+
     
     # Process each clinical case
     for clinical_case in clinical_data:
@@ -181,10 +185,16 @@ def collect_task_data(clinical_data, prediction_data):
                     # Overall data
                     task_data['region'][region]['true'].append(true_binary)
                     task_data['region'][region]['pred'].append(pred_binary)
-                    
+                    task_data['region']['overall']['true'].append(true_binary)
+                    task_data['region']['overall']['pred'].append(pred_binary)
+
                     # Per-label data
                     per_label_data[label_type]['region'][region]['true'].append(true_binary)
                     per_label_data[label_type]['region'][region]['pred'].append(pred_binary)
+                    per_label_data[label_type]['region']['overall']['true'].append(true_binary)
+                    per_label_data[label_type]['region']['overall']['pred'].append(pred_binary)
+            
+
     
     return task_data, per_label_data
 
