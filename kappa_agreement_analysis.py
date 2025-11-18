@@ -131,7 +131,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         label_mapping = {
             "Non-Enhancing Tumor": "Necrosis",
             "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
-            "Enhancing Tissue": "Enhancing Tissue"
+            "Enhancing Tissue": "Enhancing Tumor"
         }
     
     # Initialize data collectors - overall and per label
@@ -180,7 +180,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         # Analyze each label type
         for clinical_label_type in clinical_label_types:
             # Map clinical label to prediction label for GoAT
-            pred_label_type = label_mapping.get(clinical_label_type, clinical_label_type)
+            pred_label_type = label_mapping[clinical_label_type]
             assert clinical_label_type in clinical_case.get('labels', {}), f"Missing clinical label: {clinical_label_type}"
             assert pred_label_type in pred_case.get('labels', {}), f"Missing prediction label: {pred_label_type}"
 
