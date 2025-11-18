@@ -9,6 +9,7 @@ Changes:
 """
 
 import json
+import argparse
 
 def convert_to_groundtruth_format(input_file, output_file):
     """Convert clinical annotations to groundtruth format"""
@@ -55,8 +56,24 @@ def convert_to_groundtruth_format(input_file, output_file):
         print("\nSample converted entry:")
         print(json.dumps(groundtruth_format[0], indent=2))
 
-if __name__ == "__main__":
-    input_file = "clinical_annotations_vqa_format.json"
-    output_file = "clinical_annotations_groundtruth_format.json"
+def main():
+    """Main conversion function"""
+    parser = argparse.ArgumentParser(description='Convert clinical annotations to groundtruth format')
+    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
+                       help='Dataset type: gli, met, or goat')
+    
+    args = parser.parse_args()
+    dataset_type = args.dataset_type
+    
+    # Construct input and output filenames based on dataset type
+    input_file = f"clinical_annotations_{dataset_type}_vqa_format.json"
+    output_file = f"clinical_annotations_{dataset_type}_groundtruth_format.json"
+    
+    print(f"Processing {dataset_type.upper()} dataset...")
+    print(f"Input file: {input_file}")
+    print(f"Output file: {output_file}")
     
     convert_to_groundtruth_format(input_file, output_file)
+
+if __name__ == "__main__":
+    main()
