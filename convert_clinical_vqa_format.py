@@ -26,10 +26,10 @@ def debug_excel_structure():
     
     return df
 
-def extract_first_case(df):
+def extract_first_case(df, num_labels=4):
     """Extract the first case (from column name and rows 1-4)"""
     # The first case ID is in the column name
-    first_case_id = df.columns[0]  # 'BraTS-GLI-00063-101'
+    first_case_id = df.columns[0]  # 'BraTS-GLI-00063-101' or 'BraTS-MET-...'
     
     print(f"\n=== EXTRACTING FIRST CASE: {first_case_id} ===")
     
@@ -44,9 +44,9 @@ def extract_first_case(df):
         question_cell = df.iloc[row_idx, 0]
         print(f"  Row {row_idx}, Col 0: '{question_cell}' (expected: '{question}')")
         
-        # Extract answers for 4 labels (columns 1-4)
+        # Extract answers for num_labels (columns 1 to num_labels+1)
         answers = []
-        for col_idx in range(1, 5):
+        for col_idx in range(1, num_labels + 1):
             if col_idx < len(df.columns):
                 answer = df.iloc[row_idx, col_idx]
                 if pd.isna(answer):
@@ -61,7 +61,7 @@ def extract_first_case(df):
     
     return first_case_id, case_data
 
-def find_other_cases(df):
+def find_other_cases(df, num_labels=4):
     """Find all other cases that start with explicit case IDs"""
     print("\n=== FINDING OTHER CASES ===")
     
@@ -69,14 +69,14 @@ def find_other_cases(df):
     
     for i in range(len(df)):
         val = df.iloc[i, 0]
-        if isinstance(val, str) and val.startswith('BraTS-GLI-'):
+        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-')):
             # This is a case ID row
             case_id = val
             
             # Skip the header row (should be row i+1)
             header_row = i + 1
             if header_row < len(df):
-                header_check = df.iloc[header_row, 1:5].tolist()
+                header_check = df.iloc[header_row, 1:num_labels+1].tolist()
                 print(f"Found case at row {i}: {case_id}")
                 print(f"  Header row {header_row}: {header_check}")
                 
@@ -93,7 +93,7 @@ def find_other_cases(df):
                         
                         # Extract answers
                         answers = []
-                        for col_idx in range(1, 5):
+                        for col_idx in range(1, num_labels + 1):
                             if col_idx < len(df.columns):
                                 answer = df.iloc[data_row, col_idx]
                                 if pd.isna(answer):
@@ -110,7 +110,7 @@ def find_other_cases(df):
     
     return other_cases
 
-def convert_to_numerical_vqa_format(case_id, case_data):
+def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
     """Convert case data to numerical format using VQA system mappings (0-based indexing)"""
     print(f"\n=== CONVERTING {case_id} TO VQA NUMERICAL FORMAT ===")
     
@@ -129,13 +129,14 @@ def convert_to_numerical_vqa_format(case_id, case_data):
     brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum"]
     lobe_mapping = {region.lower(): i for i, region in enumerate(brain_regions)}
     
-    # Label names mapping to match JSON structure
-    label_names = [
-        "Non-Enhancing Tumor",
-        "Surrounding Non-enhancing FLAIR hyperintensity",
-        "Enhancing Tissue", 
-        "Resection Cavity"
-    ]
+    # Use provided label names or default to GLI labels
+    if label_names is None:
+        label_names = [
+            "Non-Enhancing Tumor",
+            "Surrounding Non-enhancing FLAIR hyperintensity",
+            "Enhancing Tissue", 
+            "Resection Cavity"
+        ]
     
     numerical_case = {
         "case_id": case_id,
@@ -257,14 +258,53 @@ def encode_location_vqa_format(location_str, brain_regions, lobe_mapping):
 def main():
     """Main conversion function with VQA format mappings"""
     
+    # Detect dataset type from Excel file name or first case ID
+    import sys
+    
+    excel_file = 'clinical-annotation.xlsx'
+    if len(sys.argv) > 1:
+        excel_file = sys.argv[1]
+    
     # Step 1: Debug Excel structure
     df = debug_excel_structure()
     
+    # Detect dataset from first case ID
+    first_case_id_col = df.columns[0]
+    
+    # Detect dataset type
+    if 'MET' in first_case_id_col:
+        dataset_type = 'MET'
+        num_labels = 3
+        label_names = [
+            "Non-Enhancing Tumor",
+            "Surrounding Non-enhancing FLAIR hyperintensity",
+            "Enhancing Tissue"
+        ]
+    elif 'GoAT' in first_case_id_col or 'GOAT' in first_case_id_col:
+        dataset_type = 'GoAT'
+        num_labels = 3
+        label_names = [
+            "Non-Enhancing Tumor",
+            "Surrounding Non-enhancing FLAIR hyperintensity",
+            "Enhancing Tissue"
+        ]
+    else:  # GLI dataset
+        dataset_type = 'GLI'
+        num_labels = 4
+        label_names = [
+            "Non-Enhancing Tumor",
+            "Surrounding Non-enhancing FLAIR hyperintensity",
+            "Enhancing Tissue", 
+            "Resection Cavity"
+        ]
+    
+    print(f"\n*** Detected {dataset_type} dataset - using {num_labels} labels ***\n")
+    
     # Step 2: Extract first case (from column and rows 1-4)
-    first_case_id, first_case_data = extract_first_case(df)
+    first_case_id, first_case_data = extract_first_case(df, num_labels)
     
     # Step 3: Find other cases
-    other_cases = find_other_cases(df)
+    other_cases = find_other_cases(df, num_labels)
     
     # Step 4: Convert all cases
     all_numerical_data = []
@@ -275,7 +315,7 @@ def main():
     print(f"{'='*60}")
     
     try:
-        numerical_case = convert_to_numerical_vqa_format(first_case_id, first_case_data)
+        numerical_case = convert_to_numerical_vqa_format(first_case_id, first_case_data, label_names)
         all_numerical_data.append(numerical_case)
         print(f"✓ Successfully processed {first_case_id}")
     except Exception as e:
@@ -289,7 +329,7 @@ def main():
         print(f"{'='*60}")
         
         try:
-            numerical_case = convert_to_numerical_vqa_format(case_id, case_data)
+            numerical_case = convert_to_numerical_vqa_format(case_id, case_data, label_names)
             all_numerical_data.append(numerical_case)
             print(f"✓ Successfully processed {case_id}")
         except Exception as e:
@@ -305,6 +345,9 @@ def main():
     output = {
         "metadata": {
             "description": "Clinical annotations converted to VQA numerical format (0-based indexing)",
+            "dataset_type": dataset_type,
+            "num_labels": num_labels,
+            "label_names": label_names,
             "volume_categories": volume_categories,
             "volume_mapping": {str(i): cat for i, cat in enumerate(volume_categories)},
             "shape_categories": shape_categories,
@@ -317,7 +360,7 @@ def main():
         "clinical_annotations": all_numerical_data
     }
     
-    output_file = 'clinical_annotations_vqa_format.json'
+    output_file = f'clinical_annotations_{dataset_type.lower()}_vqa_format.json'
     with open(output_file, 'w') as f:
         json.dump(output, f, indent=2)
     
