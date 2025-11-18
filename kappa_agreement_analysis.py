@@ -182,7 +182,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
             # Map clinical label to prediction label for GoAT
             pred_label_type = label_mapping.get(clinical_label_type, clinical_label_type)
             assert clinical_label_type in clinical_case.get('labels', {}), f"Missing clinical label: {clinical_label_type}"
-            assert pred_label_type not in pred_case.get('labels', {}), f"Unexpected prediction label: {pred_label_type}"
+            assert pred_label_type in pred_case.get('labels', {}), f"Missing prediction label: {pred_label_type}"
 
                 
             clinical_label = clinical_case['labels'][clinical_label_type]
