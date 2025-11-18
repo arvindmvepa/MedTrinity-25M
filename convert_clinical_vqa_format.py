@@ -270,7 +270,7 @@ def main():
     dataset_type = args.dataset_type.upper()
     
     # Construct Excel filename
-    excel_file = f'clinical-annotation-{args.dataset_type}.xlsx'
+    excel_file = f'clinical-annotation_{args.dataset_type}.xlsx'
     
     print(f"Loading Excel file: {excel_file}")
     
