@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Agreement metrics analysis using Cohen's kappa for clinical annotations vs v11 predictions.
+Agreement metrics analysis using Cohen's kappa for clinical annotations vs predictions.
 Computes kappa for multi-class tasks and binary labels in multi-label region task.
 """
 
 import json
 import numpy as np
+import argparse
 from pathlib import Path
 
 def cohen_kappa_score(y_true, y_pred):
@@ -58,12 +59,17 @@ def cohen_kappa_score(y_true, y_pred):
     kappa = (p_o - p_e) / (1 - p_e)
     return kappa
 
-def load_data():
+def load_data(dataset_type, prediction_file):
     """Load ground truth and prediction data"""
-    with open('clinical_annotations_groundtruth_format.json', 'r') as f:
+    # Load clinical data based on dataset type
+    clinical_file = f'clinical_annotations_{dataset_type}_groundtruth_format.json'
+    
+    print(f"Loading clinical data from: {clinical_file}")
+    with open(clinical_file, 'r') as f:
         clinical_data = json.load(f)
     
-    with open('brats_gli_3d_vqa_subjTrue_test_aux_updated_v11_seed0.json', 'r') as f:
+    print(f"Loading prediction data from: {prediction_file}")
+    with open(prediction_file, 'r') as f:
         prediction_data = json.load(f)
     
     return clinical_data, prediction_data
@@ -103,10 +109,18 @@ def get_category_mappings():
         ]
     }
 
-def collect_task_data(clinical_data, prediction_data):
+def get_label_types(dataset_type):
+    """Get label types based on dataset"""
+    if dataset_type in ['met', 'goat']:
+        return ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"]
+    else:  # GLI
+        return ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue", "Resection Cavity"]
+
+def collect_task_data(clinical_data, prediction_data, dataset_type):
     """Collect aligned data for all tasks"""
     
     case_map = create_case_mapping(prediction_data)
+    label_types = get_label_types(dataset_type)
     
     # Initialize data collectors - overall and per label
     task_data = {
@@ -117,9 +131,6 @@ def collect_task_data(clinical_data, prediction_data):
     }
     
     # Initialize per-label data collectors
-    label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", 
-                  "Enhancing Tissue", "Resection Cavity"]
-    
     per_label_data = {}
     for label_type in label_types:
         per_label_data[label_type] = {
@@ -128,7 +139,6 @@ def collect_task_data(clinical_data, prediction_data):
             'satellite': {'true': [], 'pred': []},
             'region': {}
         }
-    
     # Initialize region binary collectors
     region_names = get_category_mappings()['region']
     for region in region_names:
@@ -194,8 +204,6 @@ def collect_task_data(clinical_data, prediction_data):
                     per_label_data[label_type]['region']['overall']['true'].append(true_binary)
                     per_label_data[label_type]['region']['overall']['pred'].append(pred_binary)
             
-
-    
     return task_data, per_label_data
 
 def compute_kappa_metrics(task_data):
@@ -212,6 +220,7 @@ def compute_kappa_metrics(task_data):
     print("-" * 40)
     
     multiclass_kappas = []
+    multiclass_accuracies = []
     
     for task in ['area', 'shape', 'satellite']:
         if len(task_data[task]['true']) > 0:
@@ -219,30 +228,36 @@ def compute_kappa_metrics(task_data):
             pred_labels = np.array(task_data[task]['pred'])
             
             kappa = cohen_kappa_score(true_labels, pred_labels)
+            accuracy = np.mean(true_labels == pred_labels)
             multiclass_kappas.append(kappa)
+            multiclass_accuracies.append(accuracy)
             
             results[task] = {
                 'kappa': kappa,
+                'accuracy': accuracy,
                 'n_samples': len(true_labels),
                 'interpretation': interpret_kappa(kappa)
             }
             
-            print(f"{task.upper():12} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) n = {len(true_labels):3}")
+            print(f"{task.upper():12} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(true_labels):3}")
         else:
             print(f"{task.upper():12} No data available")
-            results[task] = {'kappa': None, 'n_samples': 0, 'interpretation': 'No data'}
+            results[task] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Multi-label region task - binary kappa for each region
     print(f"\nMULTI-LABEL REGION BINARY KAPPA SCORES:")
     print("-" * 40)
     
     region_kappas = []
+    region_accuracies = []
     region_results = {}
     
     for region in task_data['region']:
         if len(task_data['region'][region]['true']) > 0:
             true_binary = np.array(task_data['region'][region]['true'])
             pred_binary = np.array(task_data['region'][region]['pred'])
+            
+            accuracy = np.mean(true_binary == pred_binary)
             
             # Check if there's any variation in the data
             if len(np.unique(true_binary)) == 1 and len(np.unique(pred_binary)) == 1:
@@ -255,54 +270,68 @@ def compute_kappa_metrics(task_data):
                 kappa = cohen_kappa_score(true_binary, pred_binary)
             
             region_kappas.append(kappa)
+            region_accuracies.append(accuracy)
             
             region_results[region] = {
                 'kappa': kappa,
+                'accuracy': accuracy,
                 'n_samples': len(true_binary),
                 'interpretation': interpret_kappa(kappa),
                 'prevalence_true': np.mean(true_binary),
                 'prevalence_pred': np.mean(pred_binary)
             }
             
-            print(f"{region:15} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) n = {len(true_binary):3} prev_true = {np.mean(true_binary):.3f} prev_pred = {np.mean(pred_binary):.3f}")
+            print(f"{region:15} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(true_binary):3} prev_true = {np.mean(true_binary):.3f} prev_pred = {np.mean(pred_binary):.3f}")
         else:
             print(f"{region:15} No data available")
-            region_results[region] = {'kappa': None, 'n_samples': 0, 'interpretation': 'No data'}
+            region_results[region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Average kappas
     print(f"\nAVERAGE KAPPA SCORES:")
     print("-" * 40)
     
     valid_multiclass_kappas = [k for k in multiclass_kappas if k is not None]
+    valid_multiclass_accuracies = [a for a in multiclass_accuracies if a is not None]
     valid_region_kappas = [k for k in region_kappas if k is not None]
+    valid_region_accuracies = [a for a in region_accuracies if a is not None]
     
     if valid_multiclass_kappas:
         avg_multiclass_kappa = np.mean(valid_multiclass_kappas)
-        print(f"Average Multi-class κ = {avg_multiclass_kappa:.4f} ({interpret_kappa(avg_multiclass_kappa)})")
+        avg_multiclass_accuracy = np.mean(valid_multiclass_accuracies)
+        print(f"Average Multi-class κ = {avg_multiclass_kappa:.4f} ({interpret_kappa(avg_multiclass_kappa)}) acc = {avg_multiclass_accuracy:.4f}")
     else:
         avg_multiclass_kappa = None
+        avg_multiclass_accuracy = None
         print("Average Multi-class κ = No data available")
     
     if valid_region_kappas:
         avg_region_kappa = np.mean(valid_region_kappas)
-        print(f"Average Region κ     = {avg_region_kappa:.4f} ({interpret_kappa(avg_region_kappa)})")
+        avg_region_accuracy = np.mean(valid_region_accuracies)
+        print(f"Average Region κ     = {avg_region_kappa:.4f} ({interpret_kappa(avg_region_kappa)}) acc = {avg_region_accuracy:.4f}")
     else:
         avg_region_kappa = None
+        avg_region_accuracy = None
         print("Average Region κ     = No data available")
     
     all_valid_kappas = valid_multiclass_kappas + valid_region_kappas
+    all_valid_accuracies = valid_multiclass_accuracies + valid_region_accuracies
     if all_valid_kappas:
         overall_avg_kappa = np.mean(all_valid_kappas)
-        print(f"Overall Average κ    = {overall_avg_kappa:.4f} ({interpret_kappa(overall_avg_kappa)})")
+        overall_avg_accuracy = np.mean(all_valid_accuracies)
+        print(f"Overall Average κ    = {overall_avg_kappa:.4f} ({interpret_kappa(overall_avg_kappa)}) acc = {overall_avg_accuracy:.4f}")
     else:
         overall_avg_kappa = None
+        overall_avg_accuracy = None
         print("Overall Average κ    = No data available")
     
     # Store summary results
     results['summary'] = {
         'avg_multiclass_kappa': avg_multiclass_kappa,
+        'avg_multiclass_accuracy': avg_multiclass_accuracy,
         'avg_region_kappa': avg_region_kappa,
+        'avg_region_accuracy': avg_region_accuracy,
         'overall_avg_kappa': overall_avg_kappa,
+        'overall_avg_accuracy': overall_avg_accuracy,
         'n_multiclass_tasks': len(valid_multiclass_kappas),
         'n_region_labels': len(valid_region_kappas)
     }
@@ -311,17 +340,15 @@ def compute_kappa_metrics(task_data):
     
     return results
 
-def compute_per_label_kappa(per_label_data):
+def compute_per_label_kappa(per_label_data, dataset_type):
     """Compute Cohen's kappa for each label type separately"""
     
     label_results = {}
+    label_types = get_label_types(dataset_type)
     
     print("\n" + "=" * 80)
     print("PER-LABEL KAPPA ANALYSIS")
     print("=" * 80)
-    
-    label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", 
-                  "Enhancing Tissue", "Resection Cavity"]
     
     for label_type in label_types:
         print(f"\n{label_type.upper()}:")
@@ -332,6 +359,7 @@ def compute_per_label_kappa(per_label_data):
         # Multi-class tasks for this label
         print("Multi-class tasks:")
         multiclass_kappas = []
+        multiclass_accuracies = []
         
         for task in ['area', 'shape', 'satellite']:
             if len(per_label_data[label_type][task]['true']) > 0:
@@ -339,28 +367,34 @@ def compute_per_label_kappa(per_label_data):
                 pred_labels = np.array(per_label_data[label_type][task]['pred'])
                 
                 kappa = cohen_kappa_score(true_labels, pred_labels)
+                accuracy = np.mean(true_labels == pred_labels)
                 multiclass_kappas.append(kappa)
+                multiclass_accuracies.append(accuracy)
                 
                 label_results[label_type][task] = {
                     'kappa': kappa,
+                    'accuracy': accuracy,
                     'n_samples': len(true_labels),
                     'interpretation': interpret_kappa(kappa)
                 }
                 
-                print(f"  {task:10} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) n = {len(true_labels):2}")
+                print(f"  {task:10} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(true_labels):2}")
             else:
-                label_results[label_type][task] = {'kappa': None, 'n_samples': 0, 'interpretation': 'No data'}
+                label_results[label_type][task] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
                 print(f"  {task:10} No data available")
         
         # Region tasks for this label
         print("Region tasks:")
         region_kappas = []
+        region_accuracies = []
         label_results[label_type]['region'] = {}
         
         for region in per_label_data[label_type]['region']:
             if len(per_label_data[label_type]['region'][region]['true']) > 0:
                 true_binary = np.array(per_label_data[label_type]['region'][region]['true'])
                 pred_binary = np.array(per_label_data[label_type]['region'][region]['pred'])
+                
+                accuracy = np.mean(true_binary == pred_binary)
                 
                 # Check if there's any variation in the data
                 if len(np.unique(true_binary)) == 1 and len(np.unique(pred_binary)) == 1:
@@ -372,44 +406,58 @@ def compute_per_label_kappa(per_label_data):
                     kappa = cohen_kappa_score(true_binary, pred_binary)
                 
                 region_kappas.append(kappa)
+                region_accuracies.append(accuracy)
                 
                 label_results[label_type]['region'][region] = {
                     'kappa': kappa,
+                    'accuracy': accuracy,
                     'n_samples': len(true_binary),
                     'interpretation': interpret_kappa(kappa)
                 }
                 
-                print(f"  {region:13} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) n = {len(true_binary):2}")
+                print(f"  {region:13} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(true_binary):2}")
             else:
-                label_results[label_type]['region'][region] = {'kappa': None, 'n_samples': 0, 'interpretation': 'No data'}
+                label_results[label_type]['region'][region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
         
         # Summary for this label
         valid_multiclass = [k for k in multiclass_kappas if k is not None]
+        valid_multiclass_acc = [a for a in multiclass_accuracies if a is not None]
         valid_region = [k for k in region_kappas if k is not None]
+        valid_region_acc = [a for a in region_accuracies if a is not None]
         
         if valid_multiclass:
             avg_multiclass = np.mean(valid_multiclass)
-            print(f"  Average multi-class κ = {avg_multiclass:.4f} ({interpret_kappa(avg_multiclass)})")
+            avg_multiclass_acc = np.mean(valid_multiclass_acc)
+            print(f"  Average multi-class κ = {avg_multiclass:.4f} ({interpret_kappa(avg_multiclass)}) acc = {avg_multiclass_acc:.4f}")
         else:
             avg_multiclass = None
+            avg_multiclass_acc = None
             
         if valid_region:
             avg_region = np.mean(valid_region)
-            print(f"  Average region κ      = {avg_region:.4f} ({interpret_kappa(avg_region)})")
+            avg_region_acc = np.mean(valid_region_acc)
+            print(f"  Average region κ      = {avg_region:.4f} ({interpret_kappa(avg_region)}) acc = {avg_region_acc:.4f}")
         else:
             avg_region = None
+            avg_region_acc = None
         
         all_valid = valid_multiclass + valid_region
+        all_valid_acc = valid_multiclass_acc + valid_region_acc
         if all_valid:
             overall_avg = np.mean(all_valid)
-            print(f"  Overall average κ     = {overall_avg:.4f} ({interpret_kappa(overall_avg)})")
+            overall_avg_acc = np.mean(all_valid_acc)
+            print(f"  Overall average κ     = {overall_avg:.4f} ({interpret_kappa(overall_avg)}) acc = {overall_avg_acc:.4f}")
         else:
             overall_avg = None
+            overall_avg_acc = None
             
         label_results[label_type]['summary'] = {
             'avg_multiclass_kappa': avg_multiclass,
+            'avg_multiclass_accuracy': avg_multiclass_acc,
             'avg_region_kappa': avg_region,
-            'overall_avg_kappa': overall_avg
+            'avg_region_accuracy': avg_region_acc,
+            'overall_avg_kappa': overall_avg,
+            'overall_avg_accuracy': overall_avg_acc
         }
     
     return label_results
@@ -486,16 +534,26 @@ def create_detailed_kappa_report(results, task_data):
         best_region = max(results['region'].items(), key=lambda x: x[1]['kappa'] if x[1]['kappa'] is not None else -1)
         worst_region = min(results['region'].items(), key=lambda x: x[1]['kappa'] if x[1]['kappa'] is not None else 2)
         
-        print(f"Best agreement: {best_region[0]} (κ = {best_region[1]['kappa']:.4f})")
-        print(f"Worst agreement: {worst_region[0]} (κ = {worst_region[1]['kappa']:.4f})")
+        # Get accuracies for best/worst regions
+        best_true = np.array(task_data['region'][best_region[0]]['true'])
+        best_pred = np.array(task_data['region'][best_region[0]]['pred'])
+        best_acc = np.mean(best_true == best_pred)
+        
+        worst_true = np.array(task_data['region'][worst_region[0]]['true'])
+        worst_pred = np.array(task_data['region'][worst_region[0]]['pred'])
+        worst_acc = np.mean(worst_true == worst_pred)
+        
+        print(f"Best agreement: {best_region[0]} (κ = {best_region[1]['kappa']:.4f}, acc = {best_acc:.4f})")
+        print(f"Worst agreement: {worst_region[0]} (κ = {worst_region[1]['kappa']:.4f}, acc = {worst_acc:.4f})")
 
-def save_kappa_results(results, task_data, label_results):
+def save_kappa_results(results, task_data, label_results, output_file):
     """Save kappa analysis results to JSON file"""
     
     # Prepare serializable results
     serializable_results = {
         'overall_analysis': {
             'kappa_scores': {},
+            'accuracies': {},
             'summary_statistics': results['summary'],
             'sample_sizes': {},
             'interpretations': {}
@@ -506,16 +564,19 @@ def save_kappa_results(results, task_data, label_results):
     # Multi-class tasks (overall)
     for task in ['area', 'shape', 'satellite']:
         serializable_results['overall_analysis']['kappa_scores'][task] = results[task]['kappa']
+        serializable_results['overall_analysis']['accuracies'][task] = results[task]['accuracy']
         serializable_results['overall_analysis']['sample_sizes'][task] = results[task]['n_samples']
         serializable_results['overall_analysis']['interpretations'][task] = results[task]['interpretation']
     
     # Region tasks (overall)
     serializable_results['overall_analysis']['kappa_scores']['region'] = {}
+    serializable_results['overall_analysis']['accuracies']['region'] = {}
     serializable_results['overall_analysis']['sample_sizes']['region'] = {}
     serializable_results['overall_analysis']['interpretations']['region'] = {}
     
     for region, data in results['region'].items():
         serializable_results['overall_analysis']['kappa_scores']['region'][region] = data['kappa']
+        serializable_results['overall_analysis']['accuracies']['region'][region] = data['accuracy']
         serializable_results['overall_analysis']['sample_sizes']['region'][region] = data['n_samples']
         serializable_results['overall_analysis']['interpretations']['region'][region] = data['interpretation']
     
@@ -523,6 +584,7 @@ def save_kappa_results(results, task_data, label_results):
     for label_type, label_data in label_results.items():
         serializable_results['per_label_analysis'][label_type] = {
             'kappa_scores': {},
+            'accuracies': {},
             'sample_sizes': {},
             'interpretations': {},
             'summary_statistics': label_data['summary']
@@ -531,45 +593,61 @@ def save_kappa_results(results, task_data, label_results):
         # Multi-class tasks for this label
         for task in ['area', 'shape', 'satellite']:
             serializable_results['per_label_analysis'][label_type]['kappa_scores'][task] = label_data[task]['kappa']
+            serializable_results['per_label_analysis'][label_type]['accuracies'][task] = label_data[task]['accuracy']
             serializable_results['per_label_analysis'][label_type]['sample_sizes'][task] = label_data[task]['n_samples']
             serializable_results['per_label_analysis'][label_type]['interpretations'][task] = label_data[task]['interpretation']
         
         # Region tasks for this label
         serializable_results['per_label_analysis'][label_type]['kappa_scores']['region'] = {}
+        serializable_results['per_label_analysis'][label_type]['accuracies']['region'] = {}
         serializable_results['per_label_analysis'][label_type]['sample_sizes']['region'] = {}
         serializable_results['per_label_analysis'][label_type]['interpretations']['region'] = {}
         
         for region, region_data in label_data['region'].items():
             serializable_results['per_label_analysis'][label_type]['kappa_scores']['region'][region] = region_data['kappa']
+            serializable_results['per_label_analysis'][label_type]['accuracies']['region'][region] = region_data['accuracy']
             serializable_results['per_label_analysis'][label_type]['sample_sizes']['region'][region] = region_data['n_samples']
             serializable_results['per_label_analysis'][label_type]['interpretations']['region'][region] = region_data['interpretation']
     
-    with open('kappa_agreement_analysis.json', 'w') as f:
+    with open(output_file, 'w') as f:
         json.dump(serializable_results, f, indent=2)
     
-    print(f"\nKappa analysis saved to: kappa_agreement_analysis.json")
+    print(f"\nKappa analysis saved to: {output_file}")
 
 def main():
     """Main kappa analysis function"""
     
+    parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa agreement metrics')
+    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
+                       help='Dataset type: gli, met, or goat')
+    parser.add_argument('prediction_file', help='Path to prediction JSON file')
+    parser.add_argument('output_file', help='Path to output kappa analysis JSON file')
+    
+    args = parser.parse_args()
+    dataset_type = args.dataset_type
+    
+    print(f"Dataset: {dataset_type}")
+    print(f"Prediction file: {args.prediction_file}")
+    print(f"Output file: {args.output_file}")
+    
     try:
         print("Loading data for kappa analysis...")
-        clinical_data, prediction_data = load_data()
+        clinical_data, prediction_data = load_data(args.dataset_type, args.prediction_file)
         
         print("Collecting aligned task data...")
-        task_data, per_label_data = collect_task_data(clinical_data, prediction_data)
+        task_data, per_label_data = collect_task_data(clinical_data, prediction_data, args.dataset_type)
         
         print("Computing Cohen's kappa metrics...")
         results = compute_kappa_metrics(task_data)
         
         # Compute per-label kappa metrics
-        label_results = compute_per_label_kappa(per_label_data)
+        label_results = compute_per_label_kappa(per_label_data, args.dataset_type)
         
         # Generate detailed report
         create_detailed_kappa_report(results, task_data)
         
         # Save results (include both overall and per-label)
-        save_kappa_results(results, task_data, label_results)
+        save_kappa_results(results, task_data, label_results, args.output_file)
         
     except FileNotFoundError as e:
         print(f"Error: Required file not found - {e}")
