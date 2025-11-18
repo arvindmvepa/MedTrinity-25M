@@ -84,14 +84,9 @@ def create_case_mapping(prediction_data):
     case_map = {}
     print(f"\nDEBUG: Creating case mapping from {len(prediction_data)} predictions...")
     
-    for i, pred in enumerate(prediction_data[:3]):  # Show first 3 for debugging
-        if 'seg_file' in pred:
-            case_name = extract_case_name(pred['seg_file'])
-            case_map[case_name] = pred
-            print(f"  Prediction {i}: seg_file='{pred['seg_file']}'")
-            print(f"  Extracted case name: '{case_name}'")
-        else:
-            print(f"  Prediction {i}: No 'seg_file' field found")
+    for i, pred in enumerate(prediction_data):  # Show first 3 for debugging
+        case_name = extract_case_name(pred['seg_file'])
+        case_map[case_name] = pred
     
     print(f"DEBUG: Created case mapping with {len(case_map)} entries")
     print(f"DEBUG: First 5 case names in mapping: {list(case_map.keys())[:5]}")
