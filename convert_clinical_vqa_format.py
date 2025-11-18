@@ -69,7 +69,7 @@ def find_other_cases(df, num_labels=4):
     
     for i in range(len(df)):
         val = df.iloc[i, 0]
-        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-')):
+        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
             # This is a case ID row
             case_id = val
             
@@ -258,30 +258,34 @@ def encode_location_vqa_format(location_str, brain_regions, lobe_mapping):
 def main():
     """Main conversion function with VQA format mappings"""
     
-    # Detect dataset type from Excel file name or first case ID
     import sys
+    import argparse
     
-    excel_file = 'clinical-annotation.xlsx'
-    if len(sys.argv) > 1:
-        excel_file = sys.argv[1]
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Convert clinical annotations to VQA format')
+    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
+                       help='Dataset type: gli, met, or goat')
+    
+    args = parser.parse_args()
+    dataset_type = args.dataset_type.upper()
+    
+    # Construct Excel filename
+    excel_file = f'clinical-annotation-{args.dataset_type}.xlsx'
+    
+    print(f"Loading Excel file: {excel_file}")
     
     # Step 1: Debug Excel structure
-    df = debug_excel_structure()
+    df = debug_excel_structure(excel_file)
     
-    # Detect dataset from first case ID
-    first_case_id_col = df.columns[0]
-    
-    # Detect dataset type
-    if 'MET' in first_case_id_col:
-        dataset_type = 'MET'
+    # Set dataset configuration based on argument
+    if dataset_type == 'met':
         num_labels = 3
         label_names = [
             "Non-Enhancing Tumor",
             "Surrounding Non-enhancing FLAIR hyperintensity",
             "Enhancing Tissue"
         ]
-    elif 'GoAT' in first_case_id_col or 'GOAT' in first_case_id_col:
-        dataset_type = 'GoAT'
+    elif dataset_type == 'goat':
         num_labels = 3
         label_names = [
             "Non-Enhancing Tumor",
@@ -289,7 +293,6 @@ def main():
             "Enhancing Tissue"
         ]
     else:  # GLI dataset
-        dataset_type = 'GLI'
         num_labels = 4
         label_names = [
             "Non-Enhancing Tumor",
@@ -298,7 +301,7 @@ def main():
             "Resection Cavity"
         ]
     
-    print(f"\n*** Detected {dataset_type} dataset - using {num_labels} labels ***\n")
+    print(f"\n*** Processing {dataset_type} dataset - using {num_labels} labels ***\n")
     
     # Step 2: Extract first case (from column and rows 1-4)
     first_case_id, first_case_data = extract_first_case(df, num_labels)
@@ -374,6 +377,27 @@ def main():
     if all_numerical_data:
         print(f"\nFirst case summary ({all_numerical_data[0]['case_id']}):")
         print(json.dumps(all_numerical_data[0]['clinical_annotations'], indent=2))
+
+def debug_excel_structure(excel_file='clinical-annotation.xlsx'):
+    """Debug the Excel file structure thoroughly"""
+    print("=== DEBUGGING EXCEL STRUCTURE ===")
+    
+    df = pd.read_excel(excel_file)
+    print(f"Excel shape: {df.shape}")
+    print(f"Columns: {df.columns.tolist()}")
+    
+    print("\n=== FIRST 30 ROWS (RAW DATA) ===")
+    for i in range(min(30, len(df))):
+        row_values = []
+        for j in range(len(df.columns)):
+            val = df.iloc[i, j]
+            if pd.isna(val):
+                row_values.append("NaN")
+            else:
+                row_values.append(f"'{val}'")
+        print(f"Row {i:2d}: {' | '.join(row_values)}")
+    
+    return df
 
 if __name__ == "__main__":
     main()
