@@ -82,14 +82,11 @@ def extract_case_name(seg_file_path):
 def create_case_mapping(prediction_data):
     """Create mapping from case names to prediction data"""
     case_map = {}
-    print(f"\nDEBUG: Creating case mapping from {len(prediction_data)} predictions...")
     
     for i, pred in enumerate(prediction_data): 
         case_name = extract_case_name(pred['seg_file'])
         case_map[case_name] = pred
     
-    print(f"DEBUG: Created case mapping with {len(case_map)} entries")
-    print(f"DEBUG: First 5 case names in mapping: {list(case_map.keys())[:5]}")
     return case_map
 
 def get_category_mappings():
@@ -115,8 +112,10 @@ def get_category_mappings():
 
 def get_label_types(dataset_type):
     """Get label types based on dataset"""
-    if dataset_type in ['met', 'goat']:
+    if dataset_type == 'met':
         return ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"]
+    elif dataset_type == 'goat':
+        return ["Necrosis", "Edema/Invaded Tissue", "Enhancing Tissue"]
     else:  # GLI
         return ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue", "Resection Cavity"]
 
@@ -126,8 +125,14 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     case_map = create_case_mapping(prediction_data)
     label_types = get_label_types(dataset_type)
     
-    print(f"\nDEBUG: Processing {len(clinical_data)} clinical cases...")
-    print(f"DEBUG: First 5 clinical case names: {[case.get('mpMRI', 'NO_NAME') for case in clinical_data[:5]]}")
+    # Create mapping between clinical and prediction label names for GoAT
+    label_mapping = {}
+    if dataset_type == 'goat':
+        label_mapping = {
+            "Non-Enhancing Tumor": "Necrosis",
+            "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
+            "Enhancing Tissue": "Enhancing Tissue"
+        }
     
     # Initialize data collectors - overall and per label
     task_data = {
@@ -137,9 +142,10 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         'region': {}  # Will store binary data for each region
     }
     
-    # Initialize per-label data collectors
+    # Initialize per-label data collectors using clinical label names
     per_label_data = {}
-    for label_type in label_types:
+    clinical_label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"] if dataset_type == 'goat' else label_types
+    for label_type in clinical_label_types:
         per_label_data[label_type] = {
             'area': {'true': [], 'pred': []},
             'shape': {'true': [], 'pred': []},
@@ -151,10 +157,10 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     region_names = get_category_mappings()['region']
     for region in region_names:
         task_data['region'][region] = {'true': [], 'pred': []}
-        for label_type in label_types:
+        for label_type in clinical_label_types:
             per_label_data[label_type]['region'][region] = {'true': [], 'pred': []}
     task_data['region']['overall'] = {'true': [], 'pred': []}  # Overall region presence
-    for label_type in label_types:
+    for label_type in clinical_label_types:
         per_label_data[label_type]['region']['overall'] = {'true': [], 'pred': []}
 
     matched_cases = 0
@@ -171,17 +177,16 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         matched_cases += 1
         pred_case = case_map[case_name]
         
-        print(f"DEBUG: Processing matched case: {case_name}")
-        
         # Analyze each label type
-        for label_type in label_types:
-            assert label_type in clinical_case['labels'], f"Label type '{label_type}' missing in clinical data for case '{case_name}'"
-            assert label_type in pred_case['labels'], f"Label type '{label_type}' missing in prediction data for case '{case_name}'"
+        for clinical_label_type in clinical_label_types:
+            # Map clinical label to prediction label for GoAT
+            pred_label_type = label_mapping.get(clinical_label_type, clinical_label_type)
+            assert clinical_label_type in clinical_case.get('labels', {}), f"Missing clinical label: {clinical_label_type}"
+            assert pred_label_type not in pred_case.get('labels', {}), f"Unexpected prediction label: {pred_label_type}"
+
                 
-            clinical_label = clinical_case['labels'][label_type]
-            pred_label = pred_case['labels'][label_type]
-            
-            print(f"  Processing label type: {label_type}")
+            clinical_label = clinical_case['labels'][clinical_label_type]
+            pred_label = pred_case['labels'][pred_label_type]
             
             # Multi-class tasks: area, shape, satellite
             for task in ['area', 'shape', 'satellite']:
@@ -189,22 +194,18 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
                     true_val = clinical_label[task]
                     pred_val = pred_label[task] - 1  # Convert predictions from 1-indexed to 0-indexed
                     
-                    print(f"    {task}: true={true_val}, pred={pred_val} (orig: {pred_label[task]})")
-                    
                     # Overall data
                     task_data[task]['true'].append(true_val)
                     task_data[task]['pred'].append(pred_val)
                     
-                    # Per-label data
-                    per_label_data[label_type][task]['true'].append(true_val)
-                    per_label_data[label_type][task]['pred'].append(pred_val)
+                    # Per-label data (use clinical label name for consistency)
+                    per_label_data[clinical_label_type][task]['true'].append(true_val)
+                    per_label_data[clinical_label_type][task]['pred'].append(pred_val)
             
             # Multi-label task: region
             if 'region' in clinical_label and 'region' in pred_label:
                 true_regions = set(clinical_label['region'])
                 pred_regions = set([r - 1 for r in pred_label['region']])  # Convert predictions from 1-indexed to 0-indexed
-                
-                print(f"    region: true={true_regions}, pred={pred_regions} (orig: {pred_label['region']})")
                 
                 # For each region, create binary labels
                 for i, region in enumerate(region_names):
@@ -217,20 +218,11 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
                     task_data['region']['overall']['true'].append(true_binary)
                     task_data['region']['overall']['pred'].append(pred_binary)
 
-                    # Per-label data
-                    per_label_data[label_type]['region'][region]['true'].append(true_binary)
-                    per_label_data[label_type]['region'][region]['pred'].append(pred_binary)
-                    per_label_data[label_type]['region']['overall']['true'].append(true_binary)
-                    per_label_data[label_type]['region']['overall']['pred'].append(pred_binary)
-    
-    print(f"\nDEBUG SUMMARY:")
-    print(f"  Matched cases: {matched_cases}")
-    print(f"  Unmatched cases: {len(unmatched_cases)}")
-    if unmatched_cases[:5]:
-        print(f"  First 5 unmatched: {unmatched_cases[:5]}")
-    print(f"  Total area samples: {len(task_data['area']['true'])}")
-    print(f"  Total shape samples: {len(task_data['shape']['true'])}")
-    print(f"  Total satellite samples: {len(task_data['satellite']['true'])}")
+                    # Per-label data (use clinical label name for consistency)
+                    per_label_data[clinical_label_type]['region'][region]['true'].append(true_binary)
+                    per_label_data[clinical_label_type]['region'][region]['pred'].append(pred_binary)
+                    per_label_data[clinical_label_type]['region']['overall']['true'].append(true_binary)
+                    per_label_data[clinical_label_type]['region']['overall']['pred'].append(pred_binary)
             
     return task_data, per_label_data
 
@@ -372,13 +364,16 @@ def compute_per_label_kappa(per_label_data, dataset_type):
     """Compute Cohen's kappa for each label type separately"""
     
     label_results = {}
-    label_types = get_label_types(dataset_type)
+    # Use clinical label names for consistency in output
+    clinical_label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"] if dataset_type == 'goat' else get_label_types(dataset_type)
+    if dataset_type not in ['met', 'goat']:  # GLI
+        clinical_label_types.append("Resection Cavity")
     
     print("\n" + "=" * 80)
     print("PER-LABEL KAPPA ANALYSIS")
     print("=" * 80)
     
-    for label_type in label_types:
+    for label_type in clinical_label_types:
         print(f"\n{label_type.upper()}:")
         print("-" * 60)
         
