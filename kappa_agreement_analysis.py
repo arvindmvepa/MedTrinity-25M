@@ -84,7 +84,7 @@ def create_case_mapping(prediction_data):
     case_map = {}
     print(f"\nDEBUG: Creating case mapping from {len(prediction_data)} predictions...")
     
-    for i, pred in enumerate(prediction_data):  # Show first 3 for debugging
+    for i, pred in enumerate(prediction_data): 
         case_name = extract_case_name(pred['seg_file'])
         case_map[case_name] = pred
     
@@ -175,10 +175,8 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         
         # Analyze each label type
         for label_type in label_types:
-            if (label_type not in clinical_case.get('labels', {}) or 
-                label_type not in pred_case.get('labels', {})):
-                print(f"  Missing label type '{label_type}' in clinical or prediction data")
-                continue
+            assert label_type in clinical_case['labels'], f"Label type '{label_type}' missing in clinical data for case '{case_name}'"
+            assert label_type in pred_case['labels'], f"Label type '{label_type}' missing in prediction data for case '{case_name}'"
                 
             clinical_label = clinical_case['labels'][label_type]
             pred_label = pred_case['labels'][label_type]
