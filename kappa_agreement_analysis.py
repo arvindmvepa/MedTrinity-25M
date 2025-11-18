@@ -82,10 +82,19 @@ def extract_case_name(seg_file_path):
 def create_case_mapping(prediction_data):
     """Create mapping from case names to prediction data"""
     case_map = {}
-    for pred in prediction_data:
+    print(f"\nDEBUG: Creating case mapping from {len(prediction_data)} predictions...")
+    
+    for i, pred in enumerate(prediction_data[:3]):  # Show first 3 for debugging
         if 'seg_file' in pred:
             case_name = extract_case_name(pred['seg_file'])
             case_map[case_name] = pred
+            print(f"  Prediction {i}: seg_file='{pred['seg_file']}'")
+            print(f"  Extracted case name: '{case_name}'")
+        else:
+            print(f"  Prediction {i}: No 'seg_file' field found")
+    
+    print(f"DEBUG: Created case mapping with {len(case_map)} entries")
+    print(f"DEBUG: First 5 case names in mapping: {list(case_map.keys())[:5]}")
     return case_map
 
 def get_category_mappings():
@@ -122,6 +131,9 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     case_map = create_case_mapping(prediction_data)
     label_types = get_label_types(dataset_type)
     
+    print(f"\nDEBUG: Processing {len(clinical_data)} clinical cases...")
+    print(f"DEBUG: First 5 clinical case names: {[case.get('mpMRI', 'NO_NAME') for case in clinical_data[:5]]}")
+    
     # Initialize data collectors - overall and per label
     task_data = {
         'area': {'true': [], 'pred': []},
@@ -139,6 +151,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
             'satellite': {'true': [], 'pred': []},
             'region': {}
         }
+    
     # Initialize region binary collectors
     region_names = get_category_mappings()['region']
     for region in region_names:
@@ -149,30 +162,41 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     for label_type in label_types:
         per_label_data[label_type]['region']['overall'] = {'true': [], 'pred': []}
 
+    matched_cases = 0
+    unmatched_cases = []
     
     # Process each clinical case
     for clinical_case in clinical_data:
         case_name = clinical_case['mpMRI']
         
         if case_name not in case_map:
+            unmatched_cases.append(case_name)
             continue
-            
+        
+        matched_cases += 1
         pred_case = case_map[case_name]
+        
+        print(f"DEBUG: Processing matched case: {case_name}")
         
         # Analyze each label type
         for label_type in label_types:
             if (label_type not in clinical_case.get('labels', {}) or 
                 label_type not in pred_case.get('labels', {})):
+                print(f"  Missing label type '{label_type}' in clinical or prediction data")
                 continue
                 
             clinical_label = clinical_case['labels'][label_type]
             pred_label = pred_case['labels'][label_type]
+            
+            print(f"  Processing label type: {label_type}")
             
             # Multi-class tasks: area, shape, satellite
             for task in ['area', 'shape', 'satellite']:
                 if task in clinical_label and task in pred_label:
                     true_val = clinical_label[task]
                     pred_val = pred_label[task] - 1  # Convert predictions from 1-indexed to 0-indexed
+                    
+                    print(f"    {task}: true={true_val}, pred={pred_val} (orig: {pred_label[task]})")
                     
                     # Overall data
                     task_data[task]['true'].append(true_val)
@@ -186,6 +210,8 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
             if 'region' in clinical_label and 'region' in pred_label:
                 true_regions = set(clinical_label['region'])
                 pred_regions = set([r - 1 for r in pred_label['region']])  # Convert predictions from 1-indexed to 0-indexed
+                
+                print(f"    region: true={true_regions}, pred={pred_regions} (orig: {pred_label['region']})")
                 
                 # For each region, create binary labels
                 for i, region in enumerate(region_names):
@@ -203,6 +229,15 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
                     per_label_data[label_type]['region'][region]['pred'].append(pred_binary)
                     per_label_data[label_type]['region']['overall']['true'].append(true_binary)
                     per_label_data[label_type]['region']['overall']['pred'].append(pred_binary)
+    
+    print(f"\nDEBUG SUMMARY:")
+    print(f"  Matched cases: {matched_cases}")
+    print(f"  Unmatched cases: {len(unmatched_cases)}")
+    if unmatched_cases[:5]:
+        print(f"  First 5 unmatched: {unmatched_cases[:5]}")
+    print(f"  Total area samples: {len(task_data['area']['true'])}")
+    print(f"  Total shape samples: {len(task_data['shape']['true'])}")
+    print(f"  Total satellite samples: {len(task_data['satellite']['true'])}")
             
     return task_data, per_label_data
 
