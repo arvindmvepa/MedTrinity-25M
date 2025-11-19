@@ -174,9 +174,9 @@ if __name__ == "__main__":
     with open(test_file, 'r') as f:
         test_vqa_data = json.load(f)
 
-    train_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(train_vqa_data)))
-    val_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(val_vqa_data)))
-    test_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(test_vqa_data)))
+    train_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(train_vqa_data, dataset=dataset_type)))
+    val_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(val_vqa_data, dataset=dataset_type)))
+    test_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(test_vqa_data, dataset=dataset_type)))
 
     with open(train_aux_file, "w") as f:
         json.dump(train_vqa_aux_data, f, indent=4)
