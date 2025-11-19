@@ -133,6 +133,14 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
             "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
             "Enhancing Tissue": "Enhancing Tumor"
         }
+    else:
+        label_mapping = {
+            "Non-Enhancing Tumor": "Non-Enhancing Tumor",
+            "Surrounding Non-enhancing FLAIR hyperintensity": "Surrounding Non-enhancing FLAIR hyperintensity",
+            "Enhancing Tissue": "Enhancing Tissue",
+            "Resection Cavity": "Resection Cavity"
+        }
+
     
     # Initialize data collectors - overall and per label
     task_data = {
