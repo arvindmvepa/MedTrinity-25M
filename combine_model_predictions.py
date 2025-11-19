@@ -44,7 +44,7 @@ def combine_predictions(model1_file, model2_file, output_basename):
     print(f"Model 2 predictions: {len(model2_predictions)}")
     
     # Ensure both models have the same number of predictions
-    assert len(model1_predictions) == len(model2_predictions), f"Different number of predictions. Using first {min_length} from each model."
+    assert len(model1_predictions) == len(model2_predictions), f"Different number of predictions."
     
     # Combine predictions
     combined_data = []
