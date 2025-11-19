@@ -49,7 +49,7 @@ def combine_predictions(model1_file, model2_file, output_basename):
     # Combine predictions
     combined_data = []
     
-    for i in range(min_length):
+    for i in range(len(model1_predictions)):
         model1_pred = model1_predictions[i]
         model2_pred = model2_predictions[i]
         
