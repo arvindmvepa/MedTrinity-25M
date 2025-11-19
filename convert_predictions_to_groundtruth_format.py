@@ -74,29 +74,29 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
             area_pred = vol_predictions[label_idx]
             area_logits = area_pred.get('area_logits', [])
             if area_logits:
-                area_label = int(np.argmax(area_logits)) + 1  # Convert to 1-indexed
+                area_label = int(np.argmax(area_logits))
                 volume_entry["labels"][label_name]["area"] = area_label
             
             # Region question (questions num_labels to 2*num_labels-1)
             region_pred = vol_predictions[num_labels + label_idx]
             region_logits = region_pred.get('region_logits', [])
             if region_logits:
-                # Get all indices where logits > 0, convert to 1-indexed
-                region_labels = [i + 1 for i, logit in enumerate(region_logits) if logit > 0]
+                # Get all indices where logits > 0
+                region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
                 volume_entry["labels"][label_name]["region"] = region_labels
             
             # Shape question (questions 2*num_labels to 3*num_labels-1)
             shape_pred = vol_predictions[2 * num_labels + label_idx]
             shape_logits = shape_pred.get('shape_logits', [])
             if shape_logits:
-                shape_label = int(np.argmax(shape_logits)) + 1  # Convert to 1-indexed
+                shape_label = int(np.argmax(shape_logits))
                 volume_entry["labels"][label_name]["shape"] = shape_label
             
             # Satellite question (questions 3*num_labels to 4*num_labels-1)
             satellite_pred = vol_predictions[3 * num_labels + label_idx]
             satellite_logits = satellite_pred.get('satellite_logits', [])
             if satellite_logits:
-                satellite_label = int(np.argmax(satellite_logits)) + 1  # Convert to 1-indexed
+                satellite_label = int(np.argmax(satellite_logits))
                 volume_entry["labels"][label_name]["satellite"] = satellite_label
         
         converted_data.append(volume_entry)
