@@ -417,15 +417,15 @@ if __name__ == "__main__":
     goat = False
 
     # MET dataset settings
-    #dataset_type = "met"
-    #version = f"updated_v2_seed{dataset_seed}"
-    #labels_order = (1, 2, 3)
-    #pediatric = False
-    #goat = False
+    dataset_type = "met"
+    version = f"updated_v11_seed{dataset_seed}"
+    labels_order = (1, 2, 3)
+    pediatric = False
+    goat = False
 
     # GoAT dataset settings
     #dataset_type = "goat"
-    #version = f"updated_v2_seed{dataset_seed}"
+    #version = f"updated_v11_seed{dataset_seed}"
     #labels_order = (1, 2, 3)
     #pediatric = False
     #goat = True
