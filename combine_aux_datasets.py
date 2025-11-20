@@ -80,7 +80,7 @@ def main():
                        default='brats_gli_3d_vqa_subjTrue_train_aux_updated_v11_seed0.json',
                        help='Path to GLI auxiliary dataset file')
     parser.add_argument('--met_aux_file',
-                       default='brats_met_3d_vqa_subjTrue_train_aux_v11_seed0.json', 
+                       default='brats_met_3d_vqa_subjTrue_train_aux_updated_v11_seed0.json', 
                        help='Path to MET auxiliary dataset file')
     parser.add_argument('--output_file',
                        default='brats_gli_met_3d_vqa_subjTrue_train_aux_combined_v11_seed0.json',
