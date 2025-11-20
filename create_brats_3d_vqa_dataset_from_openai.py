@@ -410,25 +410,25 @@ if __name__ == "__main__":
     new_dataset_seed = 0
 
     # GLI dataset settings
-    dataset_type = "gli"
-    version = f"updated_v11_seed{dataset_seed}"
-    labels_order = (1, 2, 3, 4)
-    pediatric = False
-    goat = False
+    #dataset_type = "gli"
+    #version = f"updated_v11_seed{dataset_seed}"
+    #labels_order = (1, 2, 3, 4)
+    #pediatric = False
+    #goat = False
 
     # MET dataset settings
-    dataset_type = "met"
-    version = f"updated_v11_seed{dataset_seed}"
-    labels_order = (1, 2, 3)
-    pediatric = False
-    goat = False
-
-    # GoAT dataset settings
-    #dataset_type = "goat"
+    #dataset_type = "met"
     #version = f"updated_v11_seed{dataset_seed}"
     #labels_order = (1, 2, 3)
     #pediatric = False
-    #goat = True
+    #goat = False
+
+    # GoAT dataset settings
+    dataset_type = "goat"
+    version = f"updated_v11_seed{dataset_seed}"
+    labels_order = (1, 2, 3)
+    pediatric = False
+    goat = True
 
     ref_train_vqa_file = ref_train_vqa_file.format(dataset_type, subjective_only, version)
     ref_val_vqa_file = ref_val_vqa_file.format(dataset_type, subjective_only, version)
