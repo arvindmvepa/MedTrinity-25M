@@ -331,21 +331,18 @@ def compute_kappa_metrics(task_data):
         else:
             region_results[region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
-    # Calculate pooled region kappa
+    # Calculate pooled region kappa (separate from individual results)
+    pooled_region_kappa = None
+    pooled_region_accuracy = None
+    pooled_region_n_samples = 0
+    
     if all_region_annotator1:
         pooled_region_kappa = cohen_kappa_score(all_region_annotator1, all_region_annotator2)
         pooled_region_accuracy = np.mean(np.array(all_region_annotator1) == np.array(all_region_annotator2))
-        print(f"{'POOLED':15} κ = {pooled_region_kappa:.4f} ({interpret_kappa(pooled_region_kappa):15}) acc = {pooled_region_accuracy:.4f} n = {len(all_region_annotator1):3}")
-        
-        region_results['pooled'] = {
-            'kappa': pooled_region_kappa,
-            'accuracy': pooled_region_accuracy,
-            'n_samples': len(all_region_annotator1),
-            'interpretation': interpret_kappa(pooled_region_kappa)
-        }
+        pooled_region_n_samples = len(all_region_annotator1)
+        print(f"{'POOLED':15} κ = {pooled_region_kappa:.4f} ({interpret_kappa(pooled_region_kappa):15}) acc = {pooled_region_accuracy:.4f} n = {pooled_region_n_samples:3}")
     else:
         print(f"{'POOLED':15} No data available")
-        region_results['pooled'] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Average and pooled kappas
     print(f"\nSUMMARY KAPPA SCORES:")
@@ -384,6 +381,12 @@ def compute_kappa_metrics(task_data):
         avg_region_accuracy = None
         print("Average Region κ     = No data available")
     
+    # Show pooled region kappa (calculated separately)
+    if pooled_region_kappa is not None:
+        print(f"Pooled Region κ      = {pooled_region_kappa:.4f} ({interpret_kappa(pooled_region_kappa)}) acc = {pooled_region_accuracy:.4f}")
+    else:
+        print("Pooled Region κ      = No data available")
+    
     # Calculate pooled overall for ALL tasks (multi-class + region)
     all_task_annotator1 = all_multiclass_annotator1 + all_region_annotator1
     all_task_annotator2 = all_multiclass_annotator2 + all_region_annotator2
@@ -416,6 +419,8 @@ def compute_kappa_metrics(task_data):
         'pooled_multiclass_accuracy': pooled_accuracy,
         'avg_region_kappa': avg_region_kappa,
         'avg_region_accuracy': avg_region_accuracy,
+        'pooled_region_kappa': pooled_region_kappa,
+        'pooled_region_accuracy': pooled_region_accuracy,
         'pooled_all_tasks_kappa': pooled_all_kappa,
         'pooled_all_tasks_accuracy': pooled_all_accuracy,
         'overall_avg_kappa': overall_avg_kappa,
