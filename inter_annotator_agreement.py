@@ -287,6 +287,9 @@ def compute_kappa_metrics(task_data):
     region_accuracies = []
     region_results = {}
     
+    # Get region names from category mappings
+    region_names = get_category_mappings()['region']
+    
     # Collect all region data for pooled calculation
     all_region_annotator1 = []
     all_region_annotator2 = []
