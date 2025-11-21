@@ -126,13 +126,15 @@ def extract_question_data(df, start_row, num_labels, question_types):
     
     return case_data
 
-def extract_v2_location_data(df, num_labels):
+def extract_v2_location_data(df, num_labels, start_row=0):
     """Extract location data in V2 format (TRUE/FALSE for brain regions)"""
     brain_regions = ["frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
     location_data = {region: [] for region in brain_regions}
     
-    # Scan through rows to find brain regions
-    for row_idx in range(len(df)):
+    # Scan through rows to find brain regions (starting from start_row for multi-case)
+    search_range = range(start_row, min(start_row + 50, len(df))) if start_row > 0 else range(len(df))
+    
+    for row_idx in search_range:
         row_label = df.iloc[row_idx, 0]
         if isinstance(row_label, str):
             row_label_clean = row_label.strip().strip('"').lower()
@@ -202,73 +204,103 @@ def extract_cases_v1(df, num_labels=4):
 # ===== V2 FUNCTIONS (Single-case format) =====
 
 def extract_cases_v2(df, num_labels=4):
-    """Extract cases in V2 format (single-case with TRUE/FALSE locations)"""
-    # V2 format should have only one case
-    case_id = find_case_id(df)
+    """Extract cases in V2 format (single or multi-case with TRUE/FALSE locations)"""
+    # Check if V2 format has multiple cases (similar to V1) or just one
+    all_case_ids = find_all_case_ids(df)
     
-    print(f"\n=== V2 FORMAT: Processing single case: {case_id} ===")
+    if len(all_case_ids) > 1:
+        # V2 format with multiple cases
+        print(f"\n=== V2 FORMAT: Found {len(all_case_ids)} cases ===")
+        cases = []
+        
+        for case_type, position, case_id in all_case_ids:
+            print(f"\n--- Processing V2 case: {case_id} ---")
+            
+            case_data = {}
+            
+            if case_type == 'header':
+                # First case - questions start after header
+                start_row = 1
+            else:
+                # Other cases - questions start 2 rows after case ID
+                start_row = position + 2
+            
+            # Find volume data
+            volume_row = None
+            for row_offset in range(10):  # Search within next 10 rows
+                check_row = start_row + row_offset
+                if check_row < len(df):
+                    row_label = df.iloc[check_row, 0]
+                    if isinstance(row_label, str) and 'volume' in row_label.lower():
+                        volume_row = check_row
+                        break
+            
+            if volume_row is not None:
+                volume_data = extract_question_data(df, volume_row, num_labels, ['volume'])
+                case_data.update(volume_data)
+            else:
+                case_data['volume'] = ["N/A"] * num_labels
+                print("Volume row not found, using N/A")
+            
+            # Find location data (V2 specific - TRUE/FALSE format)
+            location_answers = extract_v2_location_data(df, num_labels, start_row)
+            case_data['location'] = location_answers
+            
+            # Find shape and spread data
+            for question in ['shape', 'spread out']:
+                question_row = None
+                for row_offset in range(20):  # Search within next 20 rows
+                    check_row = start_row + row_offset
+                    if check_row < len(df):
+                        row_label = df.iloc[check_row, 0]
+                        if isinstance(row_label, str) and question.lower() in row_label.lower():
+                            question_row = check_row
+                            break
+                
+                if question_row is not None:
+                    question_data = extract_question_data(df, question_row, num_labels, [question])
+                    case_data.update(question_data)
+                else:
+                    case_data[question] = ["N/A"] * num_labels
+                    print(f"{question} row not found for {case_id}, using N/A")
+            
+            cases.append((case_id, case_data))
+        
+        return cases
     
-    case_data = {}
-    
-    # Find volume data
-    volume_row = find_question_row(df, 'volume')
-    if volume_row is not None:
-        volume_data = extract_question_data(df, volume_row, num_labels, ['volume'])
-        case_data.update(volume_data)
     else:
-        case_data['volume'] = ["N/A"] * num_labels
-        print("Volume row not found, using N/A")
-    
-    # Find location data (V2 specific - TRUE/FALSE format)
-    location_answers = extract_v2_location_data(df, num_labels)
-    case_data['location'] = location_answers
-    print(f"Location answers: {location_answers}")
-    
-    # Find shape and spread data
-    for question in ['shape', 'spread out']:
-        question_row = find_question_row(df, question)
-        if question_row is not None:
-            question_data = extract_question_data(df, question_row, num_labels, [question])
-            case_data.update(question_data)
+        # V2 format with single case (original logic)
+        case_id = find_case_id(df)
+        
+        print(f"\n=== V2 FORMAT: Processing single case: {case_id} ===")
+        
+        case_data = {}
+        
+        # Find volume data
+        volume_row = find_question_row(df, 'volume')
+        if volume_row is not None:
+            volume_data = extract_question_data(df, volume_row, num_labels, ['volume'])
+            case_data.update(volume_data)
         else:
-            case_data[question] = ["N/A"] * num_labels
-            print(f"{question} row not found, using N/A")
-    
-    return [(case_id, case_data)]
-    
-    case_data['volume'] = volume_answers
-    print(f"Volume answers: {volume_answers}")
-    
-    # Location data - find brain region rows (rows with brain region names)
-    brain_regions = ["frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
-    location_data = {region: [] for region in brain_regions}
-    
-    # Scan through rows to find brain regions
-    for row_idx in range(len(df)):
-        row_label = df.iloc[row_idx, 0]
-        if isinstance(row_label, str):
-            row_label_clean = row_label.strip().strip('"').lower()
-            if row_label_clean in brain_regions:
-                print(f"Found brain region '{row_label_clean}' at row {row_idx}")
-                
-                # Extract TRUE/FALSE values for each label
-                region_values = []
-                for col_idx in range(1, num_labels + 1):
-                    if col_idx < len(df.columns):
-                        val = df.iloc[row_idx, col_idx]
-                        # Check if it's TRUE or has any truthy value
-                        is_present = (val is True or 
-                                    (isinstance(val, str) and val.upper() == 'TRUE') or
-                                    val == 1)
-                        region_values.append(is_present)
-                    else:
-                        region_values.append(False)
-                
-                location_data[row_label_clean] = region_values
-                print(f"  {row_label_clean}: {region_values}")
-    
-
-
+            case_data['volume'] = ["N/A"] * num_labels
+            print("Volume row not found, using N/A")
+        
+        # Find location data (V2 specific - TRUE/FALSE format)
+        location_answers = extract_v2_location_data(df, num_labels)
+        case_data['location'] = location_answers
+        print(f"Location answers: {location_answers}")
+        
+        # Find shape and spread data
+        for question in ['shape', 'spread out']:
+            question_row = find_question_row(df, question)
+            if question_row is not None:
+                question_data = extract_question_data(df, question_row, num_labels, [question])
+                case_data.update(question_data)
+            else:
+                case_data[question] = ["N/A"] * num_labels
+                print(f"{question} row not found, using N/A")
+        
+        return [(case_id, case_data)]
 # ===== SHARED FUNCTIONS =====
 
 def convert_to_groundtruth_format(case_id, case_data, label_names):
