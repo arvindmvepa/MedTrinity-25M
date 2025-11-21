@@ -309,7 +309,7 @@ def main():
     dataset_type = args.dataset_type.upper()
     
     # Construct Excel filename
-    excel_file = f'clinical-annotation_{args.dataset_type}.xlsx'
+    excel_file = f'clinical-annotation_{args.dataset_type}_mike.xlsx'
     
     print(f"Loading Excel file: {excel_file}")
     
@@ -381,7 +381,7 @@ def main():
         "clinical_annotations": [numerical_case]
     }
     
-    output_file = f'clinical_annotations_{dataset_type.lower()}_vqa_format_v2.json'
+    output_file = f'clinical_annotations_{dataset_type.lower()}_vqa_format_mike.json'
     with open(output_file, 'w') as f:
         json.dump(output, f, indent=2)
     
