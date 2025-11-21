@@ -56,12 +56,15 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
         
         # Extract only non-Resection Cavity GLI questions (12 per volume)
         gli_questions_per_volume = 12
-        num_volumes = met_start_idx // 16  # GLI has 16 questions but we use 12
+        met_questions_per_volume = 12
+        num_gli_volumes = met_start_idx // 16  # GLI has 16 questions but we use 12
+        num_met_volumes = (len(predictions) - met_start_idx) // met_questions_per_volume
         
         converted_data = []
         label_order = get_label_order(dataset_type)
         
-        for vol_idx in range(num_volumes):
+        # Process GLI volumes
+        for vol_idx in range(num_gli_volumes):
             gli_start_idx = vol_idx * 16
             vol_predictions = predictions[gli_start_idx:gli_start_idx + gli_questions_per_volume]
             
@@ -92,7 +95,39 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
             
             converted_data.append(volume_entry)
         
-        print(f"Converted {len(converted_data)} GLI_MET volumes (GLI part only)")
+        # Process MET volumes
+        for vol_idx in range(num_met_volumes):
+            met_vol_start_idx = met_start_idx + vol_idx * met_questions_per_volume
+            vol_predictions = predictions[met_vol_start_idx:met_vol_start_idx + met_questions_per_volume]
+            
+            seg_file = vol_predictions[0].get('seg_file', '')
+            volume_entry = {"id": num_gli_volumes + vol_idx, "seg_file": seg_file, "labels": {}}
+            
+            # Process MET labels (3 labels)
+            for label_idx, label_name in enumerate(label_order):
+                volume_entry["labels"][label_name] = {}
+                
+                # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
+                if vol_predictions[label_idx].get('area_logits'):
+                    area_label = int(np.argmax(vol_predictions[label_idx]['area_logits']))
+                    volume_entry["labels"][label_name]["area"] = area_label
+                
+                if vol_predictions[3 + label_idx].get('region_logits'):
+                    region_logits = vol_predictions[3 + label_idx]['region_logits']
+                    region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
+                    volume_entry["labels"][label_name]["region"] = region_labels
+                
+                if vol_predictions[6 + label_idx].get('shape_logits'):
+                    shape_label = int(np.argmax(vol_predictions[6 + label_idx]['shape_logits']))
+                    volume_entry["labels"][label_name]["shape"] = shape_label
+                
+                if vol_predictions[9 + label_idx].get('satellite_logits'):
+                    satellite_label = int(np.argmax(vol_predictions[9 + label_idx]['satellite_logits']))
+                    volume_entry["labels"][label_name]["satellite"] = satellite_label
+            
+            converted_data.append(volume_entry)
+        
+        print(f"Converted {num_gli_volumes} GLI volumes and {num_met_volumes} MET volumes")
         return converted_data
     
     # Original logic for other datasets
