@@ -142,33 +142,69 @@ def find_other_cases_v1(df, num_labels=4):
 
 def extract_case_data_v2(df, num_labels=4):
     """Extract case data from the Excel structure - V2 format"""
-    # The case ID is in cell A1, but might be NaN, so check multiple locations
-    case_id = df.iloc[0, 0]
-    if pd.isna(case_id):
-        # Try to find case ID in other locations
-        for row_idx in range(min(5, len(df))):
-            for col_idx in range(min(5, len(df.columns))):
-                val = df.iloc[row_idx, col_idx]
-                if isinstance(val, str) and (val.startswith('BraTS-') or 'BraTS' in val):
-                    case_id = val
-                    break
-            if not pd.isna(case_id) and case_id != df.iloc[0, 0]:
-                break
+    # Use the EXACT same logic as V1 for finding case ID
+    # First try to get case ID from column header (like V1)
+    case_id = df.columns[0]  # Same as V1: first column header
     
-    # If still NaN, use a placeholder
-    if pd.isna(case_id):
-        case_id = "Unknown_Case"
+    # If column header doesn't contain case ID, search in cells (like V1 find_other_cases)
+    if not (isinstance(case_id, str) and ('BraTS-GLI-' in case_id or 'BraTS-MET-' in case_id or 'BraTS-GoAT-' in case_id)):
+        # Search through cells in first column for case IDs (same as V1 find_other_cases)
+        case_found = False
+        for i in range(len(df)):
+            val = df.iloc[i, 0]
+            if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
+                case_id = val
+                case_found = True
+                print(f"Found case ID '{case_id}' at row {i} (same as V1 logic)")
+                break
+        
+        if not case_found:
+            print("\nERROR: No valid BraTS case ID found!")
+            print("Expected format: BraTS-GLI-XXXXX-XXX, BraTS-MET-XXXXX-XXX, or BraTS-GoAT-XXXXX-XXX")
+            print("\nChecked locations (same as V1):")
+            print("- Column headers (df.columns[0])")
+            print("- First column cells (same as V1 find_other_cases logic)")
+            print(f"\nFound value in column[0]: '{df.columns[0]}'")
+            print("Please verify the Excel file format matches V1 expectations.")
+            raise ValueError(f"No valid BraTS case ID found in Excel file")
     
     print(f"\n=== EXTRACTING CASE (V2): {case_id} ===")
     
-    # Label abbreviations are in row 2 (index 1)
+    # Label abbreviations are in row 2 (index 1) - look for row with abbreviations
     label_abbrevs = []
-    for col_idx in range(1, num_labels + 1):
-        if col_idx < len(df.columns):
-            abbrev = df.iloc[1, col_idx]
-            label_abbrevs.append(str(abbrev) if not pd.isna(abbrev) else None)
-        else:
-            label_abbrevs.append(None)
+    abbrev_row_found = False
+    
+    # Look for label abbreviations in first few rows
+    for row_idx in range(min(5, len(df))):
+        row_values = []
+        has_abbreviations = False
+        for col_idx in range(1, num_labels + 1):
+            if col_idx < len(df.columns):
+                val = df.iloc[row_idx, col_idx]
+                if not pd.isna(val):
+                    val_str = str(val).strip()
+                    row_values.append(val_str)
+                    # Check if this looks like label abbreviations (short strings)
+                    if len(val_str) <= 10 and any(c.isalpha() for c in val_str):
+                        has_abbreviations = True
+                else:
+                    row_values.append(None)
+        
+        if has_abbreviations and len([v for v in row_values if v]) >= 2:  # At least 2 non-empty values
+            label_abbrevs = row_values
+            abbrev_row_found = True
+            print(f"Found label abbreviations at row {row_idx}: {label_abbrevs}")
+            break
+    
+    if not abbrev_row_found:
+        # Fallback to row 1 (index 1)
+        for col_idx in range(1, num_labels + 1):
+            if col_idx < len(df.columns):
+                abbrev = df.iloc[1, col_idx]
+                label_abbrevs.append(str(abbrev) if not pd.isna(abbrev) else None)
+            else:
+                label_abbrevs.append(None)
+        print(f"Using row 1 for label abbreviations: {label_abbrevs}")
     
     print(f"Label abbreviations: {label_abbrevs}")
     
@@ -636,7 +672,12 @@ def process_clinical_annotations(input_file, dataset_type, processing_mode='auto
         # V2 processing: Single-case format
         
         # Extract single case data
-        case_id, case_data = extract_case_data_v2(df, num_labels)
+        try:
+            case_id, case_data = extract_case_data_v2(df, num_labels)
+        except ValueError as e:
+            print(f"\nERROR: Failed to extract case data from Excel file")
+            print(f"Reason: {e}")
+            raise e
         
         # Convert case
         print(f"\n{'='*60}")
