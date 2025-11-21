@@ -167,9 +167,6 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         task_data['region'][region] = {'true': [], 'pred': []}
         for label_type in clinical_label_types:
             per_label_data[label_type]['region'][region] = {'true': [], 'pred': []}
-    task_data['region']['overall'] = {'true': [], 'pred': []}  # Overall region presence
-    for label_type in clinical_label_types:
-        per_label_data[label_type]['region']['overall'] = {'true': [], 'pred': []}
 
     matched_cases = 0
     unmatched_cases = []
@@ -223,14 +220,10 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
                     # Overall data
                     task_data['region'][region]['true'].append(true_binary)
                     task_data['region'][region]['pred'].append(pred_binary)
-                    task_data['region']['overall']['true'].append(true_binary)
-                    task_data['region']['overall']['pred'].append(pred_binary)
 
                     # Per-label data (use clinical label name for consistency)
                     per_label_data[clinical_label_type]['region'][region]['true'].append(true_binary)
                     per_label_data[clinical_label_type]['region'][region]['pred'].append(pred_binary)
-                    per_label_data[clinical_label_type]['region']['overall']['true'].append(true_binary)
-                    per_label_data[clinical_label_type]['region']['overall']['pred'].append(pred_binary)
             
     return task_data, per_label_data
 
@@ -304,12 +297,12 @@ def compute_kappa_metrics(task_data):
     region_accuracies = []
     region_results = {}
     
-    # Collect all region data for overall calculation
+    # Collect all region data for pooled calculation
     all_region_true = []
     all_region_pred = []
     
-    for region in task_data['region']:
-        if len(task_data['region'][region]['true']) > 0:
+    for region in region_names:
+        if region in task_data['region'] and len(task_data['region'][region]['true']) > 0:
             true_binary = np.array(task_data['region'][region]['true'])
             pred_binary = np.array(task_data['region'][region]['pred'])
             
@@ -328,10 +321,9 @@ def compute_kappa_metrics(task_data):
             region_kappas.append(kappa)
             region_accuracies.append(accuracy)
             
-            # Add to overall pooled data (skip the 'overall' entry to avoid double-counting)
-            if region != 'overall':
-                all_region_true.extend(true_binary)
-                all_region_pred.extend(pred_binary)
+            # Add to pooled region data
+            all_region_true.extend(true_binary)
+            all_region_pred.extend(pred_binary)
             
             region_results[region] = {
                 'kappa': kappa,
@@ -344,8 +336,23 @@ def compute_kappa_metrics(task_data):
             
             print(f"{region:15} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(true_binary):3} prev_true = {np.mean(true_binary):.3f} prev_pred = {np.mean(pred_binary):.3f}")
         else:
-            print(f"{region:15} No data available")
             region_results[region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
+    
+    # Calculate pooled region kappa
+    if all_region_true:
+        pooled_region_kappa = cohen_kappa_score(all_region_true, all_region_pred)
+        pooled_region_accuracy = np.mean(np.array(all_region_true) == np.array(all_region_pred))
+        print(f"{'POOLED':15} κ = {pooled_region_kappa:.4f} ({interpret_kappa(pooled_region_kappa):15}) acc = {pooled_region_accuracy:.4f} n = {len(all_region_true):3}")
+        
+        region_results['pooled'] = {
+            'kappa': pooled_region_kappa,
+            'accuracy': pooled_region_accuracy,
+            'n_samples': len(all_region_true),
+            'interpretation': interpret_kappa(pooled_region_kappa)
+        }
+    else:
+        print(f"{'POOLED':15} No data available")
+        region_results['pooled'] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Average and pooled kappas
     print(f"\nSUMMARY KAPPA SCORES:")

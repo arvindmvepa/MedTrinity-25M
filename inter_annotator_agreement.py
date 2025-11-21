@@ -160,9 +160,6 @@ def collect_task_data(annotations1, annotations2):
         task_data['region'][region] = {'annotator1': [], 'annotator2': []}
         for label_type in label_types:
             per_label_data[label_type]['region'][region] = {'annotator1': [], 'annotator2': []}
-    task_data['region']['overall'] = {'annotator1': [], 'annotator2': []}  # Overall region presence
-    for label_type in label_types:
-        per_label_data[label_type]['region']['overall'] = {'annotator1': [], 'annotator2': []}
 
     processed_cases = 0
     
@@ -212,14 +209,10 @@ def collect_task_data(annotations1, annotations2):
                     # Overall data
                     task_data['region'][region]['annotator1'].append(binary1)
                     task_data['region'][region]['annotator2'].append(binary2)
-                    task_data['region']['overall']['annotator1'].append(binary1)
-                    task_data['region']['overall']['annotator2'].append(binary2)
 
                     # Per-label data
                     per_label_data[label_type]['region'][region]['annotator1'].append(binary1)
                     per_label_data[label_type]['region'][region]['annotator2'].append(binary2)
-                    per_label_data[label_type]['region']['overall']['annotator1'].append(binary1)
-                    per_label_data[label_type]['region']['overall']['annotator2'].append(binary2)
     
     print(f"Processed {processed_cases} cases successfully")
     return task_data, per_label_data, label_types
@@ -294,12 +287,12 @@ def compute_kappa_metrics(task_data):
     region_accuracies = []
     region_results = {}
     
-    # Collect all region data for overall calculation
+    # Collect all region data for pooled calculation
     all_region_annotator1 = []
     all_region_annotator2 = []
     
-    for region in task_data['region']:
-        if len(task_data['region'][region]['annotator1']) > 0:
+    for region in region_names:
+        if region in task_data['region'] and len(task_data['region'][region]['annotator1']) > 0:
             binary1 = np.array(task_data['region'][region]['annotator1'])
             binary2 = np.array(task_data['region'][region]['annotator2'])
             
@@ -318,10 +311,9 @@ def compute_kappa_metrics(task_data):
             region_kappas.append(kappa)
             region_accuracies.append(accuracy)
             
-            # Add to overall pooled data (skip the 'overall' entry to avoid double-counting)
-            if region != 'overall':
-                all_region_annotator1.extend(binary1)
-                all_region_annotator2.extend(binary2)
+            # Add to pooled region data
+            all_region_annotator1.extend(binary1)
+            all_region_annotator2.extend(binary2)
             
             region_results[region] = {
                 'kappa': kappa,
@@ -334,8 +326,23 @@ def compute_kappa_metrics(task_data):
             
             print(f"{region:15} κ = {kappa:.4f} ({interpret_kappa(kappa):15}) acc = {accuracy:.4f} n = {len(binary1):3} prev_a1 = {np.mean(binary1):.3f} prev_a2 = {np.mean(binary2):.3f}")
         else:
-            print(f"{region:15} No data available")
             region_results[region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
+    
+    # Calculate pooled region kappa
+    if all_region_annotator1:
+        pooled_region_kappa = cohen_kappa_score(all_region_annotator1, all_region_annotator2)
+        pooled_region_accuracy = np.mean(np.array(all_region_annotator1) == np.array(all_region_annotator2))
+        print(f"{'POOLED':15} κ = {pooled_region_kappa:.4f} ({interpret_kappa(pooled_region_kappa):15}) acc = {pooled_region_accuracy:.4f} n = {len(all_region_annotator1):3}")
+        
+        region_results['pooled'] = {
+            'kappa': pooled_region_kappa,
+            'accuracy': pooled_region_accuracy,
+            'n_samples': len(all_region_annotator1),
+            'interpretation': interpret_kappa(pooled_region_kappa)
+        }
+    else:
+        print(f"{'POOLED':15} No data available")
+        region_results['pooled'] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Average and pooled kappas
     print(f"\nSUMMARY KAPPA SCORES:")
