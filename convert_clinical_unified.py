@@ -52,191 +52,189 @@ def analyze_excel_structure(excel_file):
     print(f"\nSUGGESTED MODE: {suggested_mode} ({reason})")
     return df, suggested_mode
 
-# ===== V1 FUNCTIONS (Multi-case format) =====
+# ===== SHARED UTILITY FUNCTIONS =====
 
-def extract_first_case_v1(df, num_labels=4):
-    """Extract the first case (from column name and rows 1-4) - V1 format"""
-    # The first case ID is in the column name
-    first_case_id = df.columns[0]  # 'BraTS-GLI-00063-101' or 'BraTS-MET-...'
+def find_case_id(df):
+    """Find BraTS case ID using the same logic for both V1 and V2"""
+    # First try column header (V1 primary method)
+    case_id = df.columns[0]
+    if isinstance(case_id, str) and ('BraTS-GLI-' in case_id or 'BraTS-MET-' in case_id or 'BraTS-GoAT-' in case_id):
+        print(f"Found case ID in column header: {case_id}")
+        return case_id
     
-    print(f"\n=== EXTRACTING FIRST CASE (V1): {first_case_id} ===")
+    # Search first column cells (V1 secondary method)
+    for i in range(len(df)):
+        val = df.iloc[i, 0]
+        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
+            print(f"Found case ID in first column at row {i}: {val}")
+            return val
     
-    # Data is in rows 1-4
-    question_types = ['volume', 'location', 'shape', 'spread out']
+    # No case ID found
+    print("\nERROR: No valid BraTS case ID found!")
+    print("Expected format: BraTS-GLI-XXXXX-XXX, BraTS-MET-XXXXX-XXX, or BraTS-GoAT-XXXXX-XXX")
+    print("Checked: column headers and first column cells")
+    raise ValueError("No valid BraTS case ID found in Excel file")
+
+def find_all_case_ids(df):
+    """Find all BraTS case IDs in the Excel file"""
+    case_ids = []
+    
+    # Check column header first
+    header_case = df.columns[0]
+    if isinstance(header_case, str) and ('BraTS-GLI-' in header_case or 'BraTS-MET-' in header_case or 'BraTS-GoAT-' in header_case):
+        case_ids.append(('header', 0, header_case))
+    
+    # Check all first column cells
+    for i in range(len(df)):
+        val = df.iloc[i, 0]
+        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
+            case_ids.append(('cell', i, val))
+    
+    return case_ids
+
+def extract_question_data(df, start_row, num_labels, question_types):
+    """Extract question data starting from a specific row"""
     case_data = {}
     
     for q_idx, question in enumerate(question_types):
-        row_idx = q_idx + 1  # Start from row 1
+        row_idx = start_row + q_idx
         
+        if row_idx >= len(df):
+            case_data[question] = [None] * num_labels
+            continue
+            
         # Check question name
         question_cell = df.iloc[row_idx, 0]
-        print(f"  Row {row_idx}, Col 0: '{question_cell}' (expected: '{question}')")
+        print(f"  Row {row_idx}, Question: '{question_cell}' (expected: '{question}')")
         
-        # Extract answers for num_labels (columns 1 to num_labels+1)
+        # Extract answers
         answers = []
         for col_idx in range(1, num_labels + 1):
             if col_idx < len(df.columns):
                 answer = df.iloc[row_idx, col_idx]
                 if pd.isna(answer):
                     answers.append(None)
+                elif isinstance(answer, bool):
+                    answers.append("N/A" if answer else None)
                 else:
-                    answers.append(str(answer).strip())
+                    answers.append(str(answer).strip().strip('"'))
             else:
                 answers.append(None)
         
         case_data[question] = answers
-        print(f"  {question}: {answers}")
+        print(f"    {question}: {answers}")
     
-    return first_case_id, case_data
+    return case_data
 
-def find_other_cases_v1(df, num_labels=4):
-    """Find all other cases that start with explicit case IDs - V1 format"""
-    print("\n=== FINDING OTHER CASES (V1) ===")
+def extract_v2_location_data(df, num_labels):
+    """Extract location data in V2 format (TRUE/FALSE for brain regions)"""
+    brain_regions = ["frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
+    location_data = {region: [] for region in brain_regions}
     
-    other_cases = []
+    # Scan through rows to find brain regions
+    for row_idx in range(len(df)):
+        row_label = df.iloc[row_idx, 0]
+        if isinstance(row_label, str):
+            row_label_clean = row_label.strip().strip('"').lower()
+            if row_label_clean in brain_regions:
+                print(f"Found brain region '{row_label_clean}' at row {row_idx}")
+                
+                # Extract TRUE/FALSE values for each label
+                region_values = []
+                for col_idx in range(1, num_labels + 1):
+                    if col_idx < len(df.columns):
+                        val = df.iloc[row_idx, col_idx]
+                        is_present = (val is True or (isinstance(val, str) and val.upper() == 'TRUE') or val == 1)
+                        region_values.append(is_present)
+                    else:
+                        region_values.append(False)
+                
+                location_data[row_label_clean] = region_values
+                print(f"  {row_label_clean}: {region_values}")
     
-    for i in range(len(df)):
-        val = df.iloc[i, 0]
-        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
-            # This is a case ID row
-            case_id = val
-            
-            # Skip the header row (should be row i+1)
-            header_row = i + 1
-            if header_row < len(df):
-                header_check = df.iloc[header_row, 1:num_labels+1].tolist()
-                print(f"Found case at row {i}: {case_id}")
-                print(f"  Header row {header_row}: {header_check}")
-                
-                # Extract data from rows i+2 to i+5
-                case_data = {}
-                question_types = ['volume', 'location', 'shape', 'spread out']
-                
-                for q_idx, question in enumerate(question_types):
-                    data_row = i + 2 + q_idx
-                    if data_row < len(df):
-                        # Check question name
-                        question_cell = df.iloc[data_row, 0]
-                        print(f"    Row {data_row}, Question: '{question_cell}' (expected: '{question}')")
-                        
-                        # Extract answers
-                        answers = []
-                        for col_idx in range(1, num_labels + 1):
-                            if col_idx < len(df.columns):
-                                answer = df.iloc[data_row, col_idx]
-                                if pd.isna(answer):
-                                    answers.append(None)
-                                else:
-                                    answers.append(str(answer).strip())
-                            else:
-                                answers.append(None)
-                        
-                        case_data[question] = answers
-                        print(f"    {question}: {answers}")
-                
-                other_cases.append((case_id, case_data))
+    # Convert to per-label format
+    location_answers = []
+    for label_idx in range(num_labels):
+        present_regions = []
+        for region, values in location_data.items():
+            if label_idx < len(values) and values[label_idx]:
+                present_regions.append(region)
+        
+        if present_regions:
+            location_answers.append(", ".join(present_regions))
+        else:
+            location_answers.append("N/A")
     
-    return other_cases
+    return location_answers
+
+def find_question_row(df, question_name):
+    """Find the row index for a specific question"""
+    for row_idx in range(len(df)):
+        row_label = df.iloc[row_idx, 0]
+        if isinstance(row_label, str) and row_label.lower().strip() == question_name.lower():
+            return row_idx
+    return None
+
+# ===== V1 FUNCTIONS (Multi-case format) =====
+
+def extract_cases_v1(df, num_labels=4):
+    """Extract all cases in V1 format (multi-case Excel file)"""
+    all_case_ids = find_all_case_ids(df)
+    cases = []
+    question_types = ['volume', 'location', 'shape', 'spread out']
+    
+    print(f"\n=== V1 FORMAT: Found {len(all_case_ids)} cases ===")
+    
+    for case_type, position, case_id in all_case_ids:
+        print(f"\n--- Processing case: {case_id} ---")
+        
+        if case_type == 'header':
+            # First case - data starts at row 1
+            case_data = extract_question_data(df, 1, num_labels, question_types)
+        else:
+            # Other cases - data starts 2 rows after case ID
+            case_data = extract_question_data(df, position + 2, num_labels, question_types)
+        
+        cases.append((case_id, case_data))
+    
+    return cases
 
 # ===== V2 FUNCTIONS (Single-case format) =====
 
-def extract_case_data_v2(df, num_labels=4):
-    """Extract case data from the Excel structure - V2 format"""
-    # Use the EXACT same logic as V1 for finding case ID
-    # First try to get case ID from column header (like V1)
-    case_id = df.columns[0]  # Same as V1: first column header
+def extract_cases_v2(df, num_labels=4):
+    """Extract cases in V2 format (single-case with TRUE/FALSE locations)"""
+    # V2 format should have only one case
+    case_id = find_case_id(df)
     
-    # If column header doesn't contain case ID, search in cells (like V1 find_other_cases)
-    if not (isinstance(case_id, str) and ('BraTS-GLI-' in case_id or 'BraTS-MET-' in case_id or 'BraTS-GoAT-' in case_id)):
-        # Search through cells in first column for case IDs (same as V1 find_other_cases)
-        case_found = False
-        for i in range(len(df)):
-            val = df.iloc[i, 0]
-            if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
-                case_id = val
-                case_found = True
-                print(f"Found case ID '{case_id}' at row {i} (same as V1 logic)")
-                break
-        
-        if not case_found:
-            print("\nERROR: No valid BraTS case ID found!")
-            print("Expected format: BraTS-GLI-XXXXX-XXX, BraTS-MET-XXXXX-XXX, or BraTS-GoAT-XXXXX-XXX")
-            print("\nChecked locations (same as V1):")
-            print("- Column headers (df.columns[0])")
-            print("- First column cells (same as V1 find_other_cases logic)")
-            print(f"\nFound value in column[0]: '{df.columns[0]}'")
-            print("Please verify the Excel file format matches V1 expectations.")
-            raise ValueError(f"No valid BraTS case ID found in Excel file")
+    print(f"\n=== V2 FORMAT: Processing single case: {case_id} ===")
     
-    print(f"\n=== EXTRACTING CASE (V2): {case_id} ===")
-    
-    # Label abbreviations are in row 2 (index 1) - look for row with abbreviations
-    label_abbrevs = []
-    abbrev_row_found = False
-    
-    # Look for label abbreviations in first few rows
-    for row_idx in range(min(5, len(df))):
-        row_values = []
-        has_abbreviations = False
-        for col_idx in range(1, num_labels + 1):
-            if col_idx < len(df.columns):
-                val = df.iloc[row_idx, col_idx]
-                if not pd.isna(val):
-                    val_str = str(val).strip()
-                    row_values.append(val_str)
-                    # Check if this looks like label abbreviations (short strings)
-                    if len(val_str) <= 10 and any(c.isalpha() for c in val_str):
-                        has_abbreviations = True
-                else:
-                    row_values.append(None)
-        
-        if has_abbreviations and len([v for v in row_values if v]) >= 2:  # At least 2 non-empty values
-            label_abbrevs = row_values
-            abbrev_row_found = True
-            print(f"Found label abbreviations at row {row_idx}: {label_abbrevs}")
-            break
-    
-    if not abbrev_row_found:
-        # Fallback to row 1 (index 1)
-        for col_idx in range(1, num_labels + 1):
-            if col_idx < len(df.columns):
-                abbrev = df.iloc[1, col_idx]
-                label_abbrevs.append(str(abbrev) if not pd.isna(abbrev) else None)
-            else:
-                label_abbrevs.append(None)
-        print(f"Using row 1 for label abbreviations: {label_abbrevs}")
-    
-    print(f"Label abbreviations: {label_abbrevs}")
-    
-    # Find the question rows
     case_data = {}
     
-    # Find volume row by searching for 'volume' in first column
-    volume_row_idx = None
-    for row_idx in range(len(df)):
-        row_label = df.iloc[row_idx, 0]
-        if isinstance(row_label, str) and row_label.lower().strip() == 'volume':
-            volume_row_idx = row_idx
-            break
-    
-    volume_answers = []
-    if volume_row_idx is not None:
-        print(f"Found volume row at index {volume_row_idx}")
-        for col_idx in range(1, num_labels + 1):
-            if col_idx < len(df.columns):
-                answer = df.iloc[volume_row_idx, col_idx]
-                if pd.isna(answer):
-                    volume_answers.append(None)
-                elif isinstance(answer, bool):
-                    # Handle True/False as N/A
-                    volume_answers.append("N/A")
-                else:
-                    volume_answers.append(str(answer).strip().strip('"'))
-            else:
-                volume_answers.append(None)
+    # Find volume data
+    volume_row = find_question_row(df, 'volume')
+    if volume_row is not None:
+        volume_data = extract_question_data(df, volume_row, num_labels, ['volume'])
+        case_data.update(volume_data)
     else:
-        print("Volume row not found, using N/A for all labels")
-        volume_answers = ["N/A"] * num_labels
+        case_data['volume'] = ["N/A"] * num_labels
+        print("Volume row not found, using N/A")
+    
+    # Find location data (V2 specific - TRUE/FALSE format)
+    location_answers = extract_v2_location_data(df, num_labels)
+    case_data['location'] = location_answers
+    print(f"Location answers: {location_answers}")
+    
+    # Find shape and spread data
+    for question in ['shape', 'spread out']:
+        question_row = find_question_row(df, question)
+        if question_row is not None:
+            question_data = extract_question_data(df, question_row, num_labels, [question])
+            case_data.update(question_data)
+        else:
+            case_data[question] = ["N/A"] * num_labels
+            print(f"{question} row not found, using N/A")
+    
+    return [(case_id, case_data)]
     
     case_data['volume'] = volume_answers
     print(f"Volume answers: {volume_answers}")
@@ -269,69 +267,7 @@ def extract_case_data_v2(df, num_labels=4):
                 location_data[row_label_clean] = region_values
                 print(f"  {row_label_clean}: {region_values}")
     
-    # Convert location data to per-label format
-    location_answers = []
-    for label_idx in range(num_labels):
-        present_regions = []
-        for region, values in location_data.items():
-            if label_idx < len(values) and values[label_idx]:
-                present_regions.append(region)
-        
-        if present_regions:
-            location_answers.append(", ".join(present_regions))
-        else:
-            location_answers.append("N/A")
-    
-    case_data['location'] = location_answers
-    print(f"Location answers: {location_answers}")
-    
-    # Find shape row
-    shape_answers = []
-    shape_row_idx = None
-    for row_idx in range(len(df)):
-        row_label = df.iloc[row_idx, 0]
-        if isinstance(row_label, str) and row_label.lower().strip() == 'shape':
-            shape_row_idx = row_idx
-            break
-    
-    if shape_row_idx is not None:
-        print(f"Found shape row at index {shape_row_idx}")
-        for col_idx in range(1, num_labels + 1):
-            if col_idx < len(df.columns):
-                answer = df.iloc[shape_row_idx, col_idx]
-                shape_answers.append(str(answer).strip().strip('"') if not pd.isna(answer) else None)
-            else:
-                shape_answers.append(None)
-    else:
-        shape_answers = [None] * num_labels
-    
-    case_data['shape'] = shape_answers
-    print(f"Shape answers: {shape_answers}")
-    
-    # Find spread out row
-    spread_answers = []
-    spread_row_idx = None
-    for row_idx in range(len(df)):
-        row_label = df.iloc[row_idx, 0]
-        if isinstance(row_label, str) and 'spread' in row_label.lower():
-            spread_row_idx = row_idx
-            break
-    
-    if spread_row_idx is not None:
-        print(f"Found spread out row at index {spread_row_idx}")
-        for col_idx in range(1, num_labels + 1):
-            if col_idx < len(df.columns):
-                answer = df.iloc[spread_row_idx, col_idx]
-                spread_answers.append(str(answer).strip().strip('"') if not pd.isna(answer) else None)
-            else:
-                spread_answers.append(None)
-    else:
-        spread_answers = [None] * num_labels
-    
-    case_data['spread out'] = spread_answers
-    print(f"Spread out answers: {spread_answers}")
-    
-    return case_id, case_data
+
 
 # ===== SHARED FUNCTIONS =====
 
@@ -638,56 +574,31 @@ def process_clinical_annotations(input_file, dataset_type, processing_mode='auto
     print(f"\n*** Processing {dataset_type} dataset - using {num_labels} labels ***")
     print(f"*** Using processing mode: {processing_mode} ***\n")
     
+    # Extract cases based on processing mode
+    if processing_mode == 'v1':
+        cases = extract_cases_v1(df, num_labels)
+    elif processing_mode == 'v2':
+        cases = extract_cases_v2(df, num_labels)
+    else:
+        raise ValueError(f"Unknown processing mode: {processing_mode}")
+    
+    # Convert all cases to groundtruth format
     groundtruth_data = []
     
-    if processing_mode == 'v1':
-        # V1 processing: Multi-case format
-        
-        # Extract first case (from column and rows 1-4)
-        first_case_id, first_case_data = extract_first_case_v1(df, num_labels)
-        
-        # Find other cases
-        other_cases = find_other_cases_v1(df, num_labels)
-        
-        # Convert first case
+    for i, (case_id, case_data) in enumerate(cases):
         print(f"\n{'='*60}")
-        print(f"CONVERTING FIRST CASE: {first_case_id}")
+        print(f"CONVERTING CASE {i+1}/{len(cases)}: {case_id}")
         print(f"{'='*60}")
         
-        gt_entry = convert_to_groundtruth_format(first_case_id, first_case_data, label_names)
-        groundtruth_data.append(gt_entry)
-        print(f"✓ Successfully processed {first_case_id}")
-        
-        # Convert other cases
-        for i, (case_id, case_data) in enumerate(other_cases):
-            print(f"\n{'='*60}")
-            print(f"CONVERTING CASE {i+2}/{len(other_cases)+1}: {case_id}")
-            print(f"{'='*60}")
-            
+        try:
             gt_entry = convert_to_groundtruth_format(case_id, case_data, label_names)
             groundtruth_data.append(gt_entry)
             print(f"✓ Successfully processed {case_id}")
-    
-    elif processing_mode == 'v2':
-        # V2 processing: Single-case format
-        
-        # Extract single case data
-        try:
-            case_id, case_data = extract_case_data_v2(df, num_labels)
-        except ValueError as e:
-            print(f"\nERROR: Failed to extract case data from Excel file")
-            print(f"Reason: {e}")
+        except Exception as e:
+            print(f"✗ ERROR processing {case_id}: {e}")
             raise e
-        
-        # Convert case
-        print(f"\n{'='*60}")
-        print(f"CONVERTING CASE: {case_id}")
-        print(f"{'='*60}")
-        
-        gt_entry = convert_to_groundtruth_format(case_id, case_data, label_names)
-        groundtruth_data.append(gt_entry)
-        print(f"✓ Successfully processed {case_id}")
     
+    print(f"\n*** Successfully processed {len(groundtruth_data)} cases ***")
     return groundtruth_data
 
 def main():
