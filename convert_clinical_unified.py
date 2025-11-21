@@ -1,34 +1,147 @@
 #!/usr/bin/env python3
 """
-Conversion script for clinical annotations with TRUE/FALSE location format
+Unified clinical annotation converter with multiple processing modes:
+1. Clinical VQA format (original) - for multi-case Excel files
+2. Clinical VQA format (v2) - for single-case Excel files with TRUE/FALSE location format
+3. Convert to groundtruth format - convert VQA JSON to groundtruth JSON format
+
+The script automatically suggests the best processing mode based on Excel file structure.
 """
 import pandas as pd
 import json
 import argparse
+import os
 
-def debug_excel_structure(excel_file):
-    """Debug the Excel file structure thoroughly"""
-    print("=== DEBUGGING EXCEL STRUCTURE ===")
+def analyze_excel_structure(excel_file):
+    """Analyze Excel file structure and suggest processing mode"""
+    print("=== ANALYZING EXCEL STRUCTURE ===")
     
     df = pd.read_excel(excel_file)
     print(f"Excel shape: {df.shape}")
     print(f"Columns: {df.columns.tolist()}")
     
-    print("\n=== FIRST 20 ROWS (RAW DATA) ===")
-    for i in range(min(20, len(df))):
-        row_values = []
-        for j in range(len(df.columns)):
-            val = df.iloc[i, j]
-            if pd.isna(val):
-                row_values.append("NaN")
-            else:
-                row_values.append(f"'{val}'")
-        print(f"Row {i:2d}: {' | '.join(row_values)}")
+    # Check for indicators of v1 vs v2 format
+    has_case_in_column = any('BraTS' in str(col) for col in df.columns)
+    has_case_in_cells = False
+    has_true_false_locations = False
     
-    return df
+    # Look for case IDs in cells and TRUE/FALSE patterns
+    for i in range(min(20, len(df))):
+        for j in range(min(5, len(df.columns))):
+            val = df.iloc[i, j]
+            if isinstance(val, str) and 'BraTS' in val:
+                has_case_in_cells = True
+            if val is True or val is False:
+                has_true_false_locations = True
+    
+    print(f"Has case ID in column names: {has_case_in_column}")
+    print(f"Has case ID in cells: {has_case_in_cells}")
+    print(f"Has TRUE/FALSE values: {has_true_false_locations}")
+    
+    # Suggest processing mode
+    if has_case_in_column and not has_true_false_locations:
+        suggested_mode = "v1"
+        reason = "Multi-case format with case IDs in column headers"
+    elif has_true_false_locations or (not has_case_in_column and has_case_in_cells):
+        suggested_mode = "v2"
+        reason = "Single-case format with TRUE/FALSE location data"
+    else:
+        suggested_mode = "v1"
+        reason = "Default to multi-case format"
+    
+    print(f"\nSUGGESTED MODE: {suggested_mode} ({reason})")
+    return df, suggested_mode
 
-def extract_case_data(df, num_labels=4):
-    """Extract case data from the Excel structure"""
+# ===== V1 FUNCTIONS (Multi-case format) =====
+
+def extract_first_case_v1(df, num_labels=4):
+    """Extract the first case (from column name and rows 1-4) - V1 format"""
+    # The first case ID is in the column name
+    first_case_id = df.columns[0]  # 'BraTS-GLI-00063-101' or 'BraTS-MET-...'
+    
+    print(f"\n=== EXTRACTING FIRST CASE (V1): {first_case_id} ===")
+    
+    # Data is in rows 1-4
+    question_types = ['volume', 'location', 'shape', 'spread out']
+    case_data = {}
+    
+    for q_idx, question in enumerate(question_types):
+        row_idx = q_idx + 1  # Start from row 1
+        
+        # Check question name
+        question_cell = df.iloc[row_idx, 0]
+        print(f"  Row {row_idx}, Col 0: '{question_cell}' (expected: '{question}')")
+        
+        # Extract answers for num_labels (columns 1 to num_labels+1)
+        answers = []
+        for col_idx in range(1, num_labels + 1):
+            if col_idx < len(df.columns):
+                answer = df.iloc[row_idx, col_idx]
+                if pd.isna(answer):
+                    answers.append(None)
+                else:
+                    answers.append(str(answer).strip())
+            else:
+                answers.append(None)
+        
+        case_data[question] = answers
+        print(f"  {question}: {answers}")
+    
+    return first_case_id, case_data
+
+def find_other_cases_v1(df, num_labels=4):
+    """Find all other cases that start with explicit case IDs - V1 format"""
+    print("\n=== FINDING OTHER CASES (V1) ===")
+    
+    other_cases = []
+    
+    for i in range(len(df)):
+        val = df.iloc[i, 0]
+        if isinstance(val, str) and (val.startswith('BraTS-GLI-') or val.startswith('BraTS-MET-') or val.startswith('BraTS-GoAT-')):
+            # This is a case ID row
+            case_id = val
+            
+            # Skip the header row (should be row i+1)
+            header_row = i + 1
+            if header_row < len(df):
+                header_check = df.iloc[header_row, 1:num_labels+1].tolist()
+                print(f"Found case at row {i}: {case_id}")
+                print(f"  Header row {header_row}: {header_check}")
+                
+                # Extract data from rows i+2 to i+5
+                case_data = {}
+                question_types = ['volume', 'location', 'shape', 'spread out']
+                
+                for q_idx, question in enumerate(question_types):
+                    data_row = i + 2 + q_idx
+                    if data_row < len(df):
+                        # Check question name
+                        question_cell = df.iloc[data_row, 0]
+                        print(f"    Row {data_row}, Question: '{question_cell}' (expected: '{question}')")
+                        
+                        # Extract answers
+                        answers = []
+                        for col_idx in range(1, num_labels + 1):
+                            if col_idx < len(df.columns):
+                                answer = df.iloc[data_row, col_idx]
+                                if pd.isna(answer):
+                                    answers.append(None)
+                                else:
+                                    answers.append(str(answer).strip())
+                            else:
+                                answers.append(None)
+                        
+                        case_data[question] = answers
+                        print(f"    {question}: {answers}")
+                
+                other_cases.append((case_id, case_data))
+    
+    return other_cases
+
+# ===== V2 FUNCTIONS (Single-case format) =====
+
+def extract_case_data_v2(df, num_labels=4):
+    """Extract case data from the Excel structure - V2 format"""
     # The case ID is in cell A1, but might be NaN, so check multiple locations
     case_id = df.iloc[0, 0]
     if pd.isna(case_id):
@@ -46,7 +159,7 @@ def extract_case_data(df, num_labels=4):
     if pd.isna(case_id):
         case_id = "Unknown_Case"
     
-    print(f"\n=== EXTRACTING CASE: {case_id} ====")
+    print(f"\n=== EXTRACTING CASE (V2): {case_id} ===")
     
     # Label abbreviations are in row 2 (index 1)
     label_abbrevs = []
@@ -184,9 +297,11 @@ def extract_case_data(df, num_labels=4):
     
     return case_id, case_data
 
-def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
-    """Convert case data to numerical format using VQA system mappings (0-based indexing)"""
-    print(f"\n=== CONVERTING {case_id} TO VQA NUMERICAL FORMAT ===")
+# ===== SHARED FUNCTIONS =====
+
+def convert_to_groundtruth_format(case_id, case_data, label_names):
+    """Convert case data directly to groundtruth format"""
+    print(f"\n=== CONVERTING {case_id} TO GROUNDTRUTH FORMAT ===")
     
     # VQA system mappings (0-based indexing)
     volume_categories = ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"]
@@ -203,18 +318,10 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
     brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
     lobe_mapping = {region.lower(): i for i, region in enumerate(brain_regions)}
     
-    # Use provided label names or default to GLI labels
-    if label_names is None:
-        label_names = [
-            "Non-Enhancing Tumor",
-            "Surrounding Non-enhancing FLAIR hyperintensity",
-            "Enhancing Tissue", 
-            "Resection Cavity"
-        ]
-    
-    numerical_case = {
-        "case_id": case_id,
-        "clinical_annotations": {}
+    # Create the groundtruth entry
+    gt_entry = {
+        "mpMRI": case_id,  # Use case_id as mpMRI name
+        "labels": {}
     }
     
     # Process each label
@@ -223,7 +330,7 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
         
         label_data = {}
         
-        # Volume
+        # Volume -> Area
         if 'volume' in case_data and label_idx < len(case_data['volume']):
             volume_answer = case_data['volume'][label_idx]
             if (volume_answer is None or 
@@ -231,28 +338,30 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
                 str(volume_answer).lower().strip() == 'nan' or
                 str(volume_answer).lower().strip() == 'true' or
                 str(volume_answer).lower().strip() == 'false'):
-                label_data['volume'] = 0  # N/A
-                print(f"    Volume: '{volume_answer}' -> 0 (N/A)")
+                label_data['area'] = 0  # N/A
+                print(f"    Area: '{volume_answer}' -> 0 (N/A)")
             else:
                 volume_clean = str(volume_answer).lower().strip()
                 if volume_clean in volume_mapping:
-                    label_data['volume'] = volume_mapping[volume_clean]
-                    print(f"    Volume: '{volume_answer}' -> {label_data['volume']} ({volume_categories[label_data['volume']]})") 
+                    label_data['area'] = volume_mapping[volume_clean]
+                    print(f"    Area: '{volume_answer}' -> {label_data['area']} ({volume_categories[label_data['area']]})")
                 else:
                     # If it's not a recognized volume category, treat as N/A
                     print(f"    WARNING: Unknown volume value '{volume_answer}', treating as N/A")
-                    label_data['volume'] = 0  # N/A
+                    label_data['area'] = 0  # N/A
         else:
-            label_data['volume'] = 0  # N/A
-            print("    Volume: Missing -> 0 (N/A)")        # Location (multilabel using VQA lobe indices)
+            label_data['area'] = 0  # N/A
+            print("    Area: Missing -> 0 (N/A)")
+        
+        # Location -> Region (multilabel using VQA lobe indices)
         if 'location' in case_data and label_idx < len(case_data['location']):
             location_answer = case_data['location'][label_idx]
             location_indices = encode_location_vqa_format(location_answer, brain_regions, lobe_mapping)
-            label_data['location'] = location_indices
-            print(f"    Location: '{location_answer}' -> {location_indices}")
+            label_data['region'] = location_indices
+            print(f"    Region: '{location_answer}' -> {location_indices}")
         else:
-            label_data['location'] = [0]  # N/A
-            print(f"    Location: Missing -> [0] (N/A)")
+            label_data['region'] = [0]  # N/A
+            print(f"    Region: Missing -> [0] (N/A)")
         
         # Shape
         if 'shape' in case_data and label_idx < len(case_data['shape']):
@@ -268,7 +377,7 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
                 shape_clean = str(shape_answer).lower().strip()
                 if shape_clean in shape_mapping:
                     label_data['shape'] = shape_mapping[shape_clean]
-                    print(f"    Shape: '{shape_answer}' -> {label_data['shape']} ({shape_categories[label_data['shape']]})") 
+                    print(f"    Shape: '{shape_answer}' -> {label_data['shape']} ({shape_categories[label_data['shape']]})")
                 else:
                     # If it's not a recognized shape category, treat as N/A
                     print(f"    WARNING: Unknown shape value '{shape_answer}', treating as N/A")
@@ -291,7 +400,7 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
                 spread_clean = str(spread_answer).lower().strip()
                 if spread_clean in satellite_mapping:
                     label_data['satellite'] = satellite_mapping[spread_clean]
-                    print(f"    Satellite: '{spread_answer}' -> {label_data['satellite']} ({satellite_categories[label_data['satellite']] if label_data['satellite'] < len(satellite_categories) else 'scattered lesions'})") 
+                    print(f"    Satellite: '{spread_answer}' -> {label_data['satellite']} ({satellite_categories[label_data['satellite']] if label_data['satellite'] < len(satellite_categories) else 'scattered lesions'})")
                 else:
                     # If it's not a recognized satellite category, treat as N/A
                     print(f"    WARNING: Unknown satellite pattern '{spread_answer}', treating as N/A")
@@ -300,9 +409,9 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
             label_data['satellite'] = 0  # N/A
             print("    Satellite: Missing -> 0 (N/A)")
         
-        numerical_case['clinical_annotations'][label_name] = label_data
+        gt_entry["labels"][label_name] = label_data
     
-    return numerical_case
+    return gt_entry
 
 def encode_location_vqa_format(location_str, brain_regions, lobe_mapping):
     """Encode location using VQA format (return sorted list of indices)"""
@@ -339,34 +448,70 @@ def encode_location_vqa_format(location_str, brain_regions, lobe_mapping):
     
     return found_indices
 
-def main():
-    """Main conversion function with VQA format mappings"""
+def convert_to_groundtruth_format(vqa_data, output_file):
+    """Convert VQA clinical annotations to groundtruth format"""
+    print(f"\n=== CONVERTING TO GROUNDTRUTH FORMAT ===")
     
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Convert clinical annotations to VQA format (v2)')
-    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
-                       help='Dataset type: gli, met, or goat')
+    # Extract the clinical annotations (skip metadata)
+    if isinstance(vqa_data, dict) and 'clinical_annotations' in vqa_data:
+        clinical_annotations = vqa_data['clinical_annotations']
+    else:
+        clinical_annotations = vqa_data
     
-    args = parser.parse_args()
-    dataset_type = args.dataset_type.upper()
+    # Convert to groundtruth format
+    groundtruth_format = []
     
-    # Construct Excel filename
-    excel_file = f'clinical-annotation_{args.dataset_type}_mike.xlsx'
+    for annotation in clinical_annotations:
+        case_id = annotation['case_id']
+        
+        # Create the groundtruth entry
+        gt_entry = {
+            "mpMRI": case_id,  # Use case_id as mpMRI name
+            "labels": {}
+        }
+        
+        # Convert each label type
+        for label_type, label_data in annotation['clinical_annotations'].items():
+            gt_entry["labels"][label_type] = {
+                "area": label_data["volume"],  # volume -> area
+                "region": label_data["location"],  # location -> region
+                "shape": label_data["shape"],
+                "satellite": label_data["satellite"]
+            }
+        
+        groundtruth_format.append(gt_entry)
     
-    print(f"Loading Excel file: {excel_file}")
+    # Save the converted data
+    with open(output_file, 'w') as f:
+        json.dump(groundtruth_format, f, indent=4)
     
-    # Step 1: Debug Excel structure
-    df = debug_excel_structure(excel_file)
+    print(f"Converted {len(groundtruth_format)} clinical annotations to groundtruth format")
+    print(f"Saved to: {output_file}")
     
-    # Set dataset configuration based on argument
-    if dataset_type == 'met':
+    return groundtruth_format
+
+def process_clinical_annotations(input_file, dataset_type, processing_mode='auto'):
+    """Process clinical annotations and convert directly to groundtruth format"""
+    print(f"Loading Excel file: {input_file}")
+    
+    # Analyze Excel structure and suggest processing mode
+    df, suggested_mode = analyze_excel_structure(input_file)
+    
+    # Use suggested mode if auto is selected
+    if processing_mode == 'auto':
+        processing_mode = suggested_mode
+        print(f"Using suggested processing mode: {processing_mode}")
+    
+    # Set dataset configuration
+    dataset_type = dataset_type.upper()
+    if dataset_type == 'MET':
         num_labels = 3
         label_names = [
             "Non-Enhancing Tumor",
             "Surrounding Non-enhancing FLAIR hyperintensity",
             "Enhancing Tissue"
         ]
-    elif dataset_type == 'goat':
+    elif dataset_type == 'GOAT':
         num_labels = 3
         label_names = [
             "Non-Enhancing Tumor",
@@ -382,60 +527,95 @@ def main():
             "Resection Cavity"
         ]
     
-    print(f"\n*** Processing {dataset_type} dataset - using {num_labels} labels ***\n")
+    print(f"\n*** Processing {dataset_type} dataset - using {num_labels} labels ***")
+    print(f"*** Using processing mode: {processing_mode} ***\n")
     
-    # Step 2: Extract case data
-    case_id, case_data = extract_case_data(df, num_labels)
+    groundtruth_data = []
     
-    # Step 3: Convert case
-    print(f"\n{'='*60}")
-    print(f"CONVERTING CASE: {case_id}")
-    print(f"{'='*60}")
+    if processing_mode == 'v1':
+        # V1 processing: Multi-case format
+        
+        # Extract first case (from column and rows 1-4)
+        first_case_id, first_case_data = extract_first_case_v1(df, num_labels)
+        
+        # Find other cases
+        other_cases = find_other_cases_v1(df, num_labels)
+        
+        # Convert first case
+        print(f"\n{'='*60}")
+        print(f"CONVERTING FIRST CASE: {first_case_id}")
+        print(f"{'='*60}")
+        
+        gt_entry = convert_to_groundtruth_format(first_case_id, first_case_data, label_names)
+        groundtruth_data.append(gt_entry)
+        print(f"✓ Successfully processed {first_case_id}")
+        
+        # Convert other cases
+        for i, (case_id, case_data) in enumerate(other_cases):
+            print(f"\n{'='*60}")
+            print(f"CONVERTING CASE {i+2}/{len(other_cases)+1}: {case_id}")
+            print(f"{'='*60}")
+            
+            gt_entry = convert_to_groundtruth_format(case_id, case_data, label_names)
+            groundtruth_data.append(gt_entry)
+            print(f"✓ Successfully processed {case_id}")
     
-    try:
-        numerical_case = convert_to_numerical_vqa_format(case_id, case_data, label_names)
+    elif processing_mode == 'v2':
+        # V2 processing: Single-case format
+        
+        # Extract single case data
+        case_id, case_data = extract_case_data_v2(df, num_labels)
+        
+        # Convert case
+        print(f"\n{'='*60}")
+        print(f"CONVERTING CASE: {case_id}")
+        print(f"{'='*60}")
+        
+        gt_entry = convert_to_groundtruth_format(case_id, case_data, label_names)
+        groundtruth_data.append(gt_entry)
         print(f"✓ Successfully processed {case_id}")
-    except Exception as e:
-        print(f"✗ ERROR processing {case_id}: {e}")
-        raise e
     
-    # Step 4: Save results
-    volume_categories = ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"]
-    shape_categories = ["N/A", "focus", "round", "oval", "elongated", "irregular"]
-    satellite_categories = ["N/A", "single lesion", "core with satellite lesions", "scattered lesions"]
-    brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
+    return groundtruth_data
+
+def main():
+    """Main function for direct Excel to groundtruth conversion"""
+    parser = argparse.ArgumentParser(description='Convert Clinical Annotations from Excel to Groundtruth JSON Format')
+    parser.add_argument('input_file', help='Input Excel file path')
+    parser.add_argument('--dataset-type', choices=['gli', 'met', 'goat'], default='gli',
+                       help='Dataset type (default: gli)')
+    parser.add_argument('--processing-mode', choices=['auto', 'v1', 'v2'], default='auto',
+                       help='Processing mode: auto (suggested), v1 (multi-case), v2 (single-case)')
+    parser.add_argument('--output', help='Output file path (optional)')
     
-    output = {
-        "metadata": {
-            "description": "Clinical annotations converted to VQA numerical format (0-based indexing) - v2",
-            "dataset_type": dataset_type,
-            "num_labels": num_labels,
-            "label_names": label_names,
-            "volume_categories": volume_categories,
-            "volume_mapping": {str(i): cat for i, cat in enumerate(volume_categories)},
-            "shape_categories": shape_categories,
-            "shape_mapping": {str(i): cat for i, cat in enumerate(shape_categories)},
-            "satellite_categories": satellite_categories,
-            "satellite_mapping": {str(i): cat for i, cat in enumerate(satellite_categories)},
-            "brain_regions": brain_regions,
-            "location_encoding": "sorted list of region indices (0=N/A, 1=frontal, etc.)"
-        },
-        "clinical_annotations": [numerical_case]
-    }
+    args = parser.parse_args()
     
-    output_file = f'clinical_annotations_{dataset_type.lower()}_vqa_format_mike.json'
+    # Generate output filename if not provided
+    if args.output:
+        output_file = args.output
+    else:
+        # Remove .xlsx extension and add _groundtruth_format.json
+        base_name = os.path.splitext(args.input_file)[0]
+        output_file = f"{base_name}_groundtruth_format.json"
+    
+    print(f"=== CLINICAL ANNOTATION TO GROUNDTRUTH CONVERTER ===")
+    
+    # Process Excel file directly to groundtruth format
+    groundtruth_data = process_clinical_annotations(args.input_file, args.dataset_type, args.processing_mode)
+    
+    # Save groundtruth output
     with open(output_file, 'w') as f:
-        json.dump(output, f, indent=2)
+        json.dump(groundtruth_data, f, indent=4)
     
     print(f"\n{'='*60}")
     print("CONVERSION COMPLETE!")
-    print(f"Processed 1 case: {case_id}")
+    print(f"Processed {len(groundtruth_data)} cases")
     print(f"Saved to: {output_file}")
     print(f"{'='*60}")
     
-    # Show case summary
-    print(f"\nCase summary ({numerical_case['case_id']}):")
-    print(json.dumps(numerical_case['clinical_annotations'], indent=2))
+    # Show sample output
+    if groundtruth_data:
+        print(f"\nSample output (first case):")
+        print(json.dumps(groundtruth_data[0], indent=2))
 
 if __name__ == "__main__":
     main()
