@@ -215,7 +215,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
                 true_regions = set(clinical_label['region'])
                 pred_regions = set([r - 1 for r in pred_label['region']])  # Convert predictions from 1-indexed to 0-indexed
                 
-                # For each region, create binary labels
+                # For each region, create binary labels (agreement per region per case)
                 for i, region in enumerate(region_names):
                     true_binary = 1 if i in true_regions else 0
                     pred_binary = 1 if i in pred_regions else 0
@@ -304,6 +304,10 @@ def compute_kappa_metrics(task_data):
     region_accuracies = []
     region_results = {}
     
+    # Collect all region data for overall calculation
+    all_region_true = []
+    all_region_pred = []
+    
     for region in task_data['region']:
         if len(task_data['region'][region]['true']) > 0:
             true_binary = np.array(task_data['region'][region]['true'])
@@ -323,6 +327,11 @@ def compute_kappa_metrics(task_data):
             
             region_kappas.append(kappa)
             region_accuracies.append(accuracy)
+            
+            # Add to overall pooled data (skip the 'overall' entry to avoid double-counting)
+            if region != 'overall':
+                all_region_true.extend(true_binary)
+                all_region_pred.extend(pred_binary)
             
             region_results[region] = {
                 'kappa': kappa,
@@ -375,6 +384,19 @@ def compute_kappa_metrics(task_data):
         avg_region_accuracy = None
         print("Average Region κ     = No data available")
     
+    # Calculate pooled overall for ALL tasks (multi-class + region)
+    all_task_true = all_multiclass_true + all_region_true
+    all_task_pred = all_multiclass_pred + all_region_pred
+    
+    if all_task_true:
+        pooled_all_kappa = cohen_kappa_score(all_task_true, all_task_pred)
+        pooled_all_accuracy = np.mean(np.array(all_task_true) == np.array(all_task_pred))
+        print(f"Pooled ALL Tasks κ   = {pooled_all_kappa:.4f} ({interpret_kappa(pooled_all_kappa)}) acc = {pooled_all_accuracy:.4f}")
+    else:
+        pooled_all_kappa = None
+        pooled_all_accuracy = None
+        print("Pooled ALL Tasks κ   = No data available")
+    
     all_valid_kappas = valid_multiclass_kappas + valid_region_kappas
     all_valid_accuracies = valid_multiclass_accuracies + valid_region_accuracies
     if all_valid_kappas:
@@ -394,6 +416,8 @@ def compute_kappa_metrics(task_data):
         'pooled_multiclass_accuracy': pooled_accuracy,
         'avg_region_kappa': avg_region_kappa,
         'avg_region_accuracy': avg_region_accuracy,
+        'pooled_all_tasks_kappa': pooled_all_kappa,
+        'pooled_all_tasks_accuracy': pooled_all_accuracy,
         'overall_avg_kappa': overall_avg_kappa,
         'overall_avg_accuracy': overall_avg_accuracy,
         'n_multiclass_tasks': len(valid_multiclass_kappas),

@@ -294,6 +294,10 @@ def compute_kappa_metrics(task_data):
     region_accuracies = []
     region_results = {}
     
+    # Collect all region data for overall calculation
+    all_region_annotator1 = []
+    all_region_annotator2 = []
+    
     for region in task_data['region']:
         if len(task_data['region'][region]['annotator1']) > 0:
             binary1 = np.array(task_data['region'][region]['annotator1'])
@@ -313,6 +317,11 @@ def compute_kappa_metrics(task_data):
             
             region_kappas.append(kappa)
             region_accuracies.append(accuracy)
+            
+            # Add to overall pooled data (skip the 'overall' entry to avoid double-counting)
+            if region != 'overall':
+                all_region_annotator1.extend(binary1)
+                all_region_annotator2.extend(binary2)
             
             region_results[region] = {
                 'kappa': kappa,
@@ -365,6 +374,19 @@ def compute_kappa_metrics(task_data):
         avg_region_accuracy = None
         print("Average Region κ     = No data available")
     
+    # Calculate pooled overall for ALL tasks (multi-class + region)
+    all_task_annotator1 = all_multiclass_annotator1 + all_region_annotator1
+    all_task_annotator2 = all_multiclass_annotator2 + all_region_annotator2
+    
+    if all_task_annotator1:
+        pooled_all_kappa = cohen_kappa_score(all_task_annotator1, all_task_annotator2)
+        pooled_all_accuracy = np.mean(np.array(all_task_annotator1) == np.array(all_task_annotator2))
+        print(f"Pooled ALL Tasks κ   = {pooled_all_kappa:.4f} ({interpret_kappa(pooled_all_kappa)}) acc = {pooled_all_accuracy:.4f}")
+    else:
+        pooled_all_kappa = None
+        pooled_all_accuracy = None
+        print("Pooled ALL Tasks κ   = No data available")
+    
     all_valid_kappas = valid_multiclass_kappas + valid_region_kappas
     all_valid_accuracies = valid_multiclass_accuracies + valid_region_accuracies
     if all_valid_kappas:
@@ -384,6 +406,8 @@ def compute_kappa_metrics(task_data):
         'pooled_multiclass_accuracy': pooled_accuracy,
         'avg_region_kappa': avg_region_kappa,
         'avg_region_accuracy': avg_region_accuracy,
+        'pooled_all_tasks_kappa': pooled_all_kappa,
+        'pooled_all_tasks_accuracy': pooled_all_accuracy,
         'overall_avg_kappa': overall_avg_kappa,
         'overall_avg_accuracy': overall_avg_accuracy,
         'n_multiclass_tasks': len(valid_multiclass_kappas),
