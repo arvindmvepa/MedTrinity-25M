@@ -11,7 +11,7 @@ import argparse
 
 def get_label_order(dataset_type='gli'):
     """Define the order of labels as they appear in the prediction file"""
-    if dataset_type in ['met', 'goat']:
+    if dataset_type in ['met', 'goat', 'gli_met']:
         return [
             "Non-Enhancing Tumor",
             "Surrounding Non-enhancing FLAIR hyperintensity",
@@ -25,12 +25,21 @@ def get_label_order(dataset_type='gli'):
             "Resection Cavity"
         ]
 
+def find_met_start_index(predictions):
+    """Find the index where MET predictions start by looking at seg_file paths"""
+    for i, pred in enumerate(predictions):
+        seg_file = pred.get('seg_file', '')
+        if 'MET' in seg_file:
+            return i
+    return None
+
 def convert_logits_to_labels(predictions, dataset_type='gli'):
     """
     Convert a list of prediction dictionaries with logits to ground truth format.
     
     For GLI: Each volume has 16 questions (4 labels x 4 question types)
     For MET/GOAT: Each volume has 12 questions (3 labels x 4 question types)
+    For GLI_MET: Each volume has 24 questions (12 from GLI without Resection Cavity + 12 from MET)
     
     Questions are in order:
     - N area questions (one per label type)
@@ -38,6 +47,55 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
     - N shape questions (one per label type)
     - N satellite questions (one per label type)
     """
+    
+    if dataset_type == 'gli_met':
+        # Handle GLI_MET case separately
+        met_start_idx = find_met_start_index(predictions)
+        if met_start_idx is None:
+            raise ValueError("No MET predictions found in the data")
+        
+        # Extract only non-Resection Cavity GLI questions (12 per volume)
+        gli_questions_per_volume = 12
+        num_volumes = met_start_idx // 16  # GLI has 16 questions but we use 12
+        
+        converted_data = []
+        label_order = get_label_order(dataset_type)
+        
+        for vol_idx in range(num_volumes):
+            gli_start_idx = vol_idx * 16
+            vol_predictions = predictions[gli_start_idx:gli_start_idx + gli_questions_per_volume]
+            
+            seg_file = vol_predictions[0].get('seg_file', '')
+            volume_entry = {"id": vol_idx, "seg_file": seg_file, "labels": {}}
+            
+            # Process first 3 labels only (skip Resection Cavity)
+            for label_idx, label_name in enumerate(label_order):
+                volume_entry["labels"][label_name] = {}
+                
+                # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
+                if vol_predictions[label_idx].get('area_logits'):
+                    area_label = int(np.argmax(vol_predictions[label_idx]['area_logits']))
+                    volume_entry["labels"][label_name]["area"] = area_label
+                
+                if vol_predictions[3 + label_idx].get('region_logits'):
+                    region_logits = vol_predictions[3 + label_idx]['region_logits']
+                    region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
+                    volume_entry["labels"][label_name]["region"] = region_labels
+                
+                if vol_predictions[6 + label_idx].get('shape_logits'):
+                    shape_label = int(np.argmax(vol_predictions[6 + label_idx]['shape_logits']))
+                    volume_entry["labels"][label_name]["shape"] = shape_label
+                
+                if vol_predictions[9 + label_idx].get('satellite_logits'):
+                    satellite_label = int(np.argmax(vol_predictions[9 + label_idx]['satellite_logits']))
+                    volume_entry["labels"][label_name]["satellite"] = satellite_label
+            
+            converted_data.append(volume_entry)
+        
+        print(f"Converted {len(converted_data)} GLI_MET volumes (GLI part only)")
+        return converted_data
+    
+    # Original logic for other datasets
     label_order = get_label_order(dataset_type)
     num_labels = len(label_order)
     questions_per_volume = num_labels * 4  # 4 question types per label
@@ -106,8 +164,8 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
 def main():
     """Main conversion function"""
     parser = argparse.ArgumentParser(description='Convert prediction logits to ground truth format')
-    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
-                       help='Dataset type: gli, met, or goat')
+    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat', 'gli_met'], 
+                       help='Dataset type: gli, met, goat, or gli_met')
     parser.add_argument('input_file', help='Input JSON file with predictions and logits')
     parser.add_argument('output_file', help='Output JSON file in ground truth format')
     args = parser.parse_args()
