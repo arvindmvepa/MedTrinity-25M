@@ -275,7 +275,9 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
                     label_data['shape'] = 0  # N/A
         else:
             label_data['shape'] = 0  # N/A
-            print("    Shape: Missing -> 0 (N/A)")        # Spread pattern (satellite)
+            print("    Shape: Missing -> 0 (N/A)")
+        
+        # Spread pattern (satellite)
         if 'spread out' in case_data and label_idx < len(case_data['spread out']):
             spread_answer = case_data['spread out'][label_idx]
             if (spread_answer is None or 
@@ -296,7 +298,9 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
                     label_data['satellite'] = 0  # N/A
         else:
             label_data['satellite'] = 0  # N/A
-            print("    Satellite: Missing -> 0 (N/A)")        numerical_case['clinical_annotations'][label_name] = label_data
+            print("    Satellite: Missing -> 0 (N/A)")
+        
+        numerical_case['clinical_annotations'][label_name] = label_data
     
     return numerical_case
 
