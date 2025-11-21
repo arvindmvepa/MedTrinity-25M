@@ -448,47 +448,119 @@ def encode_location_vqa_format(location_str, brain_regions, lobe_mapping):
     
     return found_indices
 
-def convert_to_groundtruth_format(vqa_data, output_file):
-    """Convert VQA clinical annotations to groundtruth format"""
-    print(f"\n=== CONVERTING TO GROUNDTRUTH FORMAT ===")
+def convert_to_groundtruth_format(case_id, case_data, label_names):
+    """Convert case data directly to groundtruth format"""
+    print(f"\n=== CONVERTING {case_id} TO GROUNDTRUTH FORMAT ===")
     
-    # Extract the clinical annotations (skip metadata)
-    if isinstance(vqa_data, dict) and 'clinical_annotations' in vqa_data:
-        clinical_annotations = vqa_data['clinical_annotations']
-    else:
-        clinical_annotations = vqa_data
+    # VQA system mappings (0-based indexing)
+    volume_categories = ["N/A", "<1%", "1-5%", "5-10%", "10-25%", "25-50%", "50-75%"]
+    volume_mapping = {cat.lower(): i for i, cat in enumerate(volume_categories)}
     
-    # Convert to groundtruth format
-    groundtruth_format = []
+    shape_categories = ["N/A", "focus", "round", "oval", "elongated", "irregular"]
+    shape_mapping = {cat.lower(): i for i, cat in enumerate(shape_categories)}
     
-    for annotation in clinical_annotations:
-        case_id = annotation['case_id']
+    satellite_categories = ["N/A", "single lesion", "core with satellite lesions", "scattered lesions"]
+    satellite_mapping = {cat.lower(): i for i, cat in enumerate(satellite_categories)}
+    # Add aliases for satellite mapping
+    satellite_mapping["scattered"] = satellite_mapping["scattered lesions"]  # Handle "scattered" as "scattered lesions"
+    
+    brain_regions = ["n/a", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
+    lobe_mapping = {region.lower(): i for i, region in enumerate(brain_regions)}
+    
+    # Create the groundtruth entry
+    gt_entry = {
+        "mpMRI": case_id,  # Use case_id as mpMRI name
+        "labels": {}
+    }
+    
+    # Process each label
+    for label_idx, label_name in enumerate(label_names):
+        print(f"\n  Processing {label_name} (index {label_idx}):")
         
-        # Create the groundtruth entry
-        gt_entry = {
-            "mpMRI": case_id,  # Use case_id as mpMRI name
-            "labels": {}
-        }
+        label_data = {}
         
-        # Convert each label type
-        for label_type, label_data in annotation['clinical_annotations'].items():
-            gt_entry["labels"][label_type] = {
-                "area": label_data["volume"],  # volume -> area
-                "region": label_data["location"],  # location -> region
-                "shape": label_data["shape"],
-                "satellite": label_data["satellite"]
-            }
+        # Volume -> Area
+        if 'volume' in case_data and label_idx < len(case_data['volume']):
+            volume_answer = case_data['volume'][label_idx]
+            if (volume_answer is None or 
+                str(volume_answer).lower().strip() == 'n/a' or 
+                str(volume_answer).lower().strip() == 'nan' or
+                str(volume_answer).lower().strip() == 'true' or
+                str(volume_answer).lower().strip() == 'false'):
+                label_data['area'] = 0  # N/A
+                print(f"    Area: '{volume_answer}' -> 0 (N/A)")
+            else:
+                volume_clean = str(volume_answer).lower().strip()
+                if volume_clean in volume_mapping:
+                    label_data['area'] = volume_mapping[volume_clean]
+                    print(f"    Area: '{volume_answer}' -> {label_data['area']} ({volume_categories[label_data['area']]})")
+                else:
+                    # If it's not a recognized volume category, treat as N/A
+                    print(f"    WARNING: Unknown volume value '{volume_answer}', treating as N/A")
+                    label_data['area'] = 0  # N/A
+        else:
+            label_data['area'] = 0  # N/A
+            print("    Area: Missing -> 0 (N/A)")
         
-        groundtruth_format.append(gt_entry)
+        # Location -> Region (multilabel using VQA lobe indices)
+        if 'location' in case_data and label_idx < len(case_data['location']):
+            location_answer = case_data['location'][label_idx]
+            location_indices = encode_location_vqa_format(location_answer, brain_regions, lobe_mapping)
+            label_data['region'] = location_indices
+            print(f"    Region: '{location_answer}' -> {location_indices}")
+        else:
+            label_data['region'] = [0]  # N/A
+            print(f"    Region: Missing -> [0] (N/A)")
+        
+        # Shape
+        if 'shape' in case_data and label_idx < len(case_data['shape']):
+            shape_answer = case_data['shape'][label_idx]
+            if (shape_answer is None or 
+                str(shape_answer).lower().strip() == 'n/a' or 
+                str(shape_answer).lower().strip() == 'nan' or
+                str(shape_answer).lower().strip() == 'true' or
+                str(shape_answer).lower().strip() == 'false'):
+                label_data['shape'] = 0  # N/A
+                print(f"    Shape: '{shape_answer}' -> 0 (N/A)")
+            else:
+                shape_clean = str(shape_answer).lower().strip()
+                if shape_clean in shape_mapping:
+                    label_data['shape'] = shape_mapping[shape_clean]
+                    print(f"    Shape: '{shape_answer}' -> {label_data['shape']} ({shape_categories[label_data['shape']]})")
+                else:
+                    # If it's not a recognized shape category, treat as N/A
+                    print(f"    WARNING: Unknown shape value '{shape_answer}', treating as N/A")
+                    label_data['shape'] = 0  # N/A
+        else:
+            label_data['shape'] = 0  # N/A
+            print("    Shape: Missing -> 0 (N/A)")
+        
+        # Spread pattern (satellite)
+        if 'spread out' in case_data and label_idx < len(case_data['spread out']):
+            spread_answer = case_data['spread out'][label_idx]
+            if (spread_answer is None or 
+                str(spread_answer).lower().strip() == 'n/a' or 
+                str(spread_answer).lower().strip() == 'nan' or
+                str(spread_answer).lower().strip() == 'true' or
+                str(spread_answer).lower().strip() == 'false'):
+                label_data['satellite'] = 0  # N/A
+                print(f"    Satellite: '{spread_answer}' -> 0 (N/A)")
+            else:
+                spread_clean = str(spread_answer).lower().strip()
+                if spread_clean in satellite_mapping:
+                    label_data['satellite'] = satellite_mapping[spread_clean]
+                    print(f"    Satellite: '{spread_answer}' -> {label_data['satellite']} ({satellite_categories[label_data['satellite']] if label_data['satellite'] < len(satellite_categories) else 'scattered lesions'})")
+                else:
+                    # If it's not a recognized satellite category, treat as N/A
+                    print(f"    WARNING: Unknown satellite pattern '{spread_answer}', treating as N/A")
+                    label_data['satellite'] = 0  # N/A
+        else:
+            label_data['satellite'] = 0  # N/A
+            print("    Satellite: Missing -> 0 (N/A)")
+        
+        gt_entry["labels"][label_name] = label_data
     
-    # Save the converted data
-    with open(output_file, 'w') as f:
-        json.dump(groundtruth_format, f, indent=4)
-    
-    print(f"Converted {len(groundtruth_format)} clinical annotations to groundtruth format")
-    print(f"Saved to: {output_file}")
-    
-    return groundtruth_format
+    return gt_entry
 
 def process_clinical_annotations(input_file, dataset_type, processing_mode='auto'):
     """Process clinical annotations and convert directly to groundtruth format"""
