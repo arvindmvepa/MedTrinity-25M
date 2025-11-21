@@ -33,7 +33,7 @@ def find_met_start_index(predictions):
             return i
     return None
 
-def convert_logits_to_labels(predictions, dataset_type='gli'):
+def convert_logits_to_labels(predictions, dataset_type='gli', ordering='labels_first'):
     """
     Convert a list of prediction dictionaries with logits to ground truth format.
     
@@ -41,11 +41,16 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
     For MET/GOAT: Each volume has 12 questions (3 labels x 4 question types)
     For GLI_MET: Each volume has 24 questions (12 from GLI without Resection Cavity + 12 from MET)
     
-    Questions are in order:
-    - N area questions (one per label type)
-    - N region questions (one per label type)
-    - N shape questions (one per label type)
-    - N satellite questions (one per label type)
+    Args:
+        predictions: List of prediction dictionaries
+        dataset_type: Type of dataset ('gli', 'met', 'goat', 'gli_met')
+        ordering: Question ordering pattern
+            - 'labels_first': area_l1, area_l2, ..., region_l1, region_l2, ...
+            - 'tasks_first': area_l1, region_l1, shape_l1, satellite_l1, area_l2, ...
+    
+    Questions ordering patterns:
+    Labels first: N area questions (one per label), N region questions, N shape, N satellite
+    Tasks first: 4 questions for label1, 4 questions for label2, etc.
     """
     
     if dataset_type == 'gli_met':
@@ -75,22 +80,35 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
             for label_idx, label_name in enumerate(label_order):
                 volume_entry["labels"][label_name] = {}
                 
-                # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
-                if vol_predictions[label_idx].get('area_logits'):
-                    area_label = int(np.argmax(vol_predictions[label_idx]['area_logits']))
+                if ordering == 'labels_first':
+                    # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
+                    area_idx = label_idx
+                    region_idx = 3 + label_idx
+                    shape_idx = 6 + label_idx
+                    satellite_idx = 9 + label_idx
+                else:  # tasks_first
+                    # Each label has 4 consecutive questions: area, region, shape, satellite
+                    base_idx = label_idx * 4
+                    area_idx = base_idx + 0
+                    region_idx = base_idx + 1
+                    shape_idx = base_idx + 2
+                    satellite_idx = base_idx + 3
+                
+                if vol_predictions[area_idx].get('area_logits'):
+                    area_label = int(np.argmax(vol_predictions[area_idx]['area_logits']))
                     volume_entry["labels"][label_name]["area"] = area_label
                 
-                if vol_predictions[3 + label_idx].get('region_logits'):
-                    region_logits = vol_predictions[3 + label_idx]['region_logits']
+                if vol_predictions[region_idx].get('region_logits'):
+                    region_logits = vol_predictions[region_idx]['region_logits']
                     region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
                     volume_entry["labels"][label_name]["region"] = region_labels
                 
-                if vol_predictions[6 + label_idx].get('shape_logits'):
-                    shape_label = int(np.argmax(vol_predictions[6 + label_idx]['shape_logits']))
+                if vol_predictions[shape_idx].get('shape_logits'):
+                    shape_label = int(np.argmax(vol_predictions[shape_idx]['shape_logits']))
                     volume_entry["labels"][label_name]["shape"] = shape_label
                 
-                if vol_predictions[9 + label_idx].get('satellite_logits'):
-                    satellite_label = int(np.argmax(vol_predictions[9 + label_idx]['satellite_logits']))
+                if vol_predictions[satellite_idx].get('satellite_logits'):
+                    satellite_label = int(np.argmax(vol_predictions[satellite_idx]['satellite_logits']))
                     volume_entry["labels"][label_name]["satellite"] = satellite_label
             
             converted_data.append(volume_entry)
@@ -107,22 +125,35 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
             for label_idx, label_name in enumerate(label_order):
                 volume_entry["labels"][label_name] = {}
                 
-                # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
-                if vol_predictions[label_idx].get('area_logits'):
-                    area_label = int(np.argmax(vol_predictions[label_idx]['area_logits']))
+                if ordering == 'labels_first':
+                    # Area (0-2), Region (3-5), Shape (6-8), Satellite (9-11)
+                    area_idx = label_idx
+                    region_idx = 3 + label_idx
+                    shape_idx = 6 + label_idx
+                    satellite_idx = 9 + label_idx
+                else:  # tasks_first
+                    # Each label has 4 consecutive questions: area, region, shape, satellite
+                    base_idx = label_idx * 4
+                    area_idx = base_idx + 0
+                    region_idx = base_idx + 1
+                    shape_idx = base_idx + 2
+                    satellite_idx = base_idx + 3
+                
+                if vol_predictions[area_idx].get('area_logits'):
+                    area_label = int(np.argmax(vol_predictions[area_idx]['area_logits']))
                     volume_entry["labels"][label_name]["area"] = area_label
                 
-                if vol_predictions[3 + label_idx].get('region_logits'):
-                    region_logits = vol_predictions[3 + label_idx]['region_logits']
+                if vol_predictions[region_idx].get('region_logits'):
+                    region_logits = vol_predictions[region_idx]['region_logits']
                     region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
                     volume_entry["labels"][label_name]["region"] = region_labels
                 
-                if vol_predictions[6 + label_idx].get('shape_logits'):
-                    shape_label = int(np.argmax(vol_predictions[6 + label_idx]['shape_logits']))
+                if vol_predictions[shape_idx].get('shape_logits'):
+                    shape_label = int(np.argmax(vol_predictions[shape_idx]['shape_logits']))
                     volume_entry["labels"][label_name]["shape"] = shape_label
                 
-                if vol_predictions[9 + label_idx].get('satellite_logits'):
-                    satellite_label = int(np.argmax(vol_predictions[9 + label_idx]['satellite_logits']))
+                if vol_predictions[satellite_idx].get('satellite_logits'):
+                    satellite_label = int(np.argmax(vol_predictions[satellite_idx]['satellite_logits']))
                     volume_entry["labels"][label_name]["satellite"] = satellite_label
             
             converted_data.append(volume_entry)
@@ -163,30 +194,44 @@ def convert_logits_to_labels(predictions, dataset_type='gli'):
         for label_idx, label_name in enumerate(label_order):
             volume_entry["labels"][label_name] = {}
             
-            # Area question (questions 0 to num_labels-1)
-            area_pred = vol_predictions[label_idx]
+            if ordering == 'labels_first':
+                # Labels first: area_l1, area_l2, ..., region_l1, region_l2, ...
+                area_idx = label_idx
+                region_idx = num_labels + label_idx
+                shape_idx = 2 * num_labels + label_idx
+                satellite_idx = 3 * num_labels + label_idx
+            else:  # tasks_first
+                # Tasks first: area_l1, region_l1, shape_l1, satellite_l1, area_l2, ...
+                base_idx = label_idx * 4
+                area_idx = base_idx + 0
+                region_idx = base_idx + 1
+                shape_idx = base_idx + 2
+                satellite_idx = base_idx + 3
+            
+            # Area question
+            area_pred = vol_predictions[area_idx]
             area_logits = area_pred.get('area_logits', [])
             if area_logits:
                 area_label = int(np.argmax(area_logits))
                 volume_entry["labels"][label_name]["area"] = area_label
             
-            # Region question (questions num_labels to 2*num_labels-1)
-            region_pred = vol_predictions[num_labels + label_idx]
+            # Region question
+            region_pred = vol_predictions[region_idx]
             region_logits = region_pred.get('region_logits', [])
             if region_logits:
                 # Get all indices where logits > 0
                 region_labels = [i for i, logit in enumerate(region_logits) if logit > 0]
                 volume_entry["labels"][label_name]["region"] = region_labels
             
-            # Shape question (questions 2*num_labels to 3*num_labels-1)
-            shape_pred = vol_predictions[2 * num_labels + label_idx]
+            # Shape question
+            shape_pred = vol_predictions[shape_idx]
             shape_logits = shape_pred.get('shape_logits', [])
             if shape_logits:
                 shape_label = int(np.argmax(shape_logits))
                 volume_entry["labels"][label_name]["shape"] = shape_label
             
-            # Satellite question (questions 3*num_labels to 4*num_labels-1)
-            satellite_pred = vol_predictions[3 * num_labels + label_idx]
+            # Satellite question
+            satellite_pred = vol_predictions[satellite_idx]
             satellite_logits = satellite_pred.get('satellite_logits', [])
             if satellite_logits:
                 satellite_label = int(np.argmax(satellite_logits))
@@ -203,6 +248,8 @@ def main():
                        help='Dataset type: gli, met, goat, or gli_met')
     parser.add_argument('input_file', help='Input JSON file with predictions and logits')
     parser.add_argument('output_file', help='Output JSON file in ground truth format')
+    parser.add_argument('--ordering', choices=['labels_first', 'tasks_first'], default='labels_first',
+                       help='Question ordering pattern: labels_first (default) or tasks_first')
     args = parser.parse_args()
     
     dataset_type = args.dataset_type
@@ -217,8 +264,9 @@ def main():
     
     print(f"Converting {len(predictions)} predictions for {dataset_type} dataset...")
     print(f"Expected volumes: {expected_volumes}")
+    print(f"Question ordering: {args.ordering}")
     
-    converted_data = convert_logits_to_labels(predictions, dataset_type)
+    converted_data = convert_logits_to_labels(predictions, dataset_type, args.ordering)
     
     print(f"Saving converted data to {args.output_file}...")
     with open(args.output_file, 'w') as f:
