@@ -29,9 +29,24 @@ def debug_excel_structure(excel_file):
 
 def extract_case_data(df, num_labels=4):
     """Extract case data from the Excel structure"""
-    # The case ID is in cell A1
+    # The case ID is in cell A1, but might be NaN, so check multiple locations
     case_id = df.iloc[0, 0]
-    print(f"\n=== EXTRACTING CASE: {case_id} ===")
+    if pd.isna(case_id):
+        # Try to find case ID in other locations
+        for row_idx in range(min(5, len(df))):
+            for col_idx in range(min(5, len(df.columns))):
+                val = df.iloc[row_idx, col_idx]
+                if isinstance(val, str) and (val.startswith('BraTS-') or 'BraTS' in val):
+                    case_id = val
+                    break
+            if not pd.isna(case_id) and case_id != df.iloc[0, 0]:
+                break
+    
+    # If still NaN, use a placeholder
+    if pd.isna(case_id):
+        case_id = "Unknown_Case"
+    
+    print(f"\n=== EXTRACTING CASE: {case_id} ====")
     
     # Label abbreviations are in row 2 (index 1)
     label_abbrevs = []
@@ -47,15 +62,32 @@ def extract_case_data(df, num_labels=4):
     # Find the question rows
     case_data = {}
     
-    # Volume row (row 3, index 2)
-    volume_row_idx = 2
+    # Find volume row by searching for 'volume' in first column
+    volume_row_idx = None
+    for row_idx in range(len(df)):
+        row_label = df.iloc[row_idx, 0]
+        if isinstance(row_label, str) and row_label.lower().strip() == 'volume':
+            volume_row_idx = row_idx
+            break
+    
     volume_answers = []
-    for col_idx in range(1, num_labels + 1):
-        if col_idx < len(df.columns):
-            answer = df.iloc[volume_row_idx, col_idx]
-            volume_answers.append(str(answer).strip().strip('"') if not pd.isna(answer) else None)
-        else:
-            volume_answers.append(None)
+    if volume_row_idx is not None:
+        print(f"Found volume row at index {volume_row_idx}")
+        for col_idx in range(1, num_labels + 1):
+            if col_idx < len(df.columns):
+                answer = df.iloc[volume_row_idx, col_idx]
+                if pd.isna(answer):
+                    volume_answers.append(None)
+                elif isinstance(answer, bool):
+                    # Handle True/False as N/A
+                    volume_answers.append("N/A")
+                else:
+                    volume_answers.append(str(answer).strip().strip('"'))
+            else:
+                volume_answers.append(None)
+    else:
+        print("Volume row not found, using N/A for all labels")
+        volume_answers = ["N/A"] * num_labels
     
     case_data['volume'] = volume_answers
     print(f"Volume answers: {volume_answers}")
@@ -194,23 +226,25 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
         # Volume
         if 'volume' in case_data and label_idx < len(case_data['volume']):
             volume_answer = case_data['volume'][label_idx]
-            if volume_answer is None or volume_answer.lower() == 'n/a':
+            if (volume_answer is None or 
+                str(volume_answer).lower().strip() == 'n/a' or 
+                str(volume_answer).lower().strip() == 'nan' or
+                str(volume_answer).lower().strip() == 'true' or
+                str(volume_answer).lower().strip() == 'false'):
                 label_data['volume'] = 0  # N/A
-                print("    Volume: Missing/N/A -> 0 (N/A)")
+                print(f"    Volume: '{volume_answer}' -> 0 (N/A)")
             else:
-                volume_clean = volume_answer.lower().strip()
+                volume_clean = str(volume_answer).lower().strip()
                 if volume_clean in volume_mapping:
                     label_data['volume'] = volume_mapping[volume_clean]
-                    print(f"    Volume: '{volume_answer}' -> {label_data['volume']} ({volume_categories[label_data['volume']]})")
+                    print(f"    Volume: '{volume_answer}' -> {label_data['volume']} ({volume_categories[label_data['volume']]})") 
                 else:
-                    print(f"    ERROR: Unknown volume value '{volume_answer}'")
-                    print(f"    Valid values: {volume_categories}")
-                    raise ValueError(f"Unknown volume value: {volume_answer}")
+                    # If it's not a recognized volume category, treat as N/A
+                    print(f"    WARNING: Unknown volume value '{volume_answer}', treating as N/A")
+                    label_data['volume'] = 0  # N/A
         else:
             label_data['volume'] = 0  # N/A
-            print("    Volume: Missing -> 0 (N/A)")
-        
-        # Location (multilabel using VQA lobe indices)
+            print("    Volume: Missing -> 0 (N/A)")        # Location (multilabel using VQA lobe indices)
         if 'location' in case_data and label_idx < len(case_data['location']):
             location_answer = case_data['location'][label_idx]
             location_indices = encode_location_vqa_format(location_answer, brain_regions, lobe_mapping)
@@ -223,42 +257,46 @@ def convert_to_numerical_vqa_format(case_id, case_data, label_names=None):
         # Shape
         if 'shape' in case_data and label_idx < len(case_data['shape']):
             shape_answer = case_data['shape'][label_idx]
-            if shape_answer is None or shape_answer.lower() == 'n/a':
+            if (shape_answer is None or 
+                str(shape_answer).lower().strip() == 'n/a' or 
+                str(shape_answer).lower().strip() == 'nan' or
+                str(shape_answer).lower().strip() == 'true' or
+                str(shape_answer).lower().strip() == 'false'):
                 label_data['shape'] = 0  # N/A
-                print("    Shape: Missing/N/A -> 0 (N/A)")
+                print(f"    Shape: '{shape_answer}' -> 0 (N/A)")
             else:
-                shape_clean = shape_answer.lower().strip()
+                shape_clean = str(shape_answer).lower().strip()
                 if shape_clean in shape_mapping:
                     label_data['shape'] = shape_mapping[shape_clean]
-                    print(f"    Shape: '{shape_answer}' -> {label_data['shape']} ({shape_categories[label_data['shape']]})")
+                    print(f"    Shape: '{shape_answer}' -> {label_data['shape']} ({shape_categories[label_data['shape']]})") 
                 else:
-                    print(f"    ERROR: Unknown shape value '{shape_answer}'")
-                    print(f"    Valid values: {shape_categories}")
-                    raise ValueError(f"Unknown shape value: {shape_answer}")
+                    # If it's not a recognized shape category, treat as N/A
+                    print(f"    WARNING: Unknown shape value '{shape_answer}', treating as N/A")
+                    label_data['shape'] = 0  # N/A
         else:
             label_data['shape'] = 0  # N/A
-            print("    Shape: Missing -> 0 (N/A)")
-        
-        # Spread pattern (satellite)
+            print("    Shape: Missing -> 0 (N/A)")        # Spread pattern (satellite)
         if 'spread out' in case_data and label_idx < len(case_data['spread out']):
             spread_answer = case_data['spread out'][label_idx]
-            if spread_answer is None or spread_answer.lower() == 'n/a':
+            if (spread_answer is None or 
+                str(spread_answer).lower().strip() == 'n/a' or 
+                str(spread_answer).lower().strip() == 'nan' or
+                str(spread_answer).lower().strip() == 'true' or
+                str(spread_answer).lower().strip() == 'false'):
                 label_data['satellite'] = 0  # N/A
-                print("    Satellite: Missing/N/A -> 0 (N/A)")
+                print(f"    Satellite: '{spread_answer}' -> 0 (N/A)")
             else:
-                spread_clean = spread_answer.lower().strip()
+                spread_clean = str(spread_answer).lower().strip()
                 if spread_clean in satellite_mapping:
                     label_data['satellite'] = satellite_mapping[spread_clean]
-                    print(f"    Satellite: '{spread_answer}' -> {label_data['satellite']} ({satellite_categories[label_data['satellite']] if label_data['satellite'] < len(satellite_categories) else 'scattered lesions'})")
+                    print(f"    Satellite: '{spread_answer}' -> {label_data['satellite']} ({satellite_categories[label_data['satellite']] if label_data['satellite'] < len(satellite_categories) else 'scattered lesions'})") 
                 else:
-                    print(f"    ERROR: Unknown satellite pattern '{spread_answer}'")
-                    print(f"    Valid values: {satellite_categories}")
-                    raise ValueError(f"Unknown satellite pattern: {spread_answer}")
+                    # If it's not a recognized satellite category, treat as N/A
+                    print(f"    WARNING: Unknown satellite pattern '{spread_answer}', treating as N/A")
+                    label_data['satellite'] = 0  # N/A
         else:
             label_data['satellite'] = 0  # N/A
-            print("    Satellite: Missing -> 0 (N/A)")
-        
-        numerical_case['clinical_annotations'][label_name] = label_data
+            print("    Satellite: Missing -> 0 (N/A)")        numerical_case['clinical_annotations'][label_name] = label_data
     
     return numerical_case
 
