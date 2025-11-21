@@ -240,6 +240,10 @@ def compute_kappa_metrics(task_data):
     multiclass_kappas = []
     multiclass_accuracies = []
     
+    # Collect all multi-class data for overall calculation
+    all_multiclass_annotator1 = []
+    all_multiclass_annotator2 = []
+    
     for task in ['area', 'shape', 'satellite']:
         if len(task_data[task]['annotator1']) > 0:
             annotator1_labels = np.array(task_data[task]['annotator1'])
@@ -249,6 +253,10 @@ def compute_kappa_metrics(task_data):
             accuracy = np.mean(annotator1_labels == annotator2_labels)
             multiclass_kappas.append(kappa)
             multiclass_accuracies.append(accuracy)
+            
+            # Add to overall pooled data
+            all_multiclass_annotator1.extend(annotator1_labels)
+            all_multiclass_annotator2.extend(annotator2_labels)
             
             results[task] = {
                 'kappa': kappa,
@@ -261,6 +269,22 @@ def compute_kappa_metrics(task_data):
         else:
             print(f"{task.upper():12} No data available")
             results[task] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
+    
+    # Calculate pooled overall multi-class kappa
+    if all_multiclass_annotator1:
+        overall_multiclass_kappa = cohen_kappa_score(all_multiclass_annotator1, all_multiclass_annotator2)
+        overall_multiclass_accuracy = np.mean(np.array(all_multiclass_annotator1) == np.array(all_multiclass_annotator2))
+        print(f"{'OVERALL':12} κ = {overall_multiclass_kappa:.4f} ({interpret_kappa(overall_multiclass_kappa):15}) acc = {overall_multiclass_accuracy:.4f} n = {len(all_multiclass_annotator1):3}")
+        
+        results['multiclass_overall'] = {
+            'kappa': overall_multiclass_kappa,
+            'accuracy': overall_multiclass_accuracy,
+            'n_samples': len(all_multiclass_annotator1),
+            'interpretation': interpret_kappa(overall_multiclass_kappa)
+        }
+    else:
+        print(f"{'OVERALL':12} No data available")
+        results['multiclass_overall'] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
     # Multi-label region task - binary kappa for each region
     print(f"\nMULTI-LABEL REGION BINARY KAPPA SCORES:")
@@ -304,8 +328,8 @@ def compute_kappa_metrics(task_data):
             print(f"{region:15} No data available")
             region_results[region] = {'kappa': None, 'accuracy': None, 'n_samples': 0, 'interpretation': 'No data'}
     
-    # Average kappas
-    print(f"\nAVERAGE KAPPA SCORES:")
+    # Average and pooled kappas
+    print(f"\nSUMMARY KAPPA SCORES:")
     print("-" * 40)
     
     valid_multiclass_kappas = [k for k in multiclass_kappas if k is not None]
@@ -321,6 +345,16 @@ def compute_kappa_metrics(task_data):
         avg_multiclass_kappa = None
         avg_multiclass_accuracy = None
         print("Average Multi-class κ = No data available")
+    
+    # Show pooled overall multi-class kappa
+    if results['multiclass_overall']['kappa'] is not None:
+        pooled_kappa = results['multiclass_overall']['kappa']
+        pooled_accuracy = results['multiclass_overall']['accuracy']
+        print(f"Pooled Multi-class κ  = {pooled_kappa:.4f} ({interpret_kappa(pooled_kappa)}) acc = {pooled_accuracy:.4f}")
+    else:
+        pooled_kappa = None
+        pooled_accuracy = None
+        print("Pooled Multi-class κ  = No data available")
     
     if valid_region_kappas:
         avg_region_kappa = np.mean(valid_region_kappas)
@@ -346,6 +380,8 @@ def compute_kappa_metrics(task_data):
     results['summary'] = {
         'avg_multiclass_kappa': avg_multiclass_kappa,
         'avg_multiclass_accuracy': avg_multiclass_accuracy,
+        'pooled_multiclass_kappa': pooled_kappa,
+        'pooled_multiclass_accuracy': pooled_accuracy,
         'avg_region_kappa': avg_region_kappa,
         'avg_region_accuracy': avg_region_accuracy,
         'overall_avg_kappa': overall_avg_kappa,
