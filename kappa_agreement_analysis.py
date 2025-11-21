@@ -59,13 +59,11 @@ def cohen_kappa_score(y_true, y_pred):
     kappa = (p_o - p_e) / (1 - p_e)
     return kappa
 
-def load_data(dataset_type, prediction_file):
+def load_data(annotation_file, prediction_file):
     """Load ground truth and prediction data"""
-    # Load clinical data based on dataset type
-    clinical_file = f'clinical_annotations_{dataset_type}_groundtruth_format.json'
     
-    print(f"Loading clinical data from: {clinical_file}")
-    with open(clinical_file, 'r') as f:
+    print(f"Loading clinical data from: {annotation_file}")
+    with open(annotation_file, 'r') as f:
         clinical_data = json.load(f)
     
     print(f"Loading prediction data from: {prediction_file}")
@@ -724,6 +722,7 @@ def main():
     parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa agreement metrics')
     parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
                        help='Dataset type: gli, met, or goat')
+    parser.add_argument('annotation_file', help='Path to clinical annotation JSON file (ground truth)')
     parser.add_argument('prediction_file', help='Path to prediction JSON file')
     parser.add_argument('output_file', help='Path to output kappa analysis JSON file')
     
@@ -731,12 +730,13 @@ def main():
     dataset_type = args.dataset_type
     
     print(f"Dataset: {dataset_type}")
+    print(f"Annotation file: {args.annotation_file}")
     print(f"Prediction file: {args.prediction_file}")
     print(f"Output file: {args.output_file}")
     
     try:
         print("Loading data for kappa analysis...")
-        clinical_data, prediction_data = load_data(args.dataset_type, args.prediction_file)
+        clinical_data, prediction_data = load_data(args.annotation_file, args.prediction_file)
         
         print("Collecting aligned task data...")
         task_data, per_label_data = collect_task_data(clinical_data, prediction_data, args.dataset_type)
