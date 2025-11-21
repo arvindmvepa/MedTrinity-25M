@@ -75,11 +75,11 @@ def combine_datasets(gli_file, met_file, output_file):
     
     # Show sample entries
     print(f"\nSample entries:")
-    print(f"First GLI entry (ID {combined_data[0]['id']}): {Path(combined_data[0]['seg_file']).parent.name}")
+    print(f"First GLI entry (ID {combined_data[0][id_string]}): {Path(combined_data[0]['seg_file']).parent.name}")
     if gli_count < total_count:
         first_met_idx = gli_count
-        print(f"First MET entry (ID {combined_data[first_met_idx]['id']}): {Path(combined_data[first_met_idx]['seg_file']).parent.name}")
-    print(f"Last entry (ID {combined_data[-1]['id']}): {Path(combined_data[-1]['seg_file']).parent.name}")
+        print(f"First MET entry (ID {combined_data[first_met_idx][id_string]}): {Path(combined_data[first_met_idx]['seg_file']).parent.name}")
+    print(f"Last entry (ID {combined_data[-1][id_string]}): {Path(combined_data[-1]['seg_file']).parent.name}")
 
 def main():
     parser = argparse.ArgumentParser(description='Combine GLI and MET datasets')
