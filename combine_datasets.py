@@ -69,18 +69,17 @@ def combine_datasets(gli_file, met_file, output_file):
     total_count = len(combined_data)
     
     print(f"\nDataset statistics:")
-    print(f"  GLI volumes: {gli_count} ({gli_count/total_count*100:.1f}%)")
-    print(f"  MET volumes: {met_count} ({met_count/total_count*100:.1f}%)")
+    print(f"  GLI questions: {gli_count} ({gli_count/total_count*100:.1f}%)")
+    print(f"  MET questions: {met_count} ({met_count/total_count*100:.1f}%)")
     print(f"  Total volumes: {total_count}")
     
     # Show sample entries
     print(f"\nSample entries:")
-    print(f"First GLI entry (ID {combined_data[0][id_string]}): {Path(combined_data[0]['seg_file']).parent.name}")
+    print(f"First GLI entry (ID {combined_data[0][id_string]}): {Path(combined_data[0].get('seg_file', combined_data[0].get('volume_seg_file')))}")
     if gli_count < total_count:
         first_met_idx = gli_count
-        print(f"First MET entry (ID {combined_data[first_met_idx][id_string]}): {Path(combined_data[first_met_idx]['seg_file']).parent.name}")
-    print(f"Last entry (ID {combined_data[-1][id_string]}): {Path(combined_data[-1]['seg_file']).parent.name}")
-
+        print(f"First MET entry (ID {combined_data[first_met_idx][id_string]}): {Path(combined_data[first_met_idx].get('seg_file', combined_data[first_met_idx].get('volume_seg_file')))}")
+    print(f"Last entry (ID {combined_data[-1][id_string]}): {Path(combined_data[-1].get('seg_file', combined_data[-1].get('volume_seg_file')))}")
 def main():
     parser = argparse.ArgumentParser(description='Combine GLI and MET datasets')
     parser.add_argument('--gli_file', 
