@@ -8,7 +8,7 @@ import json
 import argparse
 from pathlib import Path
 
-def combine_datasets(gli_file, met_file, output_file):
+def combine_datasets(gli_file, met_file, output_file, filter_resection_cavity=True):
     """
     Combine GLI and MET auxiliary datasets into a single dataset.
     
@@ -16,6 +16,7 @@ def combine_datasets(gli_file, met_file, output_file):
         gli_file: Path to GLI dataset JSON file
         met_file: Path to MET dataset JSON file  
         output_file: Path to output combined dataset JSON file
+        filter_resection_cavity: If True, exclude GLI questions with 'Resection Cavity' label_name
     """
     
     print(f"Loading GLI data from: {gli_file}")
@@ -28,6 +29,15 @@ def combine_datasets(gli_file, met_file, output_file):
     
     print(f"GLI data: {len(gli_data)} volumes")
     print(f"MET data: {len(met_data)} volumes")
+    
+    # Filter out Resection Cavity questions from GLI data if requested
+    if filter_resection_cavity:
+        original_gli_count = len(gli_data)
+        gli_data = [entry for entry in gli_data if entry.get('label_name') != 'Resection Cavity']
+        filtered_count = original_gli_count - len(gli_data)
+        if filtered_count > 0:
+            print(f"Filtered out {filtered_count} Resection Cavity questions from GLI data")
+            print(f"GLI data after filtering: {len(gli_data)} volumes")
     
     # Combine the datasets
     combined_data = []
@@ -96,6 +106,8 @@ def main():
                        help='Version string for output file')
     parser.add_argument('--seed', type=int, default=0,
                        help='Seed number for file naming')
+    parser.add_argument('--no_filter_resection_cavity', action='store_true', default=False,
+                       help='Keep Resection Cavity questions from GLI data (by default they are filtered out)')
     
     args = parser.parse_args()
     
@@ -103,6 +115,7 @@ def main():
     print(f"  GLI file: {args.gli_file}")
     print(f"  MET file: {args.met_file}")
     print(f"  Output file: {args.output_file}")
+    print(f"  Filter Resection Cavity: {not args.no_filter_resection_cavity}")
     
     # Check if input files exist
     if not Path(args.gli_file).exists():
@@ -113,7 +126,7 @@ def main():
         print(f"Error: MET file not found: {args.met_file}")
         return
     
-    combine_datasets(args.gli_file, args.met_file, args.output_file)
+    combine_datasets(args.gli_file, args.met_file, args.output_file, not args.no_filter_resection_cavity)
 
 if __name__ == "__main__":
     main()
