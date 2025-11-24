@@ -211,7 +211,8 @@ if __name__ == "__main__":
     #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
     #label_txt = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
-
+    
+    """
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
 
     summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
@@ -225,9 +226,10 @@ if __name__ == "__main__":
                   f"({info_['percent']:5.2f}%)")
         print("Regions:", get_region_str(info["regions"]))
     """
-    seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
-    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
-    atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
+
+    seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET*/BraTS-MET*seg.nii.gz"))
+    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
+    atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
     for seg_path in tqdm(seg_paths):
         summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
         for tumor_label, info in summ.items():
@@ -239,4 +241,4 @@ if __name__ == "__main__":
     print("\n\nSummary of atlas overlap percentages (%):")
     for tumor_label, overlaps in atlas_overlap.items():
         print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}, #samples: {len(overlaps)}")
-    """
+
