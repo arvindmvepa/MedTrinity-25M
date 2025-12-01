@@ -131,36 +131,51 @@ def extract_v2_location_data(df, num_labels, start_row=0):
     brain_regions = ["frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
     location_data = {region: [] for region in brain_regions}
     
-    # Scan through rows to find brain regions (starting from start_row for multi-case)
-    search_range = range(start_row, min(start_row + 50, len(df))) if start_row > 0 else range(len(df))
+    print(f"Processing brain regions sequentially from row {start_row}...")
     
-    for row_idx in search_range:
-        row_label = df.iloc[row_idx, 0]
-        if isinstance(row_label, str):
-            row_label_clean = row_label.strip().strip('"').lower()
-            if row_label_clean in brain_regions:
-                print(f"Found brain region '{row_label_clean}' at row {row_idx}")
-                
-                # Extract TRUE/FALSE values for each label
-                region_values = []
-                for col_idx in range(1, num_labels + 1):
-                    if col_idx < len(df.columns):
-                        val = df.iloc[row_idx, col_idx]
-                        is_present = (val is True or (isinstance(val, str) and val.upper() == 'TRUE') or val == 1)
-                        region_values.append(is_present)
-                        print(f"  Column {col_idx} (label {col_idx-1}): {val} -> {is_present}")
-                    else:
-                        region_values.append(False)
-                
-                location_data[row_label_clean] = region_values
-                print(f"  {row_label_clean}: {region_values}")
+    # Process brain regions in order, starting from start_row
+    current_row = start_row
+    max_row = min(start_row + 50, len(df)) if start_row > 0 else len(df)
     
+    # Process each brain region in the expected order
+    for region in brain_regions:
+        found_region = False
+        # Look for this specific region starting from current_row
+        for row_idx in range(current_row, max_row):
+            row_label = df.iloc[row_idx, 0]
+            if isinstance(row_label, str):
+                row_label_clean = row_label.strip().strip('"').lower()
+                if row_label_clean == region:
+                    print(f"Found brain region '{region}' at row {row_idx}")
+                    
+                    # Extract TRUE/FALSE values for each label
+                    region_values = []
+                    for col_idx in range(1, num_labels + 1):
+                        if col_idx < len(df.columns):
+                            val = df.iloc[row_idx, col_idx]
+                            is_present = (val is True or (isinstance(val, str) and val.upper() == 'TRUE') or val == 1)
+                            region_values.append(is_present)
+                        else:
+                            region_values.append(False)
+                    
+                    location_data[region] = region_values
+                    print(f"  {region} values: {region_values}")
+                    current_row = row_idx + 1  # Start next search from next row
+                    found_region = True
+                    break
+        
+        if not found_region:
+            print(f"Brain region '{region}' not found, setting all values to False")
+            location_data[region] = [False] * num_labels
+    
+    print("Converting to per-label format...")
     # Convert to per-label format - for each label, collect which regions are TRUE
     location_answers = []
     for label_idx in range(num_labels):
         present_regions = []
-        for region, values in location_data.items():
-            if label_idx < len(values) and values[label_idx]:
+        for region in brain_regions:  # Use brain_regions list to maintain order
+            values = location_data[region]
+            if values and label_idx < len(values) and values[label_idx]:
                 present_regions.append(region)
         
         if present_regions:
@@ -168,7 +183,7 @@ def extract_v2_location_data(df, num_labels, start_row=0):
         else:
             location_answers.append("N/A")
         
-        print(f"Label {label_idx}: {present_regions} -> '{location_answers[label_idx]}'")
+        print(f"  Label {label_idx} regions: {present_regions} -> '{location_answers[label_idx]}'")
     
     return location_answers
 
