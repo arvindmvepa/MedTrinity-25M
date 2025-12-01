@@ -243,6 +243,7 @@ def collect_task_data(clinical_data, prediction_data):
                 true_regions = set(clinical_label['region'])
                 pred_regions = set([r - 1 for r in pred_label['region']])  # Convert predictions from 1-indexed to 0-indexed
                 
+                print(f"Case: {case_name}, Label: {clinical_label_type}, True regions: {true_regions}, Pred regions: {pred_regions}")
                 # For each region, create binary labels (agreement per region per case)
                 for i, region in enumerate(region_names):
                     true_binary = 1 if i in true_regions else 0
