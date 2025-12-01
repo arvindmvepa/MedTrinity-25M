@@ -59,16 +59,39 @@ def cohen_kappa_score(y_true, y_pred):
     kappa = (p_o - p_e) / (1 - p_e)
     return kappa
 
-def load_annotation_files(annotation_file1, annotation_file2):
-    """Load two annotation files"""
+def parse_file_specs(file_specs):
+    """Parse file specifications in format [dataset_type:]file_path"""
+    result = []
+    for spec in file_specs:
+        if ':' in spec:
+            dataset_type, file_path = spec.split(':', 1)
+        else:
+            dataset_type, file_path = 'gli', spec  # Default for backward compatibility
+        result.append((dataset_type, file_path))
+    return result
+
+def load_annotation_files(annotation_specs1, annotation_specs2):
+    """Load annotation files with dataset type specifications"""
     
-    print(f"Loading first annotation file: {annotation_file1}")
-    with open(annotation_file1, 'r') as f:
-        annotations1 = json.load(f)
+    annotations1, annotations2 = [], []
     
-    print(f"Loading second annotation file: {annotation_file2}")
-    with open(annotation_file2, 'r') as f:
-        annotations2 = json.load(f)
+    # Load annotator 1 files
+    for dataset_type, file_path in parse_file_specs(annotation_specs1):
+        print(f"Loading annotator 1 {dataset_type} file: {file_path}")
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for annotation in data:
+                annotation['dataset_type'] = dataset_type
+            annotations1.extend(data)
+    
+    # Load annotator 2 files  
+    for dataset_type, file_path in parse_file_specs(annotation_specs2):
+        print(f"Loading annotator 2 {dataset_type} file: {file_path}")
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for annotation in data:
+                annotation['dataset_type'] = dataset_type
+            annotations2.extend(data)
     
     return annotations1, annotations2
 
@@ -109,14 +132,22 @@ def get_category_mappings():
     }
 
 def detect_label_types(annotations):
-    """Detect label types from the annotation data"""
+    """Detect label types from the annotation data across all dataset types"""
     if not annotations:
         return []
     
-    # Get label types from first annotation
-    first_case = annotations[0]
-    label_types = list(first_case['labels'].keys())
+    # Collect all unique label types across all annotations
+    all_label_types = set()
+    dataset_types = set()
     
+    for annotation in annotations:
+        dataset_type = annotation.get('dataset_type', 'gli')
+        dataset_types.add(dataset_type)
+        if 'labels' in annotation:
+            all_label_types.update(annotation['labels'].keys())
+    
+    label_types = sorted(list(all_label_types))
+    print(f"Detected dataset types: {sorted(list(dataset_types))}")
     print(f"Detected label types: {label_types}")
     return label_types
 
@@ -638,15 +669,15 @@ def create_detailed_kappa_report(results, task_data):
         print(f"Best agreement: {best_region[0]} (κ = {best_region[1]['kappa']:.4f}, acc = {best_acc:.4f})")
         print(f"Worst agreement: {worst_region[0]} (κ = {worst_region[1]['kappa']:.4f}, acc = {worst_acc:.4f})")
 
-def save_kappa_results(results, label_results, output_file, annotation_file1, annotation_file2):
+def save_kappa_results(results, label_results, output_file, annotation_files1, annotation_files2):
     """Save kappa analysis results to JSON file"""
     
     # Prepare serializable results
     serializable_results = {
         'metadata': {
             'analysis_type': 'inter_annotator_agreement',
-            'annotation_file1': annotation_file1,
-            'annotation_file2': annotation_file2,
+            'annotation_files1': annotation_files1,
+            'annotation_files2': annotation_files2,
             'description': 'Inter-annotator agreement analysis using Cohen\'s kappa'
         },
         'overall_analysis': {
@@ -716,21 +747,23 @@ def main():
     """Main inter-annotator agreement analysis function"""
     
     parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa inter-annotator agreement metrics')
-    parser.add_argument('annotation_file1', help='Path to first annotation JSON file')
-    parser.add_argument('annotation_file2', help='Path to second annotation JSON file')
+    parser.add_argument('annotation_files1', nargs='+', 
+                       help='Annotation files for annotator 1. Single file or format: dataset_type:file_path')
+    parser.add_argument('annotation_files2', nargs='+',
+                       help='Annotation files for annotator 2. Single file or format: dataset_type:file_path')
     parser.add_argument('--output', '-o', 
                        help='Path to output kappa analysis JSON file (default: inter_annotator_agreement.json)',
                        default='inter_annotator_agreement.json')
     
     args = parser.parse_args()
     
-    print(f"First annotation file: {args.annotation_file1}")
-    print(f"Second annotation file: {args.annotation_file2}")
+    print(f"Annotator 1 files: {args.annotation_files1}")
+    print(f"Annotator 2 files: {args.annotation_files2}")
     print(f"Output file: {args.output}")
     
     try:
         print("Loading annotation files for inter-annotator agreement analysis...")
-        annotations1, annotations2 = load_annotation_files(args.annotation_file1, args.annotation_file2)
+        annotations1, annotations2 = load_annotation_files(args.annotation_files1, args.annotation_files2)
         
         print("Collecting aligned task data...")
         task_data, per_label_data, label_types = collect_task_data(annotations1, annotations2)
@@ -745,7 +778,7 @@ def main():
         create_detailed_kappa_report(results, task_data)
         
         # Save results
-        save_kappa_results(results, label_results, args.output, args.annotation_file1, args.annotation_file2)
+        save_kappa_results(results, label_results, args.output, args.annotation_files1, args.annotation_files2)
         
         print(f"\n" + "=" * 80)
         print("INTER-ANNOTATOR AGREEMENT ANALYSIS COMPLETE")

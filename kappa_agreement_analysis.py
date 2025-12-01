@@ -59,16 +59,50 @@ def cohen_kappa_score(y_true, y_pred):
     kappa = (p_o - p_e) / (1 - p_e)
     return kappa
 
-def load_data(annotation_file, prediction_file):
-    """Load ground truth and prediction data"""
+def parse_file_specs(file_specs):
+    """Parse file specifications in format [dataset_type:]file_path"""
+    result = []
+    for spec in file_specs:
+        if ':' in spec:
+            dataset_type, file_path = spec.split(':', 1)
+        else:
+            dataset_type, file_path = 'gli', spec  # Default for backward compatibility
+        result.append((dataset_type, file_path))
+    return result
+
+def get_prediction_label_name(clinical_label, dataset_type):
+    """Map clinical label names to prediction label names based on dataset type"""
+    if dataset_type == 'goat':
+        mapping = {
+            "Non-Enhancing Tumor": "Necrosis",
+            "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
+            "Enhancing Tissue": "Enhancing Tumor"
+        }
+        return mapping.get(clinical_label, clinical_label)
+    return clinical_label
+
+def load_data(annotation_specs, prediction_specs):
+    """Load ground truth and prediction data from multiple files"""
     
-    print(f"Loading clinical data from: {annotation_file}")
-    with open(annotation_file, 'r') as f:
-        clinical_data = json.load(f)
+    clinical_data, prediction_data = [], []
     
-    print(f"Loading prediction data from: {prediction_file}")
-    with open(prediction_file, 'r') as f:
-        prediction_data = json.load(f)
+    # Load clinical annotation files
+    for dataset_type, file_path in parse_file_specs(annotation_specs):
+        print(f"Loading clinical {dataset_type} data from: {file_path}")
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for annotation in data:
+                annotation['dataset_type'] = dataset_type
+            clinical_data.extend(data)
+    
+    # Load prediction files
+    for dataset_type, file_path in parse_file_specs(prediction_specs):
+        print(f"Loading prediction {dataset_type} data from: {file_path}")
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+            for prediction in data:
+                prediction['dataset_type'] = dataset_type
+            prediction_data.extend(data)
     
     return clinical_data, prediction_data
 
@@ -117,27 +151,20 @@ def get_label_types(dataset_type):
     else:  # GLI
         return ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue", "Resection Cavity"]
 
-def collect_task_data(clinical_data, prediction_data, dataset_type):
-    """Collect aligned data for all tasks"""
+def collect_task_data(clinical_data, prediction_data):
+    """Collect aligned data for all tasks across multiple dataset types"""
     
     case_map = create_case_mapping(prediction_data)
-    label_types = get_label_types(dataset_type)
     
-    # Create mapping between clinical and prediction label names for GoAT
-    label_mapping = {}
-    if dataset_type == 'goat':
-        label_mapping = {
-            "Non-Enhancing Tumor": "Necrosis",
-            "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
-            "Enhancing Tissue": "Enhancing Tumor"
-        }
-    else:
-        label_mapping = {
-            "Non-Enhancing Tumor": "Non-Enhancing Tumor",
-            "Surrounding Non-enhancing FLAIR hyperintensity": "Surrounding Non-enhancing FLAIR hyperintensity",
-            "Enhancing Tissue": "Enhancing Tissue",
-            "Resection Cavity": "Resection Cavity"
-        }
+    # Detect all unique label types
+    clinical_label_types = sorted(set(
+        label for case in clinical_data 
+        for label in case.get('labels', {}).keys()
+    ))
+    
+    dataset_types = sorted(set(case.get('dataset_type', 'gli') for case in clinical_data))
+    print(f"Detected dataset types: {dataset_types}")
+    print(f"Detected clinical label types: {clinical_label_types}")
 
     
     # Initialize data collectors - overall and per label
@@ -150,7 +177,6 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     
     # Initialize per-label data collectors using clinical label names
     per_label_data = {}
-    clinical_label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"] if dataset_type == 'goat' else label_types
     for label_type in clinical_label_types:
         per_label_data[label_type] = {
             'area': {'true': [], 'pred': []},
@@ -172,6 +198,7 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
     # Process each clinical case
     for clinical_case in clinical_data:
         case_name = clinical_case['mpMRI']
+        clinical_dataset_type = clinical_case.get('dataset_type', 'gli')
         
         if case_name not in case_map:
             unmatched_cases.append(case_name)
@@ -180,12 +207,20 @@ def collect_task_data(clinical_data, prediction_data, dataset_type):
         matched_cases += 1
         pred_case = case_map[case_name]
         
-        # Analyze each label type
-        for clinical_label_type in clinical_label_types:
-            # Map clinical label to prediction label for GoAT
-            pred_label_type = label_mapping[clinical_label_type]
-            assert clinical_label_type in clinical_case.get('labels', {}), f"Missing clinical label: {clinical_label_type}"
-            assert pred_label_type in pred_case.get('labels', {}), f"Missing prediction label: {pred_label_type}"
+        # Analyze each label type in this clinical case
+        for clinical_label_type in clinical_case.get('labels', {}).keys():
+            if clinical_label_type not in clinical_label_types:
+                continue
+                
+            # Map clinical label to prediction label based on dataset type
+            pred_label_type = get_prediction_label_name(clinical_label_type, clinical_dataset_type)
+            
+            if clinical_label_type not in clinical_case['labels']:
+                print(f"Warning: Missing clinical label '{clinical_label_type}' for case {case_name}")
+                continue
+            if pred_label_type not in pred_case.get('labels', {}):
+                print(f"Warning: Missing prediction label '{pred_label_type}' for case {case_name}")
+                continue
 
                 
             clinical_label = clinical_case['labels'][clinical_label_type]
@@ -439,14 +474,12 @@ def compute_kappa_metrics(task_data):
     
     return results
 
-def compute_per_label_kappa(per_label_data, dataset_type):
+def compute_per_label_kappa(per_label_data):
     """Compute Cohen's kappa for each label type separately"""
     
     label_results = {}
-    # Use clinical label names for consistency in output
-    clinical_label_types = ["Non-Enhancing Tumor", "Surrounding Non-enhancing FLAIR hyperintensity", "Enhancing Tissue"] if dataset_type == 'goat' else get_label_types(dataset_type)
-    if dataset_type not in ['met', 'goat']:  # GLI
-        clinical_label_types.append("Resection Cavity")
+    # Use all detected clinical label types
+    clinical_label_types = list(per_label_data.keys())
     
     print("\n" + "=" * 80)
     print("PER-LABEL KAPPA ANALYSIS")
@@ -720,32 +753,30 @@ def main():
     """Main kappa analysis function"""
     
     parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa agreement metrics')
-    parser.add_argument('dataset_type', choices=['gli', 'met', 'goat'], 
-                       help='Dataset type: gli, met, or goat')
-    parser.add_argument('annotation_file', help='Path to clinical annotation JSON file (ground truth)')
-    parser.add_argument('prediction_file', help='Path to prediction JSON file')
+    parser.add_argument('annotation_files', nargs='+',
+                       help='Clinical annotation files. Single file or format: dataset_type:file_path')
+    parser.add_argument('prediction_files', nargs='+',
+                       help='Prediction files. Single file or format: dataset_type:file_path')
     parser.add_argument('output_file', help='Path to output kappa analysis JSON file')
     
     args = parser.parse_args()
-    dataset_type = args.dataset_type
     
-    print(f"Dataset: {dataset_type}")
-    print(f"Annotation file: {args.annotation_file}")
-    print(f"Prediction file: {args.prediction_file}")
+    print(f"Annotation files: {args.annotation_files}")
+    print(f"Prediction files: {args.prediction_files}")
     print(f"Output file: {args.output_file}")
     
     try:
         print("Loading data for kappa analysis...")
-        clinical_data, prediction_data = load_data(args.annotation_file, args.prediction_file)
+        clinical_data, prediction_data = load_data(args.annotation_files, args.prediction_files)
         
         print("Collecting aligned task data...")
-        task_data, per_label_data = collect_task_data(clinical_data, prediction_data, args.dataset_type)
+        task_data, per_label_data = collect_task_data(clinical_data, prediction_data)
         
         print("Computing Cohen's kappa metrics...")
         results = compute_kappa_metrics(task_data)
         
         # Compute per-label kappa metrics
-        label_results = compute_per_label_kappa(per_label_data, args.dataset_type)
+        label_results = compute_per_label_kappa(per_label_data)
         
         # Generate detailed report
         create_detailed_kappa_report(results, task_data)
