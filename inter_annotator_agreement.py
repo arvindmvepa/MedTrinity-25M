@@ -125,10 +125,8 @@ def get_category_mappings():
             0: "N/A", 1: "single lesion", 2: "core with satellite lesions", 
             3: "scattered lesions"
         },
-        'region': [
-            "N/A", "subcortical", "frontal", "temporal", "parietal", 
-            "occipital", "limbic", "insula", "cerebellum"
-        ]
+        'region': ["N/A", "frontal", "parietal", "occipital", "temporal", 
+        "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
     }
 
 def detect_label_types(annotations):

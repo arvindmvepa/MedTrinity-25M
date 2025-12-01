@@ -338,7 +338,7 @@ def convert_to_groundtruth_format(case_id, case_data, label_names):
     satellite_mapping["scattered"] = satellite_mapping["scattered lesions"]  # Handle "scattered" as "scattered lesions"
     
     # Fixed brain region mapping to match VQA format
-    brain_regions = ["N/A", "subcortical", "frontal", "temporal", "parietal", "occipital", "limbic", "insula", "cerebellum"]
+    brain_regions = ["N/A", "frontal", "parietal", "occipital", "temporal", "limbic", "insula", "subcortical", "cerebellum", "brainstem"]
     lobe_mapping = {region.lower(): i for i, region in enumerate(brain_regions)}
     
     # Create the groundtruth entry
