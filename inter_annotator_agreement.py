@@ -201,14 +201,13 @@ def collect_task_data(annotations1, annotations2):
         
         processed_cases += 1
         
-        # Analyze each label type
+        # Analyze each label type that exists in both cases
         for label_type in label_types:
+            # Check if this label type exists in both cases for this specific case
             if label_type not in case1.get('labels', {}):
-                print(f"Warning: Missing label type '{label_type}' in annotator 1 for case {case_name}")
-                continue
+                continue  # Skip silently if label doesn't exist in this case
             if label_type not in case2.get('labels', {}):
-                print(f"Warning: Missing label type '{label_type}' in annotator 2 for case {case_name}")
-                continue
+                continue  # Skip silently if label doesn't exist in this case
                 
             label1 = case1['labels'][label_type]
             label2 = case2['labels'][label_type]
@@ -747,9 +746,9 @@ def main():
     """Main inter-annotator agreement analysis function"""
     
     parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa inter-annotator agreement metrics')
-    parser.add_argument('annotation_files1', nargs='+', 
+    parser.add_argument('--annotator1', '-a1', nargs='+', required=True,
                        help='Annotation files for annotator 1. Single file or format: dataset_type:file_path')
-    parser.add_argument('annotation_files2', nargs='+',
+    parser.add_argument('--annotator2', '-a2', nargs='+', required=True,
                        help='Annotation files for annotator 2. Single file or format: dataset_type:file_path')
     parser.add_argument('--output', '-o', 
                        help='Path to output kappa analysis JSON file (default: inter_annotator_agreement.json)',
@@ -757,13 +756,13 @@ def main():
     
     args = parser.parse_args()
     
-    print(f"Annotator 1 files: {args.annotation_files1}")
-    print(f"Annotator 2 files: {args.annotation_files2}")
+    print(f"Annotator 1 files: {args.annotator1}")
+    print(f"Annotator 2 files: {args.annotator2}")
     print(f"Output file: {args.output}")
     
     try:
         print("Loading annotation files for inter-annotator agreement analysis...")
-        annotations1, annotations2 = load_annotation_files(args.annotation_files1, args.annotation_files2)
+        annotations1, annotations2 = load_annotation_files(args.annotator1, args.annotator2)
         
         print("Collecting aligned task data...")
         task_data, per_label_data, label_types = collect_task_data(annotations1, annotations2)
@@ -778,7 +777,7 @@ def main():
         create_detailed_kappa_report(results, task_data)
         
         # Save results
-        save_kappa_results(results, label_results, args.output, args.annotation_files1, args.annotation_files2)
+        save_kappa_results(results, label_results, args.output, args.annotator1, args.annotator2)
         
         print(f"\n" + "=" * 80)
         print("INTER-ANNOTATOR AGREEMENT ANALYSIS COMPLETE")

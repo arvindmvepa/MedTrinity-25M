@@ -216,11 +216,9 @@ def collect_task_data(clinical_data, prediction_data):
             pred_label_type = get_prediction_label_name(clinical_label_type, clinical_dataset_type)
             
             if clinical_label_type not in clinical_case['labels']:
-                print(f"Warning: Missing clinical label '{clinical_label_type}' for case {case_name}")
-                continue
+                continue  # Skip if clinical label doesn't exist
             if pred_label_type not in pred_case.get('labels', {}):
-                print(f"Warning: Missing prediction label '{pred_label_type}' for case {case_name}")
-                continue
+                continue  # Skip if prediction label doesn't exist
 
                 
             clinical_label = clinical_case['labels'][clinical_label_type]
@@ -753,21 +751,22 @@ def main():
     """Main kappa analysis function"""
     
     parser = argparse.ArgumentParser(description='Compute Cohen\'s kappa agreement metrics')
-    parser.add_argument('annotation_files', nargs='+',
+    parser.add_argument('--annotations', '-a', nargs='+', required=True,
                        help='Clinical annotation files. Single file or format: dataset_type:file_path')
-    parser.add_argument('prediction_files', nargs='+',
+    parser.add_argument('--predictions', '-p', nargs='+', required=True,
                        help='Prediction files. Single file or format: dataset_type:file_path')
-    parser.add_argument('output_file', help='Path to output kappa analysis JSON file')
+    parser.add_argument('--output', '-o', required=True,
+                       help='Path to output kappa analysis JSON file')
     
     args = parser.parse_args()
     
-    print(f"Annotation files: {args.annotation_files}")
-    print(f"Prediction files: {args.prediction_files}")
-    print(f"Output file: {args.output_file}")
+    print(f"Annotation files: {args.annotations}")
+    print(f"Prediction files: {args.predictions}")
+    print(f"Output file: {args.output}")
     
     try:
         print("Loading data for kappa analysis...")
-        clinical_data, prediction_data = load_data(args.annotation_files, args.prediction_files)
+        clinical_data, prediction_data = load_data(args.annotations, args.predictions)
         
         print("Collecting aligned task data...")
         task_data, per_label_data = collect_task_data(clinical_data, prediction_data)
@@ -782,7 +781,7 @@ def main():
         create_detailed_kappa_report(results, task_data)
         
         # Save results (include both overall and per-label)
-        save_kappa_results(results, task_data, label_results, args.output_file)
+        save_kappa_results(results, task_data, label_results, args.output)
         
     except FileNotFoundError as e:
         print(f"Error: Required file not found - {e}")
