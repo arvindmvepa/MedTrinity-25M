@@ -217,7 +217,8 @@ def localize_to_brain_regions(
     atlas_img: nib.Nifti1Image,
     atlas_label_map: dict[int, str],
     label_index: int = 1,
-    debug=False
+    debug=False,
+    seg_path=None
 ) -> dict:
     """
     Parameters
@@ -260,8 +261,8 @@ def localize_to_brain_regions(
     if debug:
         display = plotting.plot_roi(tumour_img,
                                     bg_img=atlas_img,
-                                    title=f"Tumour-Affine Alignment Check Label", alpha=0.5)
-        display.savefig(f"tumour_affine_alignment_check.png")
+                                    title=f"Tumour-Affine Alignment Check Label {label_index}", alpha=0.5)
+        display.savefig(f"tumour_affine_alignment_check_{os.path.basename(seg_path)}_label{label_index}.png")
         display.close()
 
     overlapped = atlas_data[tumour_mask]
@@ -329,7 +330,8 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
     for name, label_index in tumour_labels.items():
         summary[name] = localize_to_brain_regions(tumour_img=tumour_img, atlas_img=atlas_img,
                                                   atlas_label_map=atlas_label_map,
-                                                  label_index=label_index, debug=debug)
+                                                  label_index=label_index, debug=debug, 
+                                                  seg_path=seg_path)
 
     return summary
 
@@ -357,13 +359,14 @@ if __name__ == "__main__":
                     f"({info_['percent']:5.2f}%)")
             print("Regions:", get_region_str(info["regions"]))
     """
-    #seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
-    seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT*/BraTS-GoAT*seg.nii.gz"))
+    seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
+    seg_paths = [seg_path for seg_path in seg_paths if "BraTS-GLI-02118-100" in seg_path or "BraTS-GLI-02128-102" in seg_path or "BraTS-GLI-02135-101" in seg_path]
+    #seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT*/BraTS-GoAT*seg.nii.gz"))
 
-    #tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
-    #atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
-    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
-    atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
+    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
+    atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
+    #tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
+    #atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
     for seg_path in tqdm(seg_paths):
         try:
             summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
