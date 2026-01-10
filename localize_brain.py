@@ -4,6 +4,7 @@ import numpy as np
 from nilearn.image import resample_to_img, new_img_like
 from nilearn.datasets import fetch_atlas_aal
 import glob
+import os
 from tqdm import tqdm
 
 
