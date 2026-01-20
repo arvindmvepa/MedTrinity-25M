@@ -37,9 +37,13 @@ def split_transformed_qas(text):
         q, a = parse_qa_block(block)
         out.append(
             {
-                "transformed_qa": block.replace(" label ", " {label} "),
-                "transformed_q":  q.replace(" label ", " {label} "),
-                "transformed_a":  a.replace(" label ", " {label} "),
+                # this has to be commented out because we would need to re-train on entire train dataset again
+                #"transformed_qa": block.replace(" label ", " {label} "),
+                #"transformed_q":  q.replace(" label ", " {label} "),
+                #"transformed_a":  a.replace(" label ", " {label} "),
+                "transformed_qa": block,
+                "transformed_q":  q,
+                "transformed_a":  a,
             }
         )
     return out
@@ -78,7 +82,8 @@ if __name__ == "__main__":
     input_csv = "mri_dataset_unknown.csv"
     # output_csv = "mri_dataset_draft_v1_combined_clean_v1.csv"
     # output_csv = "mri_dataset_partially_unknown_combined1_clean_v1.csv"
-    output_csv = "mri_dataset_unknown_clean_v1.csv"
+    #output_csv = "mri_dataset_unknown_clean_v1.csv"
+    output_csv = "mri_dataset_unknown_clean.csv"
     df = generate_clean_qa_dataset_from_openai(input_csv)
     # mask out the chinese
     mask_with_cjk = df.applymap(has_chinese).any(axis=1)
