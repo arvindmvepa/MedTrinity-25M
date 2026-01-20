@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # output_csv = "mri_dataset_unknown_filt_clean.csv"
     df = generate_clean_qa_dataset_from_openai(input_csv, int_filter_file)
     # statistics
-    print(f"Parsed {len(df):,} rows → {output_csv}")
+    print(f"Filtered {len(df):,} rows → {output_csv}")
     print(df.head())
     print(df.groupby('transformed_qa')['transformed_qa'].nunique())
     print(df.groupby('transformed_q')['transformed_q'].nunique())
