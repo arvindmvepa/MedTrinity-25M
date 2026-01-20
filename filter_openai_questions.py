@@ -27,6 +27,7 @@ def generate_clean_qa_dataset_from_openai(input_csv, filter_file):
             raise ValueError("Mismatch between filter file and raw file QA blocks.")
         if row_filt['answer'] == "VALID":
             records.append(row_raw)
+    print(f"Filtered {len(df_raw)} rows → {len(records)} valid rows.")
 
     return pd.DataFrame(records)
 
@@ -44,9 +45,5 @@ if __name__ == "__main__":
     # output_csv = "mri_dataset_unknown_filt_clean.csv"
     df = generate_clean_qa_dataset_from_openai(input_csv, int_filter_file)
     # statistics
-    print(f"Filtered {len(df):,} rows → {output_csv}")
     print(df.head())
-    print(df.groupby('transformed_qa')['transformed_qa'].nunique())
-    print(df.groupby('transformed_q')['transformed_q'].nunique())
-    print(df.groupby('transformed_a')['transformed_a'].nunique())
     df.to_csv(output_csv, index=False)
