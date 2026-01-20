@@ -76,9 +76,9 @@ if __name__ == "__main__":
     #input_csv = "mri_dataset_draft_v1_combined.csv"
     #input_csv = "mri_dataset_partially_unknown_combined1.csv"
     input_csv = "mri_dataset_unknown.csv"
-    # output_csv = "mri_dataset_draft_clean.csv"
-    #output_csv = "mri_dataset_partially_unknown_combined1_clean.csv"
-    output_csv = "mri_dataset_unknown_clean.csv"
+    # output_csv = "mri_dataset_draft_clean_v1.csv"
+    #output_csv = "mri_dataset_partially_unknown_combined1_clean_v1.csv"
+    output_csv = "mri_dataset_unknown_clean_v1.csv"
     df = generate_clean_qa_dataset_from_openai(input_csv)
     # mask out the chinese
     mask_with_cjk = df.applymap(has_chinese).any(axis=1)
