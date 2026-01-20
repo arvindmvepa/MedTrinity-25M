@@ -35,7 +35,7 @@ def generate_clean_qa_dataset_from_openai(input_csv, filter_file):
 if __name__ == "__main__":
     for input_csv, int_filter_file, output_csv in [
         ("int_mri_dataset_draft_v1_combined_clean.csv", "int_mri_dataset_draft_v1_combined_clean_validity.csv", "mri_dataset_draft_v1_combined_filt_clean.csv"),
-        ("int_mri_dataset_partially_unknown_combined1_clean.csv", "int_mri_dataset_partially_unknown_combined1_clean_validity2.csv", "mri_dataset_partially_unknown_combined1_filt_clean.csv"),
+        ("int_mri_dataset_partially_unknown_combined1_clean.csv", "int_mri_dataset_partially_unknown_combined1_clean_validity1.csv", "mri_dataset_partially_unknown_combined1_filt_clean.csv"),
         ("int_mri_dataset_unknown_clean.csv", "int_mri_dataset_unknown_clean_validity1.csv", "mri_dataset_unknown_filt_clean.csv"),
     ]:
         print(f"Processing {input_csv} with filter {int_filter_file} → {output_csv}")
