@@ -38,8 +38,8 @@ def split_transformed_qas(text):
         out.append(
             {
                 "transformed_qa": block,
-                "transformed_q":  q,
-                "transformed_a":  a,
+                "transformed_q":  q.replace(" label ", " {label} "),
+                "transformed_a":  a.replace(" label ", " {label} "),
             }
         )
     return out
