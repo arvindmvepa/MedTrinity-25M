@@ -37,7 +37,7 @@ def split_transformed_qas(text):
         q, a = parse_qa_block(block)
         out.append(
             {
-                "transformed_qa": block,
+                "transformed_qa": block.replace(" label ", " {label} "),
                 "transformed_q":  q.replace(" label ", " {label} "),
                 "transformed_a":  a.replace(" label ", " {label} "),
             }
