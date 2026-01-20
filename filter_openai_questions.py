@@ -25,7 +25,7 @@ def generate_clean_qa_dataset_from_openai(input_csv, filter_file):
         filt_qa_string = row_filt['question'][filt_qa_index:]
         if filt_qa_string != row_raw['transformed_qa']:
             raise ValueError("Mismatch between filter file and raw file QA blocks.")
-        if row_filt['answer'] == "VALID"
+        if row_filt['answer'] == "VALID":
             records.append(row_raw)
 
     return pd.DataFrame(records)
