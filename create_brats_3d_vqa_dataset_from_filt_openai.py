@@ -380,7 +380,8 @@ question_types=("area", "region", "shape", "satellite", "partially_unknown", "un
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
         print(f"openai_df, length: {len(openai_df)}, openai_partially_unknown_df, length: {len(openai_partially_unknown_df)}, openai_unknown_df, length: {len(openai_unknown_df)}")
-        print(f"openai_filt_df, length: {len(openai_filt_df)}, openai_partially_unknown_filt_df, length: {len(openai_partially_unknown_filt_df)}, openai_unknown_filt_df, length: {len(openai_unknown_filt_df)}")
+        if openai_filt_df is not None:
+            print(f"openai_filt_df, length: {len(openai_filt_df)}, openai_partially_unknown_filt_df, length: {len(openai_partially_unknown_filt_df)}, openai_unknown_filt_df, length: {len(openai_unknown_filt_df)}")
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
 
             # ---- RESET PER-LABEL PLACEHOLDER VALUES ----
