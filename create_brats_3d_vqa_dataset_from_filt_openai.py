@@ -561,8 +561,8 @@ if __name__ == "__main__":
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict,
                                                    openai_df=openai_df,
-                                                   openai_filt_df=openai_filt_df,
                                                    openai_partially_unknown_df=openai_partially_unknown_df,
+                                                   openai_unknown_df=openai_unknown_df,
                                                    openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
                                                    openai_filt_df=openai_filt_df,
                                                    openai_unknown_filt_df=openai_unknown_filt_df,
