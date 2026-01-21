@@ -176,6 +176,15 @@ def map_df_cols_to_combo(df):
         df.at[i, "combo"] = str(combo)
     return df
 
+def map_filt_df_cols_to_combo(df):
+    # iterate over the rows of the dataframe
+    for i, row in df.iterrows():
+        # get the combo for the current row
+        original_qa_prompt = row["question"][(row["question"].index("Original Q: ")+len("Original Q: ")):row["question"].index("Reworded Q")].strip()
+        combo = question_type_combo_map[original_qa_prompt]
+        df.at[i, "combo"] = str(combo)
+    return df
+
 
 def map_df_cols_to_combo_and_unknown(df):
     # iterate over the rows of the dataframe
@@ -185,6 +194,17 @@ def map_df_cols_to_combo_and_unknown(df):
         combo = question_type_combo_map[original_qa_prompt] + (unknown_type,)
         df.at[i, "combo"] = str(combo)
     return df
+
+
+def map_filt_df_cols_to_combo_and_unknown(df):
+    # iterate over the rows of the dataframe
+    for i, row in df.iterrows():
+        # get the combo for the current row
+        original_qa_prompt = row["question"][(row["question"].index("Original Q: ")+len("Original Q: ")):row["question"].index("Reworded Q")].strip()
+        combo = question_type_combo_map[original_qa_prompt] + (unknown_type,)
+        df.at[i, "combo"] = str(combo)
+    return df
+
 
 def validate_question_answer_combo(question, answer_template, combo):
     flag = True
@@ -480,11 +500,11 @@ if __name__ == "__main__":
     openai_unknown_df = openai_unknown_df.sample(frac=1, random_state=new_dataset_seed)
 
     openai_filt_df = pd.read_csv(openai_filt_df_file, header=0)
-    openai_filt_df = map_df_cols_to_combo(openai_filt_df)
+    openai_filt_df = map_filt_df_cols_to_combo(openai_filt_df)
     openai_filt_df = openai_filt_df.sample(frac=1, random_state=new_dataset_seed)
 
     openai_partially_unknown_filt_df = pd.read_csv(openai_partially_unknown_filt_df_file, header=0)
-    openai_partially_unknown_filt_df = map_df_cols_to_combo_and_unknown(openai_partially_unknown_filt_df)
+    openai_partially_unknown_filt_df = map_filt_df_cols_to_combo_and_unknown(openai_partially_unknown_filt_df)
     openai_partially_unknown_filt_df = openai_partially_unknown_filt_df.sample(frac=1, random_state=new_dataset_seed)
 
     openai_unknown_filt_df = pd.read_csv(openai_unknown_filt_df_file, header=0)
