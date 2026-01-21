@@ -460,7 +460,7 @@ if __name__ == "__main__":
     openai_unknown_df_file = "mri_dataset_unknown_clean.csv"
 
     openai_filt_df_file = "mri_dataset_draft_v1_combined_clean_validity4.csv"
-    openai_partially_unknown_filt_df_file = "mri_dataset_partially_unknown_combined1_clean_validity4.csv"
+    openai_partially_unknown_filt_df_file = "mri_dataset_partially_unknown_combined1_clean_validity5.csv"
     openai_unknown_filt_df_file = "mri_dataset_unknown_clean_validity4_0.csv"
 
     # rest of the parameters
