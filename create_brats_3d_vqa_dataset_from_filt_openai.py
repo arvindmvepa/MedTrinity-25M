@@ -32,6 +32,23 @@ combo_question_type_map = {(1,): "Q: How large is the volume covered by {label}?
                            (1, 2, 3, 4): "Q: What is the volume, region, shape, and spread of {label}? A: The overall volume of {label} is {area}, it is located in {regions}, its shape is described as {shape}, and it is characterized as {satellite}."}
 question_type_combo_map = {v: k for k, v in combo_question_type_map.items()}
 
+combo_just_question_type_map = {(1,): "Q: How large is the volume covered by {label}?",
+                           (2,): "Q: Which region(s) of the brain is {label} located in?",
+                           (3,): "Q: What is the shape of {label}?",
+                           (4,): "Q: How spread out is {label}?",
+                           (1, 2): "Q: How large is the volume of {label} and where is it located?",
+                           (1, 3): "Q: How large is the volume of {label} and what is its shape?",
+                           (1, 4): "Q: How large is the volume of {label} and how spread out is it?",
+                           (2, 3): "Q: In which region is {label} and what is its shape?",
+                           (2, 4): "Q: In which region is {label} and how spread out is it?",
+                           (3, 4): "Q: What is the shape of {label} and how spread out is it?",
+                           (1, 2, 3): "Q: What is the volume, region, and shape of {label}?",
+                           (1, 2, 4): "Q: What is the volume, region, and spread of {label}?",
+                           (1, 3, 4): "Q: What is the volume, shape, and spread of {label}?",
+                           (2, 3, 4): "Q: What is the region, shape, and spread of {label}?",
+                           (1, 2, 3, 4): "Q: What is the volume, region, shape, and spread of {label}?"}
+just_question_type_combo_map = {v: k for k, v in combo_just_question_type_map.items()}
+
 
 def validate_vqa_lists(vqa_list, save_dir=None):
     """
@@ -181,7 +198,7 @@ def map_filt_df_cols_to_combo(df):
     for i, row in df.iterrows():
         # get the combo for the current row
         original_qa_prompt = row["question"][(row["question"].index("Original Q: ")+len("Original Q: ")):row["question"].index("Reworded Q")].strip()
-        combo = question_type_combo_map[original_qa_prompt]
+        combo = just_question_type_combo_map[original_qa_prompt]
         df.at[i, "combo"] = str(combo)
     return df
 
@@ -201,7 +218,7 @@ def map_filt_df_cols_to_combo_and_unknown(df):
     for i, row in df.iterrows():
         # get the combo for the current row
         original_qa_prompt = row["question"][(row["question"].index("Original Q: ")+len("Original Q: ")):row["question"].index("Reworded Q")].strip()
-        combo = question_type_combo_map[original_qa_prompt] + (unknown_type,)
+        combo = just_question_type_combo_map[original_qa_prompt] + (unknown_type,)
         df.at[i, "combo"] = str(combo)
     return df
 
