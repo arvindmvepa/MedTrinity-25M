@@ -546,7 +546,7 @@ if __name__ == "__main__":
                                                     openai_partially_unknown_df=openai_partially_unknown_df,
                                                     openai_unknown_df=openai_unknown_df,
                                                     openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
-                                                    openai_unknown_df=openai_unknown_df,
+                                                    openai_filt_df=openai_filt_df,
                                                     openai_unknown_filt_df=openai_unknown_filt_df,
                                                     seed=new_dataset_seed)
     train_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(train_vqa_data_dict)
@@ -555,7 +555,7 @@ if __name__ == "__main__":
                                                   openai_partially_unknown_df=openai_partially_unknown_df,
                                                   openai_unknown_df=openai_unknown_df,
                                                   openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
-                                                  openai_unknown_df=openai_unknown_df,
+                                                  openai_filt_df=openai_filt_df,
                                                   openai_unknown_filt_df=openai_unknown_filt_df,
                                                   seed=new_dataset_seed)
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
@@ -564,7 +564,7 @@ if __name__ == "__main__":
                                                    openai_filt_df=openai_filt_df,
                                                    openai_partially_unknown_df=openai_partially_unknown_df,
                                                    openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
-                                                   openai_unknown_df=openai_unknown_df,
+                                                   openai_filt_df=openai_filt_df,
                                                    openai_unknown_filt_df=openai_unknown_filt_df,
                                                    filter=True,
                                                    seed=new_dataset_seed)
