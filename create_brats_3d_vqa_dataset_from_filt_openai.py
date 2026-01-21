@@ -279,7 +279,7 @@ def pick_question_from_df(df, filt_df=None, filter=False):
     return question, answer, combo
 
 
-def pick_num_question_types_combos_and_rows(df, filt_df, filter=False, rng):
+def pick_num_question_types_combos_and_rows(df, rng, filt_df=None, filter=False):
     shuffled_base_types = base_types[:]
     rng.shuffle(shuffled_base_types)
     shuffled_combos = all_combos[:]
