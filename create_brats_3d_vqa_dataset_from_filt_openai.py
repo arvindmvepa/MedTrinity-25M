@@ -402,9 +402,9 @@ if __name__ == "__main__":
     ref_val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}.json"
     ref_test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}.json"
 
-    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask_fixed.json"
-    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask_fixed.json"
-    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask_fixed.json"
+    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_filt_multitask_fixed.json"
+    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_filt_multitask_fixed.json"
+    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_filt_multitask_fixed.json"
 
     openai_df_file = "mri_dataset_draft_v1_combined_clean.csv"
     openai_partially_unknown_df_file = "mri_dataset_partially_unknown_combined1_clean.csv"
@@ -421,7 +421,7 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     dataset_type = "gli"
-    version = f"updated_v12_seed{dataset_seed}"
+    version = f"updated_v11_seed{dataset_seed}"
     labels_order = (1, 2, 3, 4)
     pediatric = False
     goat = False
