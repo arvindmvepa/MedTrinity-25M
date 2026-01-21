@@ -247,7 +247,7 @@ def map_df_cols_to_unknown(df):
     return df
 
 
-def pick_question_from_df(df, filt_df=None):
+def pick_question_from_df(df, filt_df=None, filter=False):
     row = df.iloc[0]
     temp_question = row["transformed_q"]
     temp_answer = row["transformed_a"]
@@ -259,9 +259,7 @@ def pick_question_from_df(df, filt_df=None):
         filt_row = filt_df.iloc[0]
         filt_val = filt_row["answer"]
         filt_df.drop(filt_row.name, inplace=True)
-    else:
-        filt_val = "VALID"
-    while filt_val != "VALID" or not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+    while (filter and filt_val != "VALID") or not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
         print(f"Invalid question/answer combo: {filt_val} {temp_question}, {temp_answer}, {temp_combo}")
         # TODO: check for length of filt_df to make sure there are valid rows left
         row = df.iloc[0]
@@ -275,15 +273,13 @@ def pick_question_from_df(df, filt_df=None):
             filt_row = filt_df.iloc[0]
             filt_val = filt_row["answer"]
             filt_df.drop(filt_row.name, inplace=True)
-        else:
-            filt_val = "VALID"
     question = temp_question
     answer = temp_answer
     combo = temp_combo
     return question, answer, combo
 
 
-def pick_num_question_types_combos_and_rows(df, filt_df, rng):
+def pick_num_question_types_combos_and_rows(df, filt_df, filter=False, rng):
     shuffled_base_types = base_types[:]
     rng.shuffle(shuffled_base_types)
     shuffled_combos = all_combos[:]
@@ -311,9 +307,7 @@ def pick_num_question_types_combos_and_rows(df, filt_df, rng):
                     filt_row = filt_combo_df.iloc[0]
                     filt_val = filt_row["answer"]
                     filt_df.drop(filt_row.name, inplace=True)
-                else:
-                    filt_val = "VALID"
-                if filt_val == "VALID" and validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+                if (not filter or filt_val == "VALID") and validate_question_answer_combo(temp_question, temp_answer, temp_combo):
                     question = temp_question
                     answer = temp_answer
                     combo = temp_combo
@@ -375,7 +369,7 @@ def unorganize_vqa_data_by_seg_id_and_label_and_type(vqa_data):
 
 
 def generate_updated_vqa_data(vqa_data_dict, seed, openai_df, openai_partially_unknown_df=None, openai_unknown_df=None, 
-openai_filt_df=None, openai_partially_unknown_filt_df=None, openai_unknown_filt_df=None, 
+openai_filt_df=None, openai_partially_unknown_filt_df=None, openai_unknown_filt_df=None, filter=False, 
 question_types=("area", "region", "shape", "satellite", "partially_unknown", "unknown")):
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
@@ -401,7 +395,7 @@ question_types=("area", "region", "shape", "satellite", "partially_unknown", "un
 
             # sample extra question types
             if openai_partially_unknown_df is not None:
-                q, a, combo = pick_question_from_df(openai_partially_unknown_df, filt_df=openai_partially_unknown_filt_df)
+                q, a, combo = pick_question_from_df(openai_partially_unknown_df, filt_df=openai_partially_unknown_filt_df, filter=filter)
                 qas["partially_unknown"] = (q, a, combo)
             if openai_unknown_df is not None:
                 q, a, combo = pick_question_from_df(openai_unknown_df, filt_df=openai_unknown_filt_df)
@@ -551,12 +545,18 @@ if __name__ == "__main__":
                                                     openai_df=openai_df,
                                                     openai_partially_unknown_df=openai_partially_unknown_df,
                                                     openai_unknown_df=openai_unknown_df,
+                                                    openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
+                                                    openai_unknown_df=openai_unknown_df,
+                                                    openai_unknown_filt_df=openai_unknown_filt_df,
                                                     seed=new_dataset_seed)
     train_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(train_vqa_data_dict)
     val_vqa_data_dict = generate_updated_vqa_data(ref_val_vqa_data_dict,
                                                   openai_df=openai_df,
                                                   openai_partially_unknown_df=openai_partially_unknown_df,
                                                   openai_unknown_df=openai_unknown_df,
+                                                  openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
+                                                  openai_unknown_df=openai_unknown_df,
+                                                  openai_unknown_filt_df=openai_unknown_filt_df,
                                                   seed=new_dataset_seed)
     val_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(val_vqa_data_dict)
     test_vqa_data_dict = generate_updated_vqa_data(ref_test_vqa_data_dict,
@@ -566,6 +566,7 @@ if __name__ == "__main__":
                                                    openai_partially_unknown_filt_df=openai_partially_unknown_filt_df,
                                                    openai_unknown_df=openai_unknown_df,
                                                    openai_unknown_filt_df=openai_unknown_filt_df,
+                                                   filter=True,
                                                    seed=new_dataset_seed)
     test_vqa = unorganize_vqa_data_by_seg_id_and_label_and_type(test_vqa_data_dict)
 
