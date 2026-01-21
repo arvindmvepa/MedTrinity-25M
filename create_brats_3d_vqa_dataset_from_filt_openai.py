@@ -247,7 +247,7 @@ def map_df_cols_to_unknown(df):
     return df
 
 
-def pick_question_from_df(df):
+def pick_question_from_df(df, filt_df=None):
     row = df.iloc[0]
     temp_question = row["transformed_q"]
     temp_answer = row["transformed_a"]
@@ -255,7 +255,13 @@ def pick_question_from_df(df):
     temp_combo = tuple([int(num) for num in temp_combo_str.strip("()").split(",") if len(num) > 0])
     row_idx = row.name
     df.drop(row_idx, inplace=True)
-    while not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
+    if filt_df is not None:
+        filt_row = filt_df.iloc[0]
+        filt_val = filt_row["answer"]
+        filt_df.drop(filt_row.name, inplace=True)
+    else:
+        filt_val = "VALID"
+    while filt_val != "VALID" or not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
         print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
         # TODO: check for length of filt_df to make sure there are valid rows left
         row = df.iloc[0]
@@ -265,6 +271,12 @@ def pick_question_from_df(df):
         temp_combo = tuple([int(num) for num in temp_combo_str.strip("()").split(",") if len(num) > 0])
         row_idx = row.name
         df.drop(row_idx, inplace=True)
+        if filt_df is not None:
+            filt_row = filt_df.iloc[0]
+            filt_val = filt_row["answer"]
+            filt_df.drop(filt_row.name, inplace=True)
+        else:
+            filt_val = "VALID"
     question = temp_question
     answer = temp_answer
     combo = temp_combo
@@ -290,14 +302,17 @@ def pick_num_question_types_combos_and_rows(df, filt_df, rng):
             temp_str_combo = str(tuple(temp_combo))
             while len(df[df["combo"] == temp_str_combo]) > 0:
                 combo_df = df[df["combo"] == temp_str_combo]
-                filt_combo_df = filt_df[filt_df["combo"] == temp_str_combo]
                 row = combo_df.iloc[0]
-                filt_row = filt_combo_df.iloc[0]
                 temp_question = row["transformed_q"]
                 temp_answer = row["transformed_a"]
-                filt_val = filt_row["answer"]
                 df.drop(row.name, inplace=True)
-                filt_df.drop(filt_row.name, inplace=True)
+                if filt_df is not None:
+                    filt_combo_df = filt_df[filt_df["combo"] == temp_str_combo]
+                    filt_row = filt_combo_df.iloc[0]
+                    filt_val = filt_row["answer"]
+                    filt_df.drop(filt_row.name, inplace=True)
+                else:
+                    filt_val = "VALID"
                 if filt_val == "VALID" and validate_question_answer_combo(temp_question, temp_answer, temp_combo):
                     question = temp_question
                     answer = temp_answer
