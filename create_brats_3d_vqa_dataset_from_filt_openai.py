@@ -262,7 +262,7 @@ def pick_question_from_df(df, filt_df=None):
     else:
         filt_val = "VALID"
     while filt_val != "VALID" or not validate_question_answer_combo(temp_question, temp_answer, temp_combo):
-        print(f"Invalid question/answer combo: {temp_question}, {temp_answer}, {temp_combo}")
+        print(f"Invalid question/answer combo: {filt_val} {temp_question}, {temp_answer}, {temp_combo}")
         # TODO: check for length of filt_df to make sure there are valid rows left
         row = df.iloc[0]
         temp_question = row["transformed_q"]
@@ -379,6 +379,8 @@ openai_filt_df=None, openai_partially_unknown_filt_df=None, openai_unknown_filt_
 question_types=("area", "region", "shape", "satellite", "partially_unknown", "unknown")):
     rng = random.Random(seed)
     for seg_id, labels_question_types_vqa_datum in tqdm(vqa_data_dict.items()):
+        print(f"openai_df, length: {len(openai_df)}, openai_partially_unknown_df, length: {len(openai_partially_unknown_df)}, openai_unknown_df, length: {len(openai_unknown_df)}")
+        print(f"openai_filt_df, length: {len(openai_filt_df)}, openai_partially_unknown_filt_df, length: {len(openai_partially_unknown_filt_df)}, openai_unknown_filt_df, length: {len(openai_unknown_filt_df)}")
         for label, question_types_vqa_datum in labels_question_types_vqa_datum.items():
 
             # ---- RESET PER-LABEL PLACEHOLDER VALUES ----
