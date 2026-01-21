@@ -3,7 +3,7 @@ import json
 
 
 if __name__ == "__main__":
-    ann_question_file = "validate_questions.csv"
+    ann_question_file = "valid_questions.csv"
     openai_filt_df_file = "mri_dataset_draft_v1_combined_clean_validity4.csv"
 
     ann_df = pd.read_csv(ann_question_file)
