@@ -1,3 +1,4 @@
+import os
 import json
 
 
@@ -20,13 +21,13 @@ if __name__ == "__main__":
     'BraTS-GoAT-02206']
     with open(gli_file, 'r') as f:
         gli_data = json.load(f)
-        gli_data = [item for item in gli_data if item['mpMRI'] in gli_ims]
+        gli_data = [item for item in gli_data if os.path.basename(item['volume_file_dir']) in gli_ims]
     with open(met_file, 'r') as f:
         met_data = json.load(f)
-        met_data = [item for item in met_data if item['mpMRI'] in met_ims]
+        met_data = [item for item in met_data if os.path.basename(item['volume_file_dir']) in met_ims]
     with open(goat_file, 'r') as f:
         goat_data = json.load(f)
-        goat_data = [item for item in goat_data if item['mpMRI'] in goat_ims]    
+        goat_data = [item for item in goat_data if os.path.basename(item['volume_file_dir']) in goat_ims]    
     
     with open(save_gli_file, 'w') as f:
         json.dump(gli_data, f, indent=2)
