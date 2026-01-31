@@ -70,7 +70,7 @@ def parse_file_specs(file_specs):
         result.append((dataset_type, file_path))
     return result
 
-def get_prediction_label_name(clinical_label, dataset_type):
+def get_prediction_label_name(clinical_label, dataset_type, pred_case=None):
     """Map clinical label names to prediction label names based on dataset type"""
     if dataset_type == 'goat':
         mapping = {
@@ -78,7 +78,18 @@ def get_prediction_label_name(clinical_label, dataset_type):
             "Surrounding Non-enhancing FLAIR hyperintensity": "Edema/Invaded Tissue",
             "Enhancing Tissue": "Enhancing Tumor"
         }
-        return mapping.get(clinical_label, clinical_label)
+        mapped_label = mapping.get(clinical_label, clinical_label)
+        
+        # If pred_case is provided, check if mapped label exists, otherwise fall back to original
+        if pred_case is not None:
+            if mapped_label in pred_case.get('labels', {}):
+                return mapped_label
+            elif clinical_label in pred_case.get('labels', {}):
+                return clinical_label
+            else:
+                return mapped_label  # Return mapped label as default
+        else:
+            return mapped_label
     return clinical_label
 
 def load_data(annotation_specs, prediction_specs):
@@ -213,7 +224,7 @@ def collect_task_data(clinical_data, prediction_data):
                 continue
                 
             # Map clinical label to prediction label based on dataset type
-            pred_label_type = get_prediction_label_name(clinical_label_type, clinical_dataset_type)
+            pred_label_type = get_prediction_label_name(clinical_label_type, clinical_dataset_type, pred_case)
             
             if clinical_label_type not in clinical_case['labels']:
                 continue  # Skip if clinical label doesn't exist
