@@ -768,9 +768,11 @@ def main():
     try:
         print("Loading data for kappa analysis...")
         clinical_data, prediction_data = load_data(args.annotations, args.predictions)
+        print(f"Loaded {len(clinical_data)} clinical cases and {len(prediction_data)} prediction cases.")
         
         print("Collecting aligned task data...")
         task_data, per_label_data = collect_task_data(clinical_data, prediction_data)
+        print(f"Collected task data for {len(task_data)} tasks and per-label data for {len(per_label_data)} labels.")
         
         print("Computing Cohen's kappa metrics...")
         results = compute_kappa_metrics(task_data)
