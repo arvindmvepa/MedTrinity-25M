@@ -3,13 +3,13 @@ import json
 
 
 if __name__ == "__main__":
-    gli_file = "brats_gli_3d_vqa_subjTrue_train_updated_v11_seed0.json"
-    met_file = "brats_met_3d_vqa_subjTrue_train_updated_v11_seed0.json"
-    goat_file = "brats_goat_3d_vqa_subjTrue_train_updated_v11_seed0.json"
+    gli_file = "brats_gli_3d_vqa_subjTrue_test_updated_v11_seed0.json"
+    met_file = "brats_met_3d_vqa_subjTrue_test_updated_v11_seed0.json"
+    goat_file = "brats_goat_3d_vqa_subjTrue_test_updated_v11_seed0.json"
 
-    save_gli_file = "brats_gli_3d_vqa_subjTrue_train_updated_v11_clin_subset.json"
-    save_met_file = "brats_met_3d_vqa_subjTrue_train_updated_v11_clin_subset.json"
-    save_goat_file = "brats_goat_3d_vqa_subjTrue_train_updated_v11_clin_subset.json"
+    save_gli_file = "brats_gli_3d_vqa_subjTrue_test_updated_v11_clin_subset.json"
+    save_met_file = "brats_met_3d_vqa_subjTrue_test_updated_v11_clin_subset.json"
+    save_goat_file = "brats_goat_3d_vqa_subjTrue_test_updated_v11_clin_subset.json"
     gli_ims = ['BraTS-GLI-02118-100', 'BraTS-GLI-02128-102', 'BraTS-GLI-02135-101', 'BraTS-GLI-02186-103', 
     'BraTS-GLI-02408-100', 'BraTS-GLI-02416-100', 'BraTS-GLI-02832-100', 'BraTS-GLI-02840-100', 
     'BraTS-GLI-02994-101', 'BraTS-GLI-03023-100']
@@ -22,6 +22,7 @@ if __name__ == "__main__":
     with open(gli_file, 'r') as f:
         gli_data = json.load(f)
         gli_data = [item for item in gli_data if os.path.basename(item['volume_file_dir']) in gli_ims]
+    
     with open(met_file, 'r') as f:
         met_data = json.load(f)
         met_data = [item for item in met_data if os.path.basename(item['volume_file_dir']) in met_ims]
