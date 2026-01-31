@@ -257,7 +257,7 @@ def collect_task_data(clinical_data, prediction_data):
                     per_label_data[clinical_label_type]['region'][region]['true'].append(true_binary)
                     per_label_data[clinical_label_type]['region'][region]['pred'].append(pred_binary)
             
-    return task_data, per_label_data
+    return task_data, per_label_data, unmatched_cases
 
 def compute_kappa_metrics(task_data):
     """Compute Cohen's kappa for all tasks"""
@@ -771,8 +771,9 @@ def main():
         print(f"Loaded {len(clinical_data)} clinical cases and {len(prediction_data)} prediction cases.")
         
         print("Collecting aligned task data...")
-        task_data, per_label_data = collect_task_data(clinical_data, prediction_data)
+        task_data, per_label_data, unmatched_cases = collect_task_data(clinical_data, prediction_data)
         print(f"Collected task data for {len(task_data)} tasks and per-label data for {len(per_label_data)} labels.")
+        print(f"Unmatched cases: {len(unmatched_cases)}")
         
         print("Computing Cohen's kappa metrics...")
         results = compute_kappa_metrics(task_data)
