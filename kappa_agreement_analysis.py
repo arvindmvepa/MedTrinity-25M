@@ -126,8 +126,13 @@ def create_case_mapping(prediction_data):
     """Create mapping from case names to prediction data"""
     case_map = {}
     
-    for i, pred in enumerate(prediction_data): 
-        case_name = extract_case_name(pred['seg_file'])
+    for i, pred in enumerate(prediction_data):
+        if 'seg_file' in pred:
+            case_name = extract_case_name(pred['seg_file'])
+        elif 'mpMRI' in pred:
+            case_name = extract_case_name(pred['mpMRI'])
+        else:
+            raise ValueError(f"Prediction data item {i} missing 'seg_file' or 'mpMRI' key")
         case_map[case_name] = pred
     
     return case_map
