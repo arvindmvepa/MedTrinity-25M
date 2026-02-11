@@ -459,7 +459,7 @@ def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False, save_dir="/hsu
             all_vqas.extend(qas)
         # create t1 to t2 questions
         if len(grp_t1) > 0 and len(grp_t2) > 0:
-            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1 pid=pid,init_study_yr=1, final_study_yr=2,
+            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, final_study_yr=2,
                                                 inst=inst, question_index=question_index, 
                                                 embedding_path=os.path.join(save_dir, f"pid{pid}_ts1.st"))
             all_vqas.extend(qas)
