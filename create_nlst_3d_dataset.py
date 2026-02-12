@@ -432,42 +432,40 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     return q_list, question_index
 
 
-def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
+def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
     Main function: iterates over the rows of 'df' and
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
     question_index = 0
-    for pid, group in index_df.groupby('pid'):
-        pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
+    for pid, pid_ann_df in ann_df.groupby('pid'):
         inst = pid_ann_df['cen'].iloc[0]
 
-        grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
-
-        grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
-        grp_t2 = group["dicom_t2"].loc[~group["dicom_t2"].isnull()].tolist()
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
         # create t0 to t1 questions
-        if len(grp_t0) > 0 and len(grp_t1) > 0:
+        embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
+        if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, pid=pid,init_study_yr=0, final_study_yr=1,
-                                               inst=inst, question_index=question_index, 
-                                               embedding_path=os.path.join(save_dir, f"pid{pid}_ts0.st"))
+                                            inst=inst, question_index=question_index, 
+                                            embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t1 to t2 questions
-        if len(grp_t1) > 0 and len(grp_t2) > 0:
+        embedding_path = os.path.join(save_dir, f"pid{pid}_ts1.st")
+        if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, final_study_yr=2,
                                                 inst=inst, question_index=question_index, 
-                                                embedding_path=os.path.join(save_dir, f"pid{pid}_ts1.st"))
+                                                embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t0 to t2 questions
-        if add_time_delta2 and len(grp_t0) > 0 and len(grp_t2) > 0:
+        embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
+        if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=2, pid=pid, init_study_yr=0, final_study_yr=2,
                                                 inst=inst, question_index=question_index,
-                                                embedding_path=os.path.join(save_dir, f"pid{pid}_ts0.st"))
+                                                embedding_path=embedding_path)
             all_vqas.extend(qas)
     return all_vqas
 
@@ -499,8 +497,7 @@ if __name__ == "__main__":
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    nlst_index_df = pd.read_csv(source_file)
-    all_vqas = generate_vqa_from_df(nlst_index_df, patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
     print(f"==========OVERALL==========")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
