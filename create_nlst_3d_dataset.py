@@ -162,7 +162,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
     # 2) Overall Statistics
     n_questions = len(df)
-    n_lung_nodule = df["is_lung_nodule"].sum()
     pct_lung_nodule = (n_lung_nodule / n_questions * 100.0) if n_questions else 0.0
 
     n_init_year0 = (df["init_study_yr"] == 0).sum()
@@ -173,8 +172,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
     n_time_delta_2 = (df["time_delta"] == 2).sum()
 
     # statistics on different question types
-    abnormality_type_counts = df.loc[df['content_type'] == 'abnormality_type']['answer'].str.split(pat=sep_string).explode().value_counts()
-    pre_existing_counts = df.loc[df['content_type'] == 'pre-existing']['answer'].str.split(pat=sep_string).explode().value_counts()
     location_counts = df.loc[df['content_type'] == 'location']['answer'].str.split(pat=sep_string).explode().value_counts()
     interval_change_counts = df.loc[df['content_type'] == 'interval_change']['answer'].str.split(pat=sep_string).explode().value_counts()
     interval_growth_counts = df.loc[df['content_type'] == 'interval_growth']['answer'].str.split(pat=sep_string).explode().value_counts()
@@ -188,15 +185,12 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
     print("=== Overall Statistics ===")
     print(f"Total number of questions: {n_questions}")
-    print(f"Number of Lung Nodule questions: {n_lung_nodule} ({pct_lung_nodule:.1f}%)")
     print(f"Number of questions with initial year 0: {n_init_year0}")
     print(f"Number of questions with initial year 1: {n_init_year1}")
     print(f"Number of questions with final year 1: {n_final_year1}")
     print(f"Number of questions with final year 2: {n_final_year2}")
     print(f"Number of questions with time delta 1: {n_time_delta_1}")
 
-    print(f"Value Counts for abnormality_type_counts: {abnormality_type_counts}")
-    print(f"Value Counts for pre_existing_counts: {pre_existing_counts}")
     print(f"Value Counts for location_counts: {location_counts}")
     print(f"Value Counts for interval_change_counts: {interval_change_counts}")
     print(f"Value Counts for interval_growth_counts: {interval_growth_counts}")
@@ -210,7 +204,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
     # 3) Per-Institution Statistics
     if print_inst_results:
-        df["lung_nodule_flag"] = df["is_lung_nodule"].astype(int)
         df["init_year0_flag"] = df["init_study_yr"] == 0
         df["init_year1_flag"] = df["init_study_yr"] == 1
         df["final_year1_flag"] = df["final_study_yr"] == 1
@@ -220,7 +213,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
         grouped = df.groupby("inst").agg(
             total_questions=("question", "count"),
-            total_lung_nodule=("lung_nodule_flag", "sum"),
             total_init_year0=("init_year0_flag", "sum"),
             total_init_year1=("init_year1_flag", "sum"),
             total_final_year1=("final_year1_flag", "sum"),
@@ -229,9 +221,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
             total_time_delta2=("time_delta2_flag", "sum"),
             unique_pids=("pid", "nunique")
         ).reset_index()
-
-        # 4) Compute percentage of Code 51 per institution
-        grouped["pct_lung_nodule"] = (grouped["total_lung_nodule"] / grouped["total_questions"]) * 100
 
         # 5) Sort descending by total questions
         grouped_sorted = grouped.sort_values(by="total_questions", ascending=False)
