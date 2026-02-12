@@ -162,7 +162,6 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
     # 2) Overall Statistics
     n_questions = len(df)
-    pct_lung_nodule = (n_lung_nodule / n_questions * 100.0) if n_questions else 0.0
 
     n_init_year0 = (df["init_study_yr"] == 0).sum()
     n_init_year1 = (df["init_study_yr"] == 1).sum()
@@ -488,6 +487,7 @@ if __name__ == "__main__":
                                                        combined_measure_comp_df, on="pid", how="left")
     all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
     print(f"==========OVERALL==========")
+    print(f"Total VQA pairs generated: {len(all_vqas)}")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
