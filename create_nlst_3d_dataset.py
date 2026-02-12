@@ -232,7 +232,7 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
 
 
 def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, is_not_lung_nodule,
-                   time_delta, img_files, filters, embedding_path, question_index, content_type):
+                   time_delta, embedding_path, question_index, content_type):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
