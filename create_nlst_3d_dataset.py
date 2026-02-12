@@ -436,6 +436,7 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa
 
         # create t0 to t1 questions
         embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
+        print(embedding_path)
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, pid=pid,init_study_yr=0, final_study_yr=1,
                                             inst=inst, question_index=question_index, 
