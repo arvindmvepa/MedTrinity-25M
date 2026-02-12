@@ -264,7 +264,6 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
 
     is_lung_nodule = len(nodule_rows) > 0
-    is_not_lung_nodule = len(non_nodule_rows) > 0
 
     # 1) Where is the abnormality located?
     qa_loc_answer = get_string_from_item_lst(rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
@@ -278,7 +277,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_loc_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="location"
     )
@@ -297,7 +296,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_attn_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="interval_change"
     )
@@ -316,7 +315,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_gwth_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="interval_growth"
     )
@@ -335,7 +334,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_invg_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="further_investigation"
     )
@@ -354,7 +353,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_margin_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="margins"
     )
@@ -373,7 +372,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=qa_pre_att_answer,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="predominant_attenuation"
     )
@@ -392,7 +391,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=long_dia_str,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="longest_diameter"
     )
@@ -411,7 +410,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         answer=perp_dia_str,
         embedding_path=embedding_path,
         is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        is_not_lung_nodule=not is_lung_nodule,
         question_index=question_index,
         content_type="longest_perpendicular_diameter"
     )
