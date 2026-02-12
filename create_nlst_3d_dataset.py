@@ -436,7 +436,6 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa
 
         # create t0 to t1 questions
         embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
-        print(embedding_path)
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, pid=pid,init_study_yr=0, final_study_yr=1,
                                             inst=inst, question_index=question_index, 
@@ -484,6 +483,7 @@ if __name__ == "__main__":
     compare_df = pd.read_csv(comparison_file)
     combined_measure_comp_df = pd.merge(measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
+    patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
     all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
