@@ -493,12 +493,12 @@ if __name__ == "__main__":
 
     train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(all_vqas, val_pct=0.1, test_pct=0.15, seed=0)
 
-    print(f"==========TRAIN==========")
-    summarize_vqa(train_vqas)
-    print(f"==========VAL==========")
-    summarize_vqa(val_vqas)
-    print(f"==========TEST==========")
-    summarize_vqa(test_vqas)
+    #print(f"==========TRAIN==========")
+    #summarize_vqa(train_vqas)
+    #print(f"==========VAL==========")
+    #summarize_vqa(val_vqas)
+    #print(f"==========TEST==========")
+    #summarize_vqa(test_vqas)
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
