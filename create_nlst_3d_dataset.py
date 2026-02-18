@@ -266,7 +266,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     is_lung_nodule = len(nodule_rows) > 0
 
     # 1) Where is the abnormality located?
-    qa_loc_answer = get_string_from_item_lst(rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
+    qa_loc_answer = get_string_from_item_lst(nodule_rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
     qa_loc = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -285,7 +285,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 2) Did it have a suspicious interval change in attenuation?
-    qa_attn_answer = get_string_from_item_lst(rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
+    qa_attn_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
     qa_attn = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -304,7 +304,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 3) Did the abnormality have interval growth?
-    qa_gwth_answer = get_string_from_item_lst(rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
+    qa_gwth_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
     qa_gwth = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -323,7 +323,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 4) Does interval change warrant further investigation?
-    qa_invg_answer = get_string_from_item_lst(rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
+    qa_invg_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
     qa_invg = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -342,7 +342,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 5) What are the margins?
-    qa_margin_answer = get_string_from_item_lst(rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
+    qa_margin_answer = get_string_from_item_lst(nodule_rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
     qa_margin = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -361,7 +361,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 6) What is the predominant attenuation?
-    qa_pre_att_answer = get_string_from_item_lst(rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
+    qa_pre_att_answer = get_string_from_item_lst(nodule_rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
     qa_pre_att = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -380,7 +380,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 7) What is the longest diameter (in mm)?
-    long_dia_str = get_string_from_numeric_lst(rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
+    long_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -399,7 +399,7 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
     question_index += 1
 
     # 8) What is the longest perpendicular diameter (in mm)?
-    perp_dia_str = get_string_from_numeric_lst(rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
+    perp_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -469,9 +469,8 @@ if __name__ == "__main__":
     measurement_file = "nlst_780_ctab_idc_20210527.csv"
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
-    source_file = "nlst_index.csv"
     add_time_delta2 = True
-    tag = "v4"
+    tag = "v5"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
