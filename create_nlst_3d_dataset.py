@@ -93,21 +93,21 @@ def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
     return volume_path_npy
 
 
-# A small helper to handle "code not found in dict" => "NA"
-def get_dict_value(dictionary, key, na_string="NA"):
-    return dictionary.get(key, na_string)
+# A small helper to handle "code not found in dict" => "missing"
+def get_dict_value(dictionary, key, missing_string="missing"):
+    return dictionary.get(key, missing_string)
 
 
-def get_string_from_item_lst(rows, key, key_dict, na_string="NA", sep_string="|"):
-    if len(rows) == 0:
+def get_string_from_item_lst(next_rows, key, key_dict, na_string="NA", sep_string="|"):
+    if len(next_rows) == 0:
         return na_string
-    return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in rows.iterrows()])
+    return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in next_rows.iterrows()])
 
 
-def get_string_from_numeric_lst(rows, key, nan_string="nan", sep_string="|"):
-    if len(rows) == 0:
+def get_string_from_numeric_lst(next_rows, key, nan_string="nan", sep_string="|"):
+    if len(next_rows) == 0:
         return nan_string
-    return sep_string.join([str(row.get(key, nan_string)) for _, row in rows.iterrows()])
+    return sep_string.join([str(row.get(key, nan_string)) for _, row in next_rows.iterrows()])
 
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
@@ -170,6 +170,11 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
     n_time_delta_1 = (df["time_delta"] == 1).sum()
     n_time_delta_2 = (df["time_delta"] == 2).sum()
 
+    n_nodule_cur_n_nodule_next = ((~df["cur_is_lung_nodule"]) & (~df["next_is_lung_nodule"])).sum()
+    n_nodule_cur_nodule_next = ((~df["cur_is_lung_nodule"]) & (df["next_is_lung_nodule"])).sum()
+    nodule_cur_n_nodule_next = ((df["cur_is_lung_nodule"]) & (~df["next_is_lung_nodule"])).sum()
+    nodule_cur_nodule_next = ((df["cur_is_lung_nodule"]) & (df["next_is_lung_nodule"])).sum()
+
     # statistics on different question types
     location_counts = df.loc[df['content_type'] == 'location']['answer'].str.split(pat=sep_string).explode().value_counts()
     interval_change_counts = df.loc[df['content_type'] == 'interval_change']['answer'].str.split(pat=sep_string).explode().value_counts()
@@ -189,6 +194,12 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
     print(f"Number of questions with final year 1: {n_final_year1}")
     print(f"Number of questions with final year 2: {n_final_year2}")
     print(f"Number of questions with time delta 1: {n_time_delta_1}")
+    print(f"Number of questions with time delta 2: {n_time_delta_2}")
+
+    print(f"Number of questions with no nodule at current and next time points: {nodule_cur_nodule_next}")
+    print(f"Number of questions with no nodule at current but nodule at next time point: {n_nodule_cur_nodule_next}")
+    print(f"Number of questions with nodule at current but no nodule at next time point: {nodule_cur_n_nodule_next}")
+    print(f"Number of questions with nodule at current and next time points: {nodule_cur_nodule_next}")
 
     print(f"Value Counts for location_counts: {location_counts}")
     print(f"Value Counts for interval_change_counts: {interval_change_counts}")
@@ -231,8 +242,8 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
         return grouped_sorted
 
 
-def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, is_not_lung_nodule,
-                   time_delta, embedding_path, question_index, content_type):
+def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, next_is_lung_nodule, 
+time_delta, embedding_path, question_index, content_type, cur_is_lung_nodule):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -242,50 +253,52 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "final_study_yr": final_study_yr,
         "time_delta": time_delta,
         "inst": inst,
-        "is_lung_nodule": is_lung_nodule,
-        "is_not_lung_nodule": is_not_lung_nodule,
+        "next_is_lung_nodule": next_is_lung_nodule,
         "embedding_path": embedding_path,
         "question": question,
         "answer": answer,
         "qid": question_index,
-        "content_type": content_type
+        "content_type": content_type,
+        "cur_is_lung_nodule": cur_is_lung_nodule
     }
 
 
-def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, question_index, embedding_path,
+def get_questions(cur_rows, next_rows, time_delta, pid, init_study_yr, final_study_yr, inst, question_index, embedding_path,
                   na_string="NA", nan_string="nan", sep_string="|"):
     q_list = []
 
-    # initially sort the rows by sct_ab_code, then largest nodule to smallest nodule
-    rows = rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
+    # initially sort the next_rows by sct_ab_code, then largest nodule to smallest nodule (cur_rows only for determining if there is a current nodule)
+    next_rows = next_rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
                             ascending=[False, False],
                             kind="mergesort")
-    # filter by nodule and non-nodule rows
-    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
+    # only focus on nodule rows
+    cur_nodule_rows = cur_rows.loc[cur_rows["sct_ab_code"] == 51]
+    next_nodule_rows = next_rows.loc[next_rows["sct_ab_code"] == 51]
 
-    is_lung_nodule = len(nodule_rows) > 0
+    cur_is_lung_nodule = len(cur_nodule_rows) > 0
+    next_is_lung_nodule = len(next_nodule_rows) > 0
 
-    # 1) Where is the abnormality located?
-    qa_loc_answer = get_string_from_item_lst(nodule_rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
+    # 1) Where will the abnormality be located?
+    qa_loc_answer = get_string_from_item_lst(next_nodule_rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
     qa_loc = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
+        question=f"Where will the predicted nodule(s) epicenter be located after {time_delta} years?",
         answer=qa_loc_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="location"
     )
     q_list.append(qa_loc)
     question_index += 1
 
-    # 2) Did it have a suspicious interval change in attenuation?
-    qa_attn_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
+    # 2) Will it have a suspicious interval change in attenuation?
+    qa_attn_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
     qa_attn = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -295,16 +308,16 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_attn_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="interval_change"
     )
     q_list.append(qa_attn)
     question_index += 1
 
-    # 3) Did the abnormality have interval growth?
-    qa_gwth_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
+    # 3) Will the abnormality have interval growth?
+    qa_gwth_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
     qa_gwth = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -314,103 +327,103 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
         answer=qa_gwth_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="interval_growth"
     )
     q_list.append(qa_gwth)
     question_index += 1
 
-    # 4) Does interval change warrant further investigation?
-    qa_invg_answer = get_string_from_item_lst(nodule_rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
+    # 4) Will there be an interval change that warrants further investigation?
+    qa_invg_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
     qa_invg = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
+        question=f"Will there be a predicted interval change in the nodule(s) after {time_delta} years that warrants further investigation?",
         answer=qa_invg_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="further_investigation"
     )
     q_list.append(qa_invg)
     question_index += 1
 
-    # 5) What are the margins?
-    qa_margin_answer = get_string_from_item_lst(nodule_rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
+    # 5) What will be the margins?
+    qa_margin_answer = get_string_from_item_lst(next_nodule_rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
     qa_margin = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted margins for the nodule(s) after {time_delta} years?",
         answer=qa_margin_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="margins"
     )
     q_list.append(qa_margin)
     question_index += 1
 
-    # 6) What is the predominant attenuation?
-    qa_pre_att_answer = get_string_from_item_lst(nodule_rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
+    # 6) What will be the predominant attenuation?
+    qa_pre_att_answer = get_string_from_item_lst(next_nodule_rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
     qa_pre_att = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_pre_att_answer,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="predominant_attenuation"
     )
     q_list.append(qa_pre_att)
     question_index += 1
 
-    # 7) What is the longest diameter (in mm)?
-    long_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
+    # 7) What will be the longest diameter (in mm)?
+    long_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=long_dia_str,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="longest_diameter"
     )
     q_list.append(qa_long)
     question_index += 1
 
-    # 8) What is the longest perpendicular diameter (in mm)?
-    perp_dia_str = get_string_from_numeric_lst(nodule_rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
+    # 8) What will be the longest perpendicular diameter (in mm)?
+    perp_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=perp_dia_str,
         embedding_path=embedding_path,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=not is_lung_nodule,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="longest_perpendicular_diameter"
     )
@@ -421,12 +434,14 @@ def get_questions(rows, time_delta, pid, init_study_yr, final_study_yr, inst, qu
 
 def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
-    Main function: iterates over the rows of 'df' and
+    Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
     question_index = 0
-    for pid, pid_ann_df in tqdm(ann_df.groupby('pid')):
+    for i, (pid, pid_ann_df) in tqdm(enumerate(ann_df.groupby('pid'))):
+        if i > 100:
+            break
         inst = pid_ann_df['cen'].iloc[0]
 
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
@@ -436,23 +451,20 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa
         # create t0 to t1 questions
         embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
         if os.path.exists(embedding_path):
-            qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, pid=pid,init_study_yr=0, final_study_yr=1,
-                                            inst=inst, question_index=question_index, 
-                                            embedding_path=embedding_path)
+            qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr1_ann_df, time_delta=1, pid=pid, init_study_yr=0, 
+            final_study_yr=1, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t1 to t2 questions
         embedding_path = os.path.join(save_dir, f"pid{pid}_ts1.st")
         if os.path.exists(embedding_path):
-            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, final_study_yr=2,
-                                                inst=inst, question_index=question_index, 
-                                                embedding_path=embedding_path)
+            qas, question_index = get_questions(pid_study_yr1_ann_df, pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, 
+            final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t0 to t2 questions
         embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
         if os.path.exists(embedding_path):
-            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=2, pid=pid, init_study_yr=0, final_study_yr=2,
-                                                inst=inst, question_index=question_index,
-                                                embedding_path=embedding_path)
+            qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr2_ann_df, time_delta=2, pid=pid, init_study_yr=0, 
+            final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
     return all_vqas
 
@@ -470,7 +482,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     add_time_delta2 = True
-    tag = "v5"
+    tag = "v6"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
