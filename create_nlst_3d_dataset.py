@@ -196,7 +196,7 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
     print(f"Number of questions with time delta 1: {n_time_delta_1}")
     print(f"Number of questions with time delta 2: {n_time_delta_2}")
 
-    print(f"Number of questions with no nodule at current and next time points: {nodule_cur_nodule_next}")
+    print(f"Number of questions with no nodule at current and next time points: {n_nodule_cur_n_nodule_next}")
     print(f"Number of questions with no nodule at current but nodule at next time point: {n_nodule_cur_nodule_next}")
     print(f"Number of questions with nodule at current but no nodule at next time point: {nodule_cur_n_nodule_next}")
     print(f"Number of questions with nodule at current and next time points: {nodule_cur_nodule_next}")
