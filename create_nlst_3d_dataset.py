@@ -439,9 +439,7 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa
     """
     all_vqas = []
     question_index = 0
-    for i, (pid, pid_ann_df) in tqdm(enumerate(ann_df.groupby('pid'))):
-        if i > 100:
-            break
+    for pid, pid_ann_df in tqdm(ann_df.groupby('pid')):
         inst = pid_ann_df['cen'].iloc[0]
 
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
