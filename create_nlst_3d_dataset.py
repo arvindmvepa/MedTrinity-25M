@@ -104,9 +104,9 @@ def get_string_from_item_lst(next_rows, key, key_dict, na_string="NA", sep_strin
     return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in next_rows.iterrows()])
 
 
-def get_string_from_numeric_lst(next_rows, key, na_string="NA", missing_val=-1, sep_string="|"):
+def get_string_from_numeric_lst(next_rows, key, nan_string="NA", missing_val=-1, sep_string="|"):
     if len(next_rows) == 0:
-        return na_string
+        return nan_string
     return sep_string.join([str(row.get(key, str(missing_val))) for _, row in next_rows.iterrows()])
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
