@@ -52,12 +52,9 @@ def summarize_aux(aux_list):
     """
     Produces summary statistics from the final aux list of dictionaries
     """
-    abnormality_type_list = []
-    pre_existing_list = []
     location_list = []
     interval_change_list = []
     interval_growth_list = []
-    further_investigation_list = []
     margins_list = []
     predominant_attenuation_list = []
     longest_diameter_list = []
@@ -66,42 +63,26 @@ def summarize_aux(aux_list):
     abnormality_type_multiplicity_counter = Counter()
     for it in aux_list:
         content_info = it["content_info"]
-        abnormality_type = content_info["abnormality_type"]
-        pre_existing = content_info["pre_existing"]
         location = content_info["location"]
         interval_change = content_info["interval_change"]
         interval_growth = content_info["interval_growth"]
-        further_investigation = content_info["further_investigation"]
         margins = content_info["margins"]
         predominant_attenuation = content_info["predominant_attenuation"]
         longest_diameter = content_info["longest_diameter"]
         longest_perpendicular_diameter = content_info["longest_perpendicular_diameter"]
 
-        # Count multiplicity of abnormality types
-        abnormality_type_multiplicity_counter_dict = dict()
-        for it in abnormality_type:
-            if it not in abnormality_type_multiplicity_counter_dict:
-                abnormality_type_multiplicity_counter_dict[it] = 0
-            abnormality_type_multiplicity_counter_dict[it] += 1
-        abnormality_type_multiplicity_counter.update([str(key)+"_" + str(value) for key, value in abnormality_type_multiplicity_counter_dict.items()])
         # Collect all the values into lists
-        abnormality_type_list.extend([str(it) for it in abnormality_type])
-        pre_existing_list.extend([str(it) for it in pre_existing])
         location_list.extend([str(it) for it in location])
         interval_change_list.extend([str(it) for it in interval_change])
         interval_growth_list.extend([str(it) for it in interval_growth])
-        further_investigation_list.extend([str(it) for it in further_investigation])
         margins_list.extend([str(it) for it in margins])
         predominant_attenuation_list.extend([str(it) for it in predominant_attenuation])
         longest_diameter_list.extend([str(it) for it in longest_diameter])
         longest_perpendicular_diameter_list.extend([str(it) for it in longest_perpendicular_diameter])
 
-    abnormality_type_counter = Counter([result for result in abnormality_type_list])
-    pre_existing_counter = Counter([result for result in pre_existing_list])
     location_counter = Counter([result for result in location_list])
     interval_change_counter = Counter([result for result in interval_change_list])
     interval_growth_counter = Counter([result for result in interval_growth_list])
-    further_investigation_counter = Counter([result for result in further_investigation_list])
     margins_counter = Counter([result for result in margins_list])
     predominant_attenuation_counter = Counter([result for result in predominant_attenuation_list])
     longest_diameter_counter = Counter([result for result in longest_diameter_list])
@@ -109,13 +90,9 @@ def summarize_aux(aux_list):
 
     print("Summary of auxiliary data:")
     print(f"Total entries: {len(aux_list)}")
-    print(f"Abnormality types multiplicity: {abnormality_type_multiplicity_counter}")
-    print(f"Abnormality types: {abnormality_type_counter}")
-    print(f"Pre-existing conditions: {pre_existing_counter}")
     print(f"Locations: {location_counter}")
     print(f"Interval changes: {interval_change_counter}")
     print(f"Interval growth: {interval_growth_counter}")
-    print(f"Further investigation: {further_investigation_counter}")
     print(f"Margins: {margins_counter}")
     print(f"Predominant attenuation: {predominant_attenuation_counter}")
     print(f"Longest diameter: {longest_diameter_counter}")
@@ -131,13 +108,13 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
     new_data = {}
 
     for (pid, embedding_path, init_study_yr, final_study_yr), content_type_dict in original_data.items():
-        location = content_type_dict.get("location", na_string).split(sep_string)
-        interval_change = content_type_dict.get("interval_change", na_string).split(sep_string)
-        interval_growth = content_type_dict.get("interval_growth", na_string).split(sep_string)
-        margins = content_type_dict.get("margins", na_string).split(sep_string)
-        predominant_attenuation = content_type_dict.get("predominant_attenuation", na_string).split(sep_string)
-        longest_diameter = content_type_dict.get("longest_diameter", nan_string).split(sep_string)
-        longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", nan_string).split(sep_string)
+        location = content_type_dict["location"].split(sep_string)
+        interval_change = content_type_dict["interval_change"].split(sep_string)
+        interval_growth = content_type_dict["interval_growth"].split(sep_string)
+        margins = content_type_dict["margins"].split(sep_string)
+        predominant_attenuation = content_type_dict["predominant_attenuation"].split(sep_string)
+        longest_diameter = content_type_dict["longest_diameter"].split(sep_string)
+        longest_perpendicular_diameter = content_type_dict["longest_perpendicular_diameter"].split(sep_string)
 
         # Convert each one to numeric / codes
         location = [location_map[item.strip()] for item in location]
