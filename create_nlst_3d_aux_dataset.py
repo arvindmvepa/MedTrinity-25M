@@ -3,7 +3,7 @@ from collections import Counter
 
 
 location_map = {
-    "NA": 0
+    "NA": 0,
     "Right Upper Lobe": 1,
     "Right Middle Lobe": 2,
     "Right Lower Lobe": 3,
@@ -14,7 +14,7 @@ location_map = {
     "missing": -1
 }
 margins_map = {
-    "NA": 0
+    "NA": 0,
     "Spiculated (Stellate)": 1,
     "Smooth": 2,
     "Poorly defined": 3,
@@ -22,7 +22,7 @@ margins_map = {
     "missing": -1,   
 }
 pre_att_map = {
-    "NA": 0
+    "NA": 0,
     "Soft Tissue": 1,
     "Ground glass": 2,
     "Mixed": 3,
@@ -33,14 +33,14 @@ pre_att_map = {
     "missing": -1
 }
 interval_change_map = {
-    "NA": 0
+    "NA": 0,
     "No interval change in attenuation": 1,
     "Yes, suspicious change in attenuation": 2,
     "Unable to determine": -1,
     "missing": -1
 }
 interval_growth_map = {
-    "NA": 0
+    "NA": 0,
     "No interval growth": 1,
     "Yes, interval growth": 2,
     "Unable to determine": -1,
