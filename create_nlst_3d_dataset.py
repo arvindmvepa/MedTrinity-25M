@@ -128,9 +128,9 @@ def train_val_test_split_by_pid_split_file(final_vqa, pid_split_file):
     Returns: (train_list, val_list, test_list)
     """
     pid_df = pd.read_csv(pid_split_file)
-    train_pids = set(pid_df[pid_df['split'] == 'train']['pid'])
-    val_pids = set(pid_df[pid_df['split'] == 'dev']['pid'])
-    test_pids = set(pid_df[pid_df['split'] == 'test']['pid'])
+    train_pids = set(pid_df[pid_df['SPLIT'] == 'train']['PID'])
+    val_pids = set(pid_df[pid_df['SPLIT'] == 'dev']['PID'])
+    test_pids = set(pid_df[pid_df['SPLIT'] == 'test']['PID'])
 
     train_list = [entry for entry in final_vqa if entry["pid"] in train_pids]
     val_list = [entry for entry in final_vqa if entry["pid"] in val_pids]
