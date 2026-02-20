@@ -524,14 +524,14 @@ if __name__ == "__main__":
     patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    #all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
-    #print(f"==========OVERALL==========")
-    #print(f"Total VQA pairs generated: {len(all_vqas)}")
-    #summarize_vqa(all_vqas)
-    #with open(save_file, "w") as f:
-    #    json.dump(all_vqas, f, indent=4)
-    with open(save_file, "r") as f:
-        all_vqas = json.load(f)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
+    print(f"==========OVERALL==========")
+    print(f"Total VQA pairs generated: {len(all_vqas)}")
+    summarize_vqa(all_vqas)
+    with open(save_file, "w") as f:
+        json.dump(all_vqas, f, indent=4)
+    #with open(save_file, "r") as f:
+    #    all_vqas = json.load(f)
 
     train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid_split_file(all_vqas, pid_split_file=pid_split_file)
 
