@@ -117,6 +117,28 @@ def get_string_from_numeric_lst(next_rows, key, nan_string="NA", missing_val=-1,
     return sep_string.join([get_numeric_value(row[key], missing_val) for _, row in next_rows.iterrows()])
 
 
+def train_val_test_split_by_pid_split_file(final_vqa, pid_split_file):
+    """
+    Splits a list of VQA dicts into train, val, and test sets based on a PID split file.
+    The PID split file should have columns 'pid' and 'split' with values 'train', 'val', or 'test'.
+
+    - final_vqa: list of dictionaries, each must have 'pid' key
+    - pid_split_file: path to CSV file containing PID splits
+
+    Returns: (train_list, val_list, test_list)
+    """
+    pid_df = pd.read_csv(pid_split_file)
+    train_pids = set(pid_df[pid_df['split'] == 'train']['pid'])
+    val_pids = set(pid_df[pid_df['split'] == 'dev']['pid'])
+    test_pids = set(pid_df[pid_df['split'] == 'test']['pid'])
+
+    train_list = [entry for entry in final_vqa if entry["pid"] in train_pids]
+    val_list = [entry for entry in final_vqa if entry["pid"] in val_pids]
+    test_list = [entry for entry in final_vqa if entry["pid"] in test_pids]
+
+    return train_list, val_list, test_list
+
+
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     """
     Splits a list of VQA dicts into train, val, and test sets by PID.
@@ -493,6 +515,7 @@ if __name__ == "__main__":
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
     val_save_file = f"nlst_val_vqa_delta2{add_time_delta2}_{tag}.json"
     test_save_file = f"nlst_test_vqa_delta2{add_time_delta2}_{tag}.json"
+    pid_split_file = "/home/avepa/Sybil/pid2split.csv"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -501,14 +524,17 @@ if __name__ == "__main__":
     patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
-    print(f"==========OVERALL==========")
-    print(f"Total VQA pairs generated: {len(all_vqas)}")
-    summarize_vqa(all_vqas)
-    with open(save_file, "w") as f:
-        json.dump(all_vqas, f, indent=4)
+    #all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
+    #print(f"==========OVERALL==========")
+    #print(f"Total VQA pairs generated: {len(all_vqas)}")
+    #summarize_vqa(all_vqas)
+    #with open(save_file, "w") as f:
+    #    json.dump(all_vqas, f, indent=4)
+    with open(save_file, "r") as f:
+        all_vqas = json.load(f)
 
-    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(all_vqas, val_pct=0.1, test_pct=0.15, seed=0)
+    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid_split_file(all_vqas, pid_split_file=pid_split_file)
+
 
     #print(f"==========TRAIN==========")
     #summarize_vqa(train_vqas)
