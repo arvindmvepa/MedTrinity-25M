@@ -104,11 +104,10 @@ def get_string_from_item_lst(next_rows, key, key_dict, na_string="NA", sep_strin
     return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in next_rows.iterrows()])
 
 
-def get_string_from_numeric_lst(next_rows, key, nan_string="nan", sep_string="|"):
+def get_string_from_numeric_lst(next_rows, key, na_string="NA", missing_val=-1, sep_string="|"):
     if len(next_rows) == 0:
-        return nan_string
-    return sep_string.join([str(row.get(key, nan_string)) for _, row in next_rows.iterrows()])
-
+        return na_string
+    return sep_string.join([str(row.get(key, str(missing_val))) for _, row in next_rows.iterrows()])
 
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     """
@@ -480,7 +479,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     add_time_delta2 = True
-    tag = "v6"
+    tag = "v7"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
