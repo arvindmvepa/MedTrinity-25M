@@ -111,7 +111,7 @@ def get_string_from_item_lst(next_rows, key, key_dict, na_string="NA", sep_strin
     return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in next_rows.iterrows()])
 
 
-def get_string_from_numeric_lst(next_rows, key, nan_string="NA", missing_val=-1, sep_string="|"):
+def get_string_from_numeric_lst(next_rows, key, nan_string="0", missing_val=-1, sep_string="|"):
     if len(next_rows) == 0:
         return nan_string
     return sep_string.join([get_numeric_value(row[key], missing_val) for _, row in next_rows.iterrows()])
@@ -422,7 +422,7 @@ def get_questions(cur_rows, next_rows, time_delta, pid, init_study_yr, final_stu
     question_index += 1
 
     # 7) What will be the longest diameter (in mm)?
-    long_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
+    long_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_long_dia", sep_string=sep_string)
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -441,7 +441,7 @@ def get_questions(cur_rows, next_rows, time_delta, pid, init_study_yr, final_stu
     question_index += 1
 
     # 8) What will be the longest perpendicular diameter (in mm)?
-    perp_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
+    perp_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_perp_dia", sep_string=sep_string)
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -509,7 +509,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     add_time_delta2 = True
-    tag = "v7"
+    tag = "v8"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
