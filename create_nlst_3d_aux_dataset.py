@@ -108,6 +108,7 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
     new_data = {}
 
     for (pid, embedding_path, init_study_yr, final_study_yr), content_type_dict in original_data.items():
+        print("content_type_dict for pid {}: {}".format(pid, content_type_dict))
         location = content_type_dict["location"].split(sep_string)
         interval_change = content_type_dict["interval_change"].split(sep_string)
         interval_growth = content_type_dict["interval_growth"].split(sep_string)
