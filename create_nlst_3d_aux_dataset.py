@@ -1,33 +1,50 @@
 import json
 from collections import Counter
-from create_nlst_3d_dataset import sct_ab_code_dict, sct_epi_loc_dict, sct_margins_dict, sct_pre_att_dict, \
-    sct_ab_attn_dict, sct_ab_gwth_dict, sct_ab_invg_dict, sct_ab_preexist_dict
 
 
-
-abnormality_type_map = {sct_ab_code_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_code_dict.keys()))}
-location_map = {sct_epi_loc_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_epi_loc_dict.keys()))}
-margins_map = {sct_margins_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_margins_dict.keys()))}
-pre_att_map = {sct_pre_att_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_pre_att_dict.keys()))}
-interval_change_map = {sct_ab_attn_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_attn_dict.keys()))}
-interval_growth_map = {sct_ab_gwth_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_gwth_dict.keys()))}
-further_investigation_map = {sct_ab_invg_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_invg_dict.keys()))}
-ab_preexist_map = {sct_ab_preexist_dict.get(key, "NA"): index for index, key in enumerate(["NA"] + sorted(sct_ab_preexist_dict.keys()))}
-
-EXTENT_MAP = {
-    "none": 0,
-    "very sparse": 1,
-    "somewhat scattered": 2,
-    "partially filled": 3,
-    "nearly filled": 4,
-    "almost fully filled": 5,
+location_map = {
+    "NA": 0
+    "Right Upper Lobe": 1,
+    "Right Middle Lobe": 2,
+    "Right Lower Lobe": 3,
+    "Left Upper Lobe": 4,
+    "Lingula": 5, 
+    "Left Lower Lobe": 6,
+    "Other (see comments)": 7,
+    "missing": -1
 }
-
-SOLIDITY_MAP = {
-    "none": 0,
-    "highly irregular and scattered": 1,
-    "somewhat compact but irregular": 2,
-    "mostly compact": 3,
+margins_map = {
+    "NA": 0
+    "Spiculated (Stellate)": 1,
+    "Smooth": 2,
+    "Poorly defined": 3,
+    "Unable to determine": -1,
+    "missing": -1,   
+}
+pre_att_map = {
+    "NA": 0
+    "Soft Tissue": 1,
+    "Ground glass": 2,
+    "Mixed": 3,
+    "Fluid/water": 4,
+    "Fat": 5,
+    "Other": 6,
+    "Unable to determine": -1,
+    "missing": -1
+}
+interval_change_map = {
+    "NA": 0
+    "No interval change in attenuation": 1,
+    "Yes, suspicious change in attenuation": 2,
+    "Unable to determine": -1,
+    "missing": -1
+}
+interval_growth_map = {
+    "NA": 0
+    "No interval growth": 1,
+    "Yes, interval growth": 2,
+    "Unable to determine": -1,
+    "missing": -1
 }
 
 
@@ -113,25 +130,19 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
     """
     new_data = {}
 
-    for (img_files, filters, init_study_yr, final_study_yr), content_type_dict in original_data.items():
-        abnormality_type = content_type_dict.get("abnormality_type", na_string).split(sep_string)
-        pre_existing = content_type_dict.get("pre-existing", na_string).split(sep_string)
+    for (pid, embedding_path, init_study_yr, final_study_yr), content_type_dict in original_data.items():
         location = content_type_dict.get("location", na_string).split(sep_string)
         interval_change = content_type_dict.get("interval_change", na_string).split(sep_string)
         interval_growth = content_type_dict.get("interval_growth", na_string).split(sep_string)
-        further_investigation = content_type_dict.get("further_investigation", na_string).split(sep_string)
         margins = content_type_dict.get("margins", na_string).split(sep_string)
         predominant_attenuation = content_type_dict.get("predominant_attenuation", na_string).split(sep_string)
         longest_diameter = content_type_dict.get("longest_diameter", nan_string).split(sep_string)
         longest_perpendicular_diameter = content_type_dict.get("longest_perpendicular_diameter", nan_string).split(sep_string)
 
         # Convert each one to numeric / codes
-        abnormality_type = [abnormality_type_map[item.strip()] for item in abnormality_type]
-        pre_existing = [ab_preexist_map[item.strip()] for item in pre_existing]
         location = [location_map[item.strip()] for item in location]
         interval_change = [interval_change_map[item.strip()] for item in interval_change]
         interval_growth = [interval_growth_map[item.strip()] for item in interval_growth]
-        further_investigation = [further_investigation_map[item.strip()] for item in further_investigation]
         margins = [margins_map[item.strip()] for item in margins]
         predominant_attenuation = [pre_att_map[item.strip()] for item in predominant_attenuation]
         longest_diameter = [float(item.strip()) for item in longest_diameter]
@@ -139,18 +150,15 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
 
         # Build the new metrics
         new_content_type_dict = {
-            "abnormality_type": abnormality_type,
-            "pre_existing": pre_existing,
             "location": location,
             "interval_change": interval_change,
             "interval_growth": interval_growth,
-            "further_investigation": further_investigation,
             "margins": margins,
             "predominant_attenuation": predominant_attenuation,
             "longest_diameter": longest_diameter,
             "longest_perpendicular_diameter": longest_perpendicular_diameter,
         }
-        new_data[(tuple(img_files), tuple(filters), init_study_yr, final_study_yr)] = new_content_type_dict
+        new_data[(pid, embedding_path, init_study_yr, final_study_yr)] = new_content_type_dict
 
     return new_data
 
@@ -164,12 +172,12 @@ def convert_numeric_dict_to_list(numeric_data):
     keys_sorted = sorted(numeric_data.keys(), key= lambda x: str(x[0]))  # sort by seg_file path
     result_list = []
 
-    for i, (img_files, filters, init_study_yr, final_study_yr) in enumerate(keys_sorted):
-        content_info = numeric_data[(img_files, filters, init_study_yr, final_study_yr)]
+    for i, (pid, embedding_path, init_study_yr, final_study_yr) in enumerate(keys_sorted):
+        content_info = numeric_data[(pid, embedding_path, init_study_yr, final_study_yr)]
         entry = {
             "id": i,
-            "img_files": img_files,
-            "filters": filters,
+            "pid": pid,
+            "embedding_path": embedding_path,
             "init_study_yr": init_study_yr,
             "final_study_yr": final_study_yr,
             "content_info": content_info
@@ -179,21 +187,20 @@ def convert_numeric_dict_to_list(numeric_data):
     return result_list
 
 
-def build_gt_lookup(vqa_questions, content_types=("abnormality_type", "pre-existing", "location", "interval_change",
-                                                  "interval_growth", "further_investigation", "margins",
+def build_gt_lookup(vqa_questions, content_types=("location", "interval_change", "interval_growth", "margins",
                                                   "predominant_attenuation", "longest_diameter",
                                                   "longest_perpendicular_diameter")):
     gt_lookup = {}
     for entry in vqa_questions:
-        img_files = tuple(entry["img_files"])
-        filters = tuple(entry["filters"])
-        content_type = entry["content_type"]
+        pid = entry["pid"]
+        embedding_path = entry["embedding_path"]
         init_study_yr = entry["init_study_yr"]
         final_study_yr = entry["final_study_yr"]
+        content_type = entry["content_type"]
         answer = entry["answer"].strip()
         if content_type not in content_types:
             continue
-        key = (img_files, filters, content_type, init_study_yr, final_study_yr)
+        key = (pid, embedding_path, init_study_yr, final_study_yr, content_type)
         gt_lookup[key] = answer
     return gt_lookup
 
@@ -211,21 +218,21 @@ def build_aux_tasks(all_vqa_questions, content_types=("abnormality_type", "pre-e
     gt_lookup = build_gt_lookup(all_vqa_questions)
 
     # 2) Identify all seg_files in the data
-    img_files_and_filters_set = set((tuple(entry["img_files"]), tuple(entry["filters"])) for entry in all_vqa_questions)
+    pid_embedding_path_set = set((entry["pid"], entry["embedding_path"]) for entry in all_vqa_questions)
 
     # 5) Build the final list of rows
     aux_dict = {}
-    for img_files, filters in sorted(img_files_and_filters_set):
+    for pid, embedding_path in sorted(pid_embedding_path_set):
         for init_study_yr, final_study_yr in [(0, 1), (1, 2), (0, 2)]:
             content_type_dict = {}
             for content_type in content_types:
-                key = (img_files, filters, content_type, init_study_yr, final_study_yr)
+                key = (pid, embedding_path, init_study_yr, final_study_yr, content_type)
                 if key in gt_lookup:
                     gt_value = gt_lookup[key]
                 else:
                     continue
                 content_type_dict[content_type] = gt_value
-            aux_dict[(img_files, filters, init_study_yr, final_study_yr)] = content_type_dict
+            aux_dict[(pid, embedding_path, init_study_yr, final_study_yr)] = content_type_dict
     return aux_dict
 
 
@@ -237,7 +244,7 @@ if __name__ == "__main__":
 
     # params
     add_time_delta2 = True
-    tag = "v3"
+    tag = "v6"
 
 
     vqa_file = "nlst_vqa_add_time_delta2{}_{}.json"
