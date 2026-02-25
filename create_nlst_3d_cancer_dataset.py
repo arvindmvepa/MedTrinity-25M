@@ -158,7 +158,7 @@ def get_questions(cur_rows, next_rows, pid, study_yr, inst, question_index, embe
         has_cancer = True
 
     # 1) Will this patient develop cancer?
-     cancer_qa = build_question(
+    cancer_qa = build_question(
         pid=pid,
         study_yr=study_yr,
         inst=inst,
