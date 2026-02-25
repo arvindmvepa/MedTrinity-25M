@@ -30,35 +30,14 @@ def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep
     """
     new_data = {}
 
-    for (pid, embedding_path, init_study_yr, final_study_yr), content_type_dict in original_data.items():
-        location = content_type_dict["location"].split(sep_string)
-        interval_change = content_type_dict["interval_change"].split(sep_string)
-        interval_growth = content_type_dict["interval_growth"].split(sep_string)
-        margins = content_type_dict["margins"].split(sep_string)
-        predominant_attenuation = content_type_dict["predominant_attenuation"].split(sep_string)
-        longest_diameter = content_type_dict["longest_diameter"].split(sep_string)
-        longest_perpendicular_diameter = content_type_dict["longest_perpendicular_diameter"].split(sep_string)
-
-        # Convert each one to numeric / codes
-        location = [location_map[item.strip()] for item in location]
-        interval_change = [interval_change_map[item.strip()] for item in interval_change]
-        interval_growth = [interval_growth_map[item.strip()] for item in interval_growth]
-        margins = [margins_map[item.strip()] for item in margins]
-        predominant_attenuation = [pre_att_map[item.strip()] for item in predominant_attenuation]
-        longest_diameter = [float(item.strip()) for item in longest_diameter]
-        longest_perpendicular_diameter = [float(item.strip()) for item in longest_perpendicular_diameter]
+    for (pid, embedding_path, study_yr), content_type_dict in original_data.items():
+        cancer = content_type_dict["cancer"]
 
         # Build the new metrics
         new_content_type_dict = {
-            "location": location,
-            "interval_change": interval_change,
-            "interval_growth": interval_growth,
-            "margins": margins,
-            "predominant_attenuation": predominant_attenuation,
-            "longest_diameter": longest_diameter,
-            "longest_perpendicular_diameter": longest_perpendicular_diameter,
+            "cancer": int(cancer.strip() == "yes"),
         }
-        new_data[(pid, embedding_path, init_study_yr, final_study_yr)] = new_content_type_dict
+        new_data[(pid, embedding_path, study_yr)] = new_content_type_dict
 
     return new_data
 
@@ -72,14 +51,13 @@ def convert_numeric_dict_to_list(numeric_data):
     keys_sorted = sorted(numeric_data.keys(), key= lambda x: str(x[0]))  # sort by seg_file path
     result_list = []
 
-    for i, (pid, embedding_path, init_study_yr, final_study_yr) in enumerate(keys_sorted):
-        content_info = numeric_data[(pid, embedding_path, init_study_yr, final_study_yr)]
+    for i, (pid, embedding_path, study_yr) in enumerate(keys_sorted):
+        content_info = numeric_data[(pid, embedding_path, study_yr)]
         entry = {
             "id": i,
             "pid": pid,
             "embedding_path": embedding_path,
-            "init_study_yr": init_study_yr,
-            "final_study_yr": final_study_yr,
+            "study_yr": study_yr,
             "content_info": content_info
         }
         result_list.append(entry)
