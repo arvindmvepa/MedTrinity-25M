@@ -149,7 +149,7 @@ def build_question(question, answer, pid, study_yr, inst, embedding_path, questi
     }
 
 
-def get_questions(cur_rows, next_rows, pid, study_yr, inst, question_index, embedding_path):
+def get_questions(cur_rows, pid, study_yr, inst, question_index, embedding_path):
     q_list = []
 
     cancyr = cur_rows['cancyr'].iloc[0]
