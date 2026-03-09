@@ -174,7 +174,7 @@ def get_questions(cur_rows, pid, study_yr, inst, question_index, embedding_path)
     return q_list, question_index
 
 
-def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
+def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
     Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -219,13 +219,15 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     add_time_delta2 = True
-    tag = "v0"
+    tag = "v1"
 
     save_file = f"nlst_cancer_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_cancer_train_vqa_delta2{add_time_delta2}_{tag}.json"
     val_save_file = f"nlst_cancer_val_vqa_delta2{add_time_delta2}_{tag}.json"
     test_save_file = f"nlst_cancer_test_vqa_delta2{add_time_delta2}_{tag}.json"
     pid_split_file = "/home/avepa/Sybil/pid2split.csv"
+    #embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
+    embedding_dir = "/hsuraid/avepa/nlst_sybil_1_embeddings"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -234,7 +236,7 @@ if __name__ == "__main__":
     patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2, embedding_dir=embedding_dir)
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     summarize_vqa(all_vqas)
