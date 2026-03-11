@@ -461,7 +461,7 @@ def get_questions(cur_rows, next_rows, time_delta, pid, init_study_yr, final_stu
     return q_list, question_index
 
 
-def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
+def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
     Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -476,19 +476,19 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, save_dir="/hsuraid/avepa
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
         # create t0 to t1 questions
-        embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr1_ann_df, time_delta=1, pid=pid, init_study_yr=0, 
             final_study_yr=1, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t1 to t2 questions
-        embedding_path = os.path.join(save_dir, f"pid{pid}_ts1.st")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr1_ann_df, pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, 
             final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t0 to t2 questions
-        embedding_path = os.path.join(save_dir, f"pid{pid}_ts0.st")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr2_ann_df, time_delta=2, pid=pid, init_study_yr=0, 
             final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
@@ -509,13 +509,15 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     add_time_delta2 = True
-    tag = "v8"
+    tag = "v9"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
     val_save_file = f"nlst_val_vqa_delta2{add_time_delta2}_{tag}.json"
     test_save_file = f"nlst_test_vqa_delta2{add_time_delta2}_{tag}.json"
     pid_split_file = "/home/avepa/Sybil/pid2split.csv"
+    #embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
+    embedding_dir = "/hsuraid/avepa/nlst_sybil_1_embeddings"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
@@ -524,7 +526,7 @@ if __name__ == "__main__":
     patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2, embedding_dir=embedding_dir)
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     summarize_vqa(all_vqas)
