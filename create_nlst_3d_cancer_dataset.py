@@ -189,18 +189,17 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
         # create t0 question
-        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
-        print(f"Processing PID {pid}, study year 0, embedding path: {embedding_path}")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.npy")
         if os.path.exists(embedding_path) and not pid_study_yr0_ann_df.empty:
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid=pid, study_yr=0, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t1 question
-        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts1.npy")
         if os.path.exists(embedding_path) and not pid_study_yr1_ann_df.empty:
             qas, question_index = get_questions(pid_study_yr1_ann_df, pid=pid, study_yr=1, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
         # create t2 question
-        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts2.st")
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts2.npy")
         if os.path.exists(embedding_path) and not pid_study_yr2_ann_df.empty:
             qas, question_index = get_questions(pid_study_yr2_ann_df, pid=pid, study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
