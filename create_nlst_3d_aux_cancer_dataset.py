@@ -1,225 +1,170 @@
-import pyreadstat
 import json
-import pandas as pd
-import random
-import os
+from collections import Counter
 
 
-def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
-    volume_name = os.path.basename(volume_path)
-    time_point_dir = os.path.basename(os.path.dirname(volume_path))
-    pid_dir = os.path.basename(os.path.dirname(os.path.dirname(volume_path)))
-    volume_path_npy = os.path.join(img_root, pid_dir, time_point_dir, volume_name + ".npy")
-    return volume_path_npy
-
-
-# A small helper to handle "code not found in dict" => "NA"
-def get_dict_value(dictionary, key, na_string="NA"):
-    return dictionary.get(key, na_string)
-
-
-def get_string_from_item_lst(rows, key, key_dict, na_string="NA", sep_string="|"):
-    if len(rows) == 0:
-        return na_string
-    return sep_string.join([get_dict_value(key_dict, row[key]) for _, row in rows.iterrows()])
-
-
-def get_string_from_numeric_lst(rows, key, nan_string="nan", sep_string="|"):
-    if len(rows) == 0:
-        return nan_string
-    return sep_string.join([str(row.get(key, nan_string)) for _, row in rows.iterrows()])
-
-
-def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
+def summarize_aux(aux_list):
     """
-    Splits a list of VQA dicts into train, val, and test sets by PID.
-    The val set is val_pct of unique PIDs,
-    the test set is test_pct of unique PIDs,
-    and the remainder goes to train.
-
-    - final_vqa: list of dictionaries, each must have 'pid' key
-    - val_pct: fraction of PIDs for validation
-    - test_pct: fraction of PIDs for test
-    - seed: random seed for reproducibility
-
-    Returns: (train_list, val_list, test_list)
+    Produces summary statistics from the final aux list of dictionaries
     """
+    cancer_list = []
 
-    # 1) Collect unique PIDs from the list
-    unique_pids = sorted({item["pid"] for item in final_vqa})
-    total_pids = len(unique_pids)
+    for it in aux_list:
+        content_info = it["content_info"]
+        cancer = content_info["cancer"]
 
-    # 2) Shuffle PIDs
-    random.seed(seed)
-    random.shuffle(unique_pids)
+        # Collect all the values into lists
+        cancer_list.append(cancer)
 
-    # 3) Determine how many PIDs go to val/test
-    val_size = int(val_pct * total_pids)
-    test_size = int(test_pct * total_pids)
-    train_size = total_pids - val_size - test_size
+    cancer_counter = Counter([result for result in cancer_list])
 
-    # 4) Slice the shuffled PIDs
-    train_pids = set(unique_pids[:train_size])
-    val_pids = set(unique_pids[train_size:train_size + val_size])
-    test_pids = set(unique_pids[train_size + val_size:train_size + val_size + test_size])
-
-    # 5) Partition the original list by checking pid membership
-    train_list = [entry for entry in final_vqa if entry["pid"] in train_pids]
-    val_list = [entry for entry in final_vqa if entry["pid"] in val_pids]
-    test_list = [entry for entry in final_vqa if entry["pid"] in test_pids]
-
-    return train_list, val_list, test_list
+    print("Summary of auxiliary data:")
+    print(f"Total entries: {len(aux_list)}")
+    print(f"Cancer: {cancer_counter}")
 
 
-def filter_by_instution(all_vqas, inst_list):
+def convert_dict_to_numeric(original_data, na_string="NA", nan_string="nan", sep_string="|"):
     """
-    Filter the VQA list by institution.
+    Given the nested dictionary structure shown above,
+    return a new dictionary with numeric codes for
+    area, extent, and solidity, plus a list of integer codes for bbox.
     """
-    filt_inst_list = [qa for qa in all_vqas if qa["inst"] in inst_list]
-    return filt_inst_list
+    new_data = {}
+
+    for (pid, embedding_path, study_yr), content_type_dict in original_data.items():
+        cancer = content_type_dict["cancer"]
+
+        # Build the new metrics
+        new_content_type_dict = {
+            "cancer": int(cancer.strip() == "yes"),
+        }
+        new_data[(pid, embedding_path, study_yr)] = new_content_type_dict
+
+    return new_data
 
 
-def filter_by_pid(all_vqas, pid_list):
+def convert_numeric_dict_to_list(numeric_data):
     """
-    Filter the VQA list by patient ID.
+    Given the 'numeric_data' dict from convert_dict_to_numeric(),
+    produce a list of dicts, one per seg_file, sorted by seg_file.
+    Each dict has keys: id, seg_file, labels (the label metrics).
     """
-    filt_pid_list = [qa for qa in all_vqas if qa["pid"] in pid_list]
-    return filt_pid_list
+    keys_sorted = sorted(numeric_data.keys(), key= lambda x: str(x[0]))  # sort by seg_file path
+    result_list = []
+
+    for i, (pid, embedding_path, study_yr) in enumerate(keys_sorted):
+        content_info = numeric_data[(pid, embedding_path, study_yr)]
+        entry = {
+            "id": i,
+            "pid": pid,
+            "embedding_path": embedding_path,
+            "study_yr": study_yr,
+            "content_info": content_info
+        }
+        result_list.append(entry)
+
+    return result_list
 
 
-def load_pids_from_file(pid_file):
+def build_gt_lookup(vqa_questions, content_types=("cancer")):
+    gt_lookup = {}
+    for entry in vqa_questions:
+        pid = entry["pid"]
+        embedding_path = entry["embedding_path"]
+        study_yr = entry["study_yr"]
+        content_type = entry["content_type"]
+        answer = entry["answer"].strip()
+        if content_type not in content_types:
+            continue
+        key = (pid, embedding_path, study_yr, content_type)
+        gt_lookup[key] = answer
+    return gt_lookup
+
+
+def build_aux_tasks(all_vqa_questions, content_types=("cancer",)):
     """
-    Load PIDs from a text file where each line contains one PID.
+    Convert the original Q&A JSON into
+    one row per (volume_seg_file, label_name, type),
+    with a fixed set of 4 labels x 4 types = 16 rows per volume_seg_file.
     """
-    with open(pid_file, 'r') as f:
-        pids = [int(line.strip()) for line in f if line.strip()]
-    return pids
+    # 1) Build the ground-truth lookup from the Q&A
+    gt_lookup = build_gt_lookup(all_vqa_questions)
 
+    # 2) Identify all seg_files in the data
+    pid_embedding_path_set = set((entry["pid"], entry["embedding_path"]) for entry in all_vqa_questions)
 
-def build_cancer_question(img_files, filters, pid, study_yr, inst, question_index, question, answer, numeric_answer,
-                          content_type="cancer"):
-    """
-    Build a single Q–A dictionary with the relevant fields.
-    """
-    return {
-        "pid": pid,
-        "study_yr": study_yr,
-        "inst": inst,
-        "img_files": img_files,
-        "filters": filters,
-        "question": question,
-        "answer": answer,
-        "numeric_answer": numeric_answer,
-        "qid": question_index,
-        "content_type": content_type
-    }
-
-
-def get_cancer_question(img_files, filters, pid, study_yr, inst, question_index, has_cancer):
-    qa = build_cancer_question(
-        pid=pid,
-        study_yr=study_yr,
-        inst=inst,
-        question="Will this patient develop cancer?",
-        answer="yes" if has_cancer else "no",
-        numeric_answer=int(has_cancer),
-        img_files=img_files,
-        filters=filters,
-        question_index=question_index,
-        content_type="cancer"
-    )
-    return qa
-
-
-def generate_cancer_aux_from_df(index_df, ann_df):
-    """
-    Main function: iterates over the rows of 'df' and
-    creates VQA Q–A pairs in a modular way.
-    """
-    cancer_aux_list = []
-    question_index = 0
-    for pid, group in index_df.groupby('pid'):
-        pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
-        inst = pid_ann_df['cen'].iloc[0]
-        cancyr = pid_ann_df['cancyr'].iloc[0]
-        has_cancer = False
-        if not pd.isna(cancyr):
-            has_cancer = True
-
-        grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
-        grp_t0_filters = group["dicom_filter"].loc[~group["dicom_t0"].isnull()].tolist()
-
-        grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
-        grp_t1_filters = group["dicom_filter"].loc[~group["dicom_t1"].isnull()].tolist()
-
-        grp_t2 = group["dicom_t2"].loc[~group["dicom_t2"].isnull()].tolist()
-        grp_t2_filters = group["dicom_filter"].loc[~group["dicom_t2"].isnull()].tolist()
-
-        if len(grp_t0) > 0:
-            question_index += 1
-            qa = get_cancer_question(img_files=grp_t0, filters=grp_t0_filters, pid=pid, study_yr=0, inst=inst,
-                                     question_index=question_index, has_cancer=has_cancer)
-            cancer_aux_list.append(qa)
-        if len(grp_t1) > 0:
-            question_index += 1
-            qa = get_cancer_question(img_files=grp_t1, filters=grp_t1_filters, pid=pid, study_yr=1, inst=inst,
-                                     question_index=question_index, has_cancer=has_cancer)
-            cancer_aux_list.append(qa)
-        if len(grp_t2) > 0:
-            question_index += 1
-            qa = get_cancer_question(img_files=grp_t2, filters=grp_t2_filters, pid=pid, study_yr=2, inst=inst,
-                                     question_index=question_index, has_cancer=has_cancer)
-            cancer_aux_list.append(qa)
-    return cancer_aux_list
+    # 5) Build the final list of rows
+    aux_dict = {}
+    for pid, embedding_path in sorted(pid_embedding_path_set):
+        for study_yr in [0, 1, 2]:
+            content_type_dict = {}
+            for content_type in content_types:
+                key = (pid, embedding_path, study_yr, content_type)
+                if key in gt_lookup:
+                    gt_value = gt_lookup[key]
+                else:
+                    continue
+                content_type_dict[content_type] = gt_value
+            # Only add to aux_dict if content_type_dict is not empty
+            if content_type_dict:
+                aux_dict[(pid, embedding_path, study_yr)] = content_type_dict
+    return aux_dict
 
 
 if __name__ == "__main__":
-    measurement_file = "nlst_780_ctab_idc_20210527.csv"
-    comparison_file = "nlst_780_ctabc_idc_20210527.csv"
-    patient_file = "participant_d100814.sas7bdat"
-    source_file = "nlst_index.csv"
-    tag = "v5"
+    # reference vqa files to line up seg_ids and train/val/test splits
+    ref_train_vqa_file = None
+    ref_val_vqa_file = None
+    ref_test_vqa_file = None
 
-    save_file = f"nlst_aux_cancer_{tag}.json"
-    #filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
-    pid_file = "/home/avepa/nlst_pid_list.txt" 
-    filt_save_file = f"nlst_aux_cancer_filt_{tag}.json"
-    filt_save_pid_list = f"nlst_aux_cancer_filt_pids_{tag}.json"
-    train_save_file = f"nlst_aux_cancer_train_{tag}.json"
-    val_save_file = f"nlst_aux_cancer_val_{tag}.json"
-    test_save_file = f"nlst_aux_cancer_test_{tag}.json"
+    # params
+    add_time_delta2 = True
+    tag = "v1_m3fm"
 
-    (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
 
-    nlst_index_df = pd.read_csv(source_file)
-    all_cancer_vqa = generate_cancer_aux_from_df(nlst_index_df, patient_df)
+    vqa_file = "nlst_cancer_vqa_add_time_delta2{}_{}.json"
+    clean_vqa_file = "nlst_cancer_vqa_filt_delta2{}_{}.json"
+    train_file = "nlst_cancer_train_vqa_delta2{}_{}.json"
+    train_aux_file = "nlst_cancer_train_aux_vqa_delta2{}_{}.json"
+    val_file = "nlst_cancer_val_vqa_delta2{}_{}.json"
+    val_aux_file = "nlst_cancer_val_aux_vqa_delta2{}_{}.json"
+    test_file = "nlst_cancer_test_vqa_delta2{}_{}.json"
+    test_aux_file = "nlst_cancer_test_aux_vqa_delta2{}_{}.json"
 
-    print(f"==========OVERALL==========")
-    with open(save_file, "w") as f:
-        json.dump(all_cancer_vqa, f, indent=4)
+    train_file = train_file.format(add_time_delta2, tag)
+    train_aux_file = train_aux_file.format(add_time_delta2, tag)
+    val_file = val_file.format(add_time_delta2, tag)
+    val_aux_file = val_aux_file.format(add_time_delta2, tag)
+    test_file = test_file.format(add_time_delta2, tag)
+    test_aux_file = test_aux_file.format(add_time_delta2, tag)
 
-    print(f"==========FILTERED==========")
-    #filtered_vqas = filter_by_instution(all_cancer_vqa, filter_inst)
-    filter_pids = load_pids_from_file(pid_file)
-    print("# of filter PIDs loaded:", len(filter_pids))
-    filtered_vqas = filter_by_pid(all_cancer_vqa, filter_pids)
-    with open(filt_save_file, "w") as f:
-        json.dump(filtered_vqas, f, indent=4)
-    filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
-    with open(filt_save_pid_list, "w") as f:
-        json.dump(filtered_pids, f)
-    print(f"Wrote {len(filtered_vqas)} auxiliary rows to {filt_save_file}")
-    print(f"Number of cancer rows {len([vqa for vqa in filtered_vqas if vqa['numeric_answer'] == 1])}")
+    with open(train_file, 'r') as f:
+        train_vqa_data = json.load(f)
+    with open(val_file, 'r') as f:
+        val_vqa_data = json.load(f)
+    with open(test_file, 'r') as f:
+        test_vqa_data = json.load(f)
 
-    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
+    train_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(train_vqa_data)))
+    val_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(val_vqa_data)))
+    test_vqa_aux_data = convert_numeric_dict_to_list(convert_dict_to_numeric(build_aux_tasks(test_vqa_data)))
 
-    with open(train_save_file, "w") as f:
-        json.dump(train_vqas, f, indent=4)
-    with open(val_save_file, "w") as f:
-        json.dump(val_vqas, f, indent=4)
-    with open(test_save_file, "w") as f:
-        json.dump(test_vqas, f, indent=4)
+    with open(train_aux_file, "w") as f:
+        json.dump(train_vqa_aux_data, f, indent=4)
+    with open(val_aux_file, "w") as f:
+        json.dump(val_vqa_aux_data, f, indent=4)
+    with open(test_aux_file, "w") as f:
+        json.dump(test_vqa_aux_data, f, indent=4)
 
-    print(f"Wrote {len(train_vqas)} auxiliary rows to {train_save_file}")
-    print(f"Wrote {len(val_vqas)} auxiliary rows to {val_save_file}")
-    print(f"Wrote {len(test_vqas)} auxiliary rows to {test_save_file}")
+    print(f"Wrote {len(train_vqa_aux_data)} auxiliary rows to {train_aux_file}")
+    print(f"Wrote {len(val_vqa_aux_data)} auxiliary rows to {val_aux_file}")
+    print(f"Wrote {len(test_vqa_aux_data)} auxiliary rows to {test_aux_file}")
+
+    # Summarize the auxiliary data
+    print("Summary of all auxiliary data")
+    summarize_aux(train_vqa_aux_data + val_vqa_aux_data + test_vqa_aux_data)
+    print("Summary of train auxiliary data")
+    summarize_aux(train_vqa_aux_data)
+    print("Summary of val auxiliary data")
+    summarize_aux(val_vqa_aux_data)
+    print("Summary of test auxiliary data")
+    summarize_aux(test_vqa_aux_data)
