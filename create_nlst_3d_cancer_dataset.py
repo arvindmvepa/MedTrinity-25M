@@ -190,6 +190,7 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/
 
         # create t0 question
         embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
+        print(f"Processing PID {pid}, study year 0, embedding path: {embedding_path}")
         if os.path.exists(embedding_path) and not pid_study_yr0_ann_df.empty:
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid=pid, study_yr=0, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
