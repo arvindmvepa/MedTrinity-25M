@@ -1,33 +1,28 @@
 import pandas as pd
 from glob import glob
 import os
-import pyreadstat
 from tqdm import tqdm
-import torch
-import shutil
 
-
-# load pid2split
 df = pd.read_csv("pid2split.csv")
 pids = df['PID'].tolist()
 
 root_npy_dir = "/hsuraid/avepa/nlst_npy_v1"
-save_dir = f"/hsuraid/avepa/nlst_npy_m3fm"
-validate_embeddings = False
+save_dir = "/hsuraid/avepa/nlst_npy_m3fm"
 
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-
-print(f"Saving image files for {len(pids)} patients.")
+os.makedirs(save_dir, exist_ok=True)
 
 for pid in tqdm(pids):
     patient_dir = os.path.join(root_npy_dir, str(pid))
-    if os.path.exists(patient_dir):
-        time_points = sorted(glob(os.path.join(patient_dir, "*")))
-        for time_index, time_point in enumerate(time_points):
-            img_npy_files = sorted(glob(os.path.join(time_point, "*")))
-            if not img_npy_files:
-                continue
-            img_npy_file = img_npy_files[0]
-            save_path = os.path.join(save_dir, f"pid{pid}_ts{time_index}.npy")
-            shutil.copyfile(img_npy_file, save_path)
+    if not os.path.exists(patient_dir):
+        continue
+
+    time_points = sorted(glob(os.path.join(patient_dir, "*")))
+    for time_index, time_point in enumerate(time_points):
+        img_npy_files = sorted(glob(os.path.join(time_point, "*")))
+        if not img_npy_files:
+            continue
+        src = img_npy_files[0]
+        dst = os.path.join(save_dir, f"pid{pid}_ts{time_index}.npy")
+
+        if not os.path.exists(dst):
+            os.symlink(src, dst)
