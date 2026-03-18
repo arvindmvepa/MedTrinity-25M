@@ -237,7 +237,7 @@ if __name__ == "__main__":
 
     # params
     add_time_delta2 = True
-    tag = "v3"
+    tag = "v1_m3fm"
 
 
     vqa_file = "nlst_vqa_add_time_delta2{}_{}.json"

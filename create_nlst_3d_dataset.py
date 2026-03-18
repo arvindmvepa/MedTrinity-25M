@@ -110,6 +110,28 @@ def get_string_from_numeric_lst(rows, key, nan_string="nan", sep_string="|"):
     return sep_string.join([str(row.get(key, nan_string)) for _, row in rows.iterrows()])
 
 
+def train_val_test_split_by_pid_split_file(final_vqa, pid_split_file):
+    """
+    Splits a list of VQA dicts into train, val, and test sets based on a PID split file.
+    The PID split file should have columns 'pid' and 'split' with values 'train', 'val', or 'test'.
+
+    - final_vqa: list of dictionaries, each must have 'pid' key
+    - pid_split_file: path to CSV file containing PID splits
+
+    Returns: (train_list, val_list, test_list)
+    """
+    pid_df = pd.read_csv(pid_split_file)
+    train_pids = set(pid_df[pid_df['SPLIT'] == 'train']['PID'])
+    val_pids = set(pid_df[pid_df['SPLIT'] == 'dev']['PID'])
+    test_pids = set(pid_df[pid_df['SPLIT'] == 'test']['PID'])
+
+    train_list = [entry for entry in final_vqa if entry["pid"] in train_pids]
+    val_list = [entry for entry in final_vqa if entry["pid"] in val_pids]
+    test_list = [entry for entry in final_vqa if entry["pid"] in test_pids]
+
+    return train_list, val_list, test_list
+
+
 def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     """
     Splits a list of VQA dicts into train, val, and test sets by PID.
@@ -243,8 +265,7 @@ def summarize_vqa(final_vqa, na_string="NA", nan_string="nan", sep_string="|", p
         return grouped_sorted
 
 
-def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, is_lung_nodule, is_not_lung_nodule,
-                   time_delta, img_files, filters, question_index, content_type):
+def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, next_is_lung_nodule, time_delta, embedding_path, question_index, content_type, cur_is_lung_nodule):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
@@ -254,113 +275,52 @@ def build_question(question, answer, pid, init_study_yr, final_study_yr, inst, i
         "final_study_yr": final_study_yr,
         "time_delta": time_delta,
         "inst": inst,
-        "is_lung_nodule": is_lung_nodule,
-        "is_not_lung_nodule": is_not_lung_nodule,
-        "img_files": img_files,
-        "filters": filters,
+        "next_is_lung_nodule": next_is_lung_nodule,
+        "embedding_path": embedding_path,
         "question": question,
         "answer": answer,
         "qid": question_index,
-        "content_type": content_type
+        "content_type": content_type,
+        "cur_is_lung_nodule": cur_is_lung_nodule
     }
 
 
-def build_diffusion_prompt(pid, init_study_yr, final_study_yr, inst, time_delta, source_img_files, source_filters,
-                           target_img_files, target_filters, diffusion_prompt_index):
-    return {
-        "pid": pid,
-        "init_study_yr": init_study_yr,
-        "final_study_yr": final_study_yr,
-        "time_delta": time_delta,
-        "inst": inst,
-        "source_img_files": [get_npy_path(img_file) for img_file in source_img_files],
-        "source_filters": source_filters,
-        "target_img_files": [get_npy_path(img_file) for img_file in target_img_files],
-        "target_filters": target_filters,
-        "dpid": diffusion_prompt_index
-    }
-
-
-def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, final_study_yr, inst, question_index,
+def get_questions(cur_rows, next_rows, time_delta, pid, init_study_yr, final_study_yr, inst, question_index, embedding_path,
                   na_string="NA", nan_string="nan", sep_string="|"):
     q_list = []
 
-    # initially sort the rows by sct_ab_code
-    rows = rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
+    # initially sort the next_rows by sct_ab_code, then largest nodule to smallest nodule (cur_rows only for determining if there is a current nodule)
+    next_rows = next_rows.sort_values(by=["sct_ab_code", "sct_long_dia"],
                             ascending=[False, False],
                             kind="mergesort")
-    # filter by nodule and non-nodule rows
-    nodule_rows = rows.loc[rows["sct_ab_code"] == 51]
-    non_nodule_rows = rows.loc[rows["sct_ab_code"] != 51]
+    # only focus on nodule rows
+    cur_nodule_rows = cur_rows.loc[cur_rows["sct_ab_code"] == 51]
+    next_nodule_rows = next_rows.loc[next_rows["sct_ab_code"] == 51]
 
-    is_lung_nodule = len(nodule_rows) > 0
-    is_not_lung_nodule = len(non_nodule_rows) > 0
+    cur_is_lung_nodule = len(cur_nodule_rows) > 0
+    next_is_lung_nodule = len(next_nodule_rows) > 0
 
-    # Q1: What type of abnormality is this?
-    lesion_name = get_string_from_item_lst(rows, key="sct_ab_code", key_dict=sct_ab_code_dict, na_string=na_string)
-    qa1_answer = lesion_name
-    qa1 = build_question(
-        pid=pid,
-        init_study_yr=init_study_yr,
-        final_study_yr=final_study_yr,
-        time_delta=time_delta,
-        inst=inst,
-        question=f"What type of abnormality will be seen in {time_delta} years?",
-        answer=qa1_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
-        question_index=question_index,
-        content_type="abnormality_type"
-    )
-    q_list.append(qa1)
-    question_index += 1
-
-    # Q2: Was the abnormality pre-existing?
-    pre_existing_diseases = get_string_from_item_lst(rows, key="sct_ab_preexist", key_dict=sct_ab_preexist_dict,
-                                                     na_string=na_string)
-    qa2_answer = pre_existing_diseases
-    qa2 = build_question(
-        pid=pid,
-        init_study_yr=init_study_yr,
-        final_study_yr=final_study_yr,
-        time_delta=time_delta,
-        inst=inst,
-        question=f"If there will be an abnormality after {time_delta} years, is it pre-existing at least 1 year prior?",
-        answer=qa2_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
-        question_index=question_index,
-        content_type="pre-existing"
-    )
-    q_list.append(qa2)
-    question_index += 1
-
-    # 3) Where is the abnormality located?
-    qa_loc_answer = get_string_from_item_lst(rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
+    # 1) Where will the abnormality be located?
+    qa_loc_answer = get_string_from_item_lst(next_nodule_rows, key="sct_epi_loc", key_dict=sct_epi_loc_dict,na_string=na_string)
     qa_loc = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"Where is the predicted nodule(s) epicenter located after {time_delta} years?",
+        question=f"Where will the predicted nodule(s) epicenter be located after {time_delta} years?",
         answer=qa_loc_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="location"
     )
     q_list.append(qa_loc)
     question_index += 1
 
-    # 4) Did it have a suspicious interval change in attenuation?
-    qa_attn_answer = get_string_from_item_lst(rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
+    # 2) Will it have a suspicious interval change in attenuation?
+    qa_attn_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_attn", key_dict=sct_ab_attn_dict, na_string=na_string)
     qa_attn = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -369,18 +329,17 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         inst=inst,
         question=f"Will there be suspicious interval change in attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_attn_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="interval_change"
     )
     q_list.append(qa_attn)
     question_index += 1
 
-    # 5) Did the abnormality have interval growth?
-    qa_gwth_answer = get_string_from_item_lst(rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
+    # 3) Will the abnormality have interval growth?
+    qa_gwth_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_gwth", key_dict=sct_ab_gwth_dict, na_string=na_string)
     qa_gwth = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
@@ -389,110 +348,104 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
         inst=inst,
         question=f"Will the nodule(s) have interval growth after {time_delta} years?",
         answer=qa_gwth_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="interval_growth"
     )
     q_list.append(qa_gwth)
     question_index += 1
 
-    # 6) Does interval change warrant further investigation?
-    qa_invg_answer = get_string_from_item_lst(rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
+    # 4) Will there be an interval change that warrants further investigation?
+    qa_invg_answer = get_string_from_item_lst(next_nodule_rows, key="sct_ab_invg", key_dict=sct_ab_invg_dict, na_string=na_string)
     qa_invg = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"Will the predicted interval change in the nodule(s) after {time_delta} years warrant further investigation?",
+        question=f"Will there be a predicted interval change in the nodule(s) after {time_delta} years that warrants further investigation?",
         answer=qa_invg_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="further_investigation"
     )
     q_list.append(qa_invg)
     question_index += 1
 
-    # 7) What are the margins?
-    qa_margin_answer = get_string_from_item_lst(rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
+    # 5) What will be the margins?
+    qa_margin_answer = get_string_from_item_lst(next_nodule_rows, key="sct_margins", key_dict=sct_margins_dict, na_string=na_string)
     qa_margin = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What are the predicted margins for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted margins for the nodule(s) after {time_delta} years?",
         answer=qa_margin_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="margins"
     )
     q_list.append(qa_margin)
     question_index += 1
 
-    # 8) What is the predominant attenuation?
-    qa_pre_att_answer = get_string_from_item_lst(rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
+    # 6) What will be the predominant attenuation?
+    qa_pre_att_answer = get_string_from_item_lst(next_nodule_rows, key="sct_pre_att", key_dict=sct_pre_att_dict, na_string=na_string)
     qa_pre_att = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted predominant attenuation for the nodule(s) after {time_delta} years?",
         answer=qa_pre_att_answer,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="predominant_attenuation"
     )
     q_list.append(qa_pre_att)
     question_index += 1
 
-    # 9) What is the longest diameter (in mm)?
-    long_dia_str = get_string_from_numeric_lst(rows, key="sct_long_dia", sep_string=sep_string, nan_string=nan_string)
+    # 7) What will be the longest diameter (in mm)?
+    long_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_long_dia", sep_string=sep_string)
     qa_long = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted longest diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=long_dia_str,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="longest_diameter"
     )
     q_list.append(qa_long)
     question_index += 1
 
-    # 10) What is the longest perpendicular diameter (in mm)?
-    perp_dia_str = get_string_from_numeric_lst(rows, key="sct_perp_dia", sep_string=sep_string, nan_string=nan_string)
+    # 8) What will be the longest perpendicular diameter (in mm)?
+    perp_dia_str = get_string_from_numeric_lst(next_nodule_rows, key="sct_perp_dia", sep_string=sep_string)
     qa_perp = build_question(
         pid=pid,
         init_study_yr=init_study_yr,
         final_study_yr=final_study_yr,
         time_delta=time_delta,
         inst=inst,
-        question=f"What is the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
+        question=f"What will be the predicted longest perpendicular diameter (mm) for the nodule(s) after {time_delta} years?",
         answer=perp_dia_str,
-        img_files=img_files,
-        filters=filters,
-        is_lung_nodule=is_lung_nodule,
-        is_not_lung_nodule=is_not_lung_nodule,
+        embedding_path=embedding_path,
+        next_is_lung_nodule=next_is_lung_nodule,
+        cur_is_lung_nodule=cur_is_lung_nodule,
         question_index=question_index,
         content_type="longest_perpendicular_diameter"
     )
@@ -501,142 +454,77 @@ def get_questions(rows, time_delta, img_files, filters, pid, init_study_yr, fina
     return q_list, question_index
 
 
-def generate_vqa_from_df(index_df, ann_df, add_time_delta2=False):
+def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
-    Main function: iterates over the rows of 'df' and
+    Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
-    all_diffusion_prompts = []
     question_index = 0
-    diffusion_prompt_index = 0
-    for pid, group in index_df.groupby('pid'):
-        pid_ann_df = ann_df.loc[ann_df["pid"] == pid]
+    for pid, pid_ann_df in tqdm(ann_df.groupby('pid')):
         inst = pid_ann_df['cen'].iloc[0]
 
-        grp_t0 = group["dicom_t0"].loc[~group["dicom_t0"].isnull()].tolist()
-        grp_t0_filters = group["dicom_filter"].loc[~group["dicom_t0"].isnull()].tolist()
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
-
-        grp_t1 = group["dicom_t1"].loc[~group["dicom_t1"].isnull()].tolist()
-        grp_t1_filters = group["dicom_filter"].loc[~group["dicom_t1"].isnull()].tolist()
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
-        grp_t2 = group["dicom_t2"].loc[~group["dicom_t2"].isnull()].tolist()
-        grp_t2_filters = group["dicom_filter"].loc[~group["dicom_t2"].isnull()].tolist()
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
-        # create t0 to t1 questions
-        if len(grp_t0) > 0 and len(grp_t1) > 0:
-            qas, question_index = get_questions(pid_study_yr1_ann_df, time_delta=1, img_files=grp_t0,
-                                               filters=grp_t0_filters, pid=pid,init_study_yr=0, final_study_yr=1,
-                                               inst=inst, question_index=question_index)
+        # create t0 question
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.npy")
+        if os.path.exists(embedding_path) and not pid_study_yr0_ann_df.empty:
+            qas, question_index = get_questions(pid_study_yr0_ann_df, pid=pid, study_yr=0, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
-            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=0, final_study_yr=1,
-                                                      inst=inst, time_delta=1, source_img_files=grp_t0,
-                                                      source_filters=grp_t0_filters, target_img_files=grp_t1,
-                                                      target_filters= grp_t1_filters,
-                                                      diffusion_prompt_index=diffusion_prompt_index)
-            all_diffusion_prompts.append(diffusion_prompt)
-            diffusion_prompt_index += 1
-        # create t1 to t2 questions
-        if len(grp_t1) > 0 and len(grp_t2) > 0:
-            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=1, img_files=grp_t1,
-                                                filters=grp_t1_filters, pid=pid,init_study_yr=1, final_study_yr=2,
-                                                inst=inst, question_index=question_index)
+        # create t1 question
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts1.npy")
+        if os.path.exists(embedding_path) and not pid_study_yr1_ann_df.empty:
+            qas, question_index = get_questions(pid_study_yr1_ann_df, pid=pid, study_yr=1, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
-            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=1, final_study_yr=2,
-                                                      inst=inst, time_delta=1, source_img_files=grp_t1,
-                                                      source_filters=grp_t1_filters, target_img_files=grp_t2,
-                                                      target_filters=grp_t2_filters,
-                                                      diffusion_prompt_index=diffusion_prompt_index)
-            all_diffusion_prompts.append(diffusion_prompt)
-            diffusion_prompt_index += 1
-        # create t0 to t2 questions
-        if add_time_delta2 and len(grp_t0) > 0 and len(grp_t2) > 0:
-            qas, question_index = get_questions(pid_study_yr2_ann_df, time_delta=2, img_files=grp_t0,
-                                                filters=grp_t0_filters, pid=pid, init_study_yr=0, final_study_yr=2,
-                                                inst=inst, question_index=question_index)
+        # create t2 question
+        embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts2.npy")
+        if os.path.exists(embedding_path) and not pid_study_yr2_ann_df.empty:
+            qas, question_index = get_questions(pid_study_yr2_ann_df, pid=pid, study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
-            diffusion_prompt = build_diffusion_prompt(pid=pid, init_study_yr=0, final_study_yr=2,
-                                                      inst=inst, time_delta=2, source_img_files=grp_t0,
-                                                      source_filters=grp_t0_filters, target_img_files=grp_t2,
-                                                      target_filters=grp_t2_filters,
-                                                      diffusion_prompt_index=diffusion_prompt_index)
-            all_diffusion_prompts.append(diffusion_prompt)
-            diffusion_prompt_index += 1
-    return all_vqas, all_diffusion_prompts
-
-
-def filter_by_instution(all_vqas, inst_list):
-    """
-    Filter the VQA list by institution.
-    """
-    filt_inst_list = [qa for qa in all_vqas if qa["inst"] in inst_list]
-    return filt_inst_list
+    return all_vqas
 
 
 if __name__ == "__main__":
     measurement_file = "nlst_780_ctab_idc_20210527.csv"
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
-    source_file = "nlst_index.csv"
     add_time_delta2 = True
-    tag = "v3"
+    tag = "v1_m3fm"
 
     save_file = f"nlst_vqa_add_time_delta2{add_time_delta2}_{tag}.json"
-    save_diff_file = f"nlst_diff_add_time_delta2{add_time_delta2}_{tag}.json"
-    #filter_inst = ["AZ", "AG", "AQ", "AJ", "BA", "AU", "BE", "AC", "BF", "AE", "AP"]
-    filter_by_pid_list = ""
-    filt_save_file = f"nlst_vqa_filt_delta2{add_time_delta2}_{tag}.json"
-    filt_save_diff_file = f"nlst_diff_filt_delta2{add_time_delta2}_{tag}.json"
-    filt_save_pid_list = f"nlst_vqa_filt_pids_delta2{add_time_delta2}_{tag}.json"
     train_save_file = f"nlst_train_vqa_delta2{add_time_delta2}_{tag}.json"
     val_save_file = f"nlst_val_vqa_delta2{add_time_delta2}_{tag}.json"
     test_save_file = f"nlst_test_vqa_delta2{add_time_delta2}_{tag}.json"
-    train_save_diff_file = f"nlst_train_diff_delta2{add_time_delta2}_{tag}.json"
-    val_save_diff_file = f"nlst_val_diff_delta2{add_time_delta2}_{tag}.json"
-    test_save_diff_file = f"nlst_test_diff_delta2{add_time_delta2}_{tag}.json"
+    pid_split_file = "/home/avepa/Sybil/pid2split.csv"
+    embedding_dir = "/hsuraid/avepa/nlst_npy_m3fm"
 
     measure_df = pd.read_csv(measurement_file)
     compare_df = pd.read_csv(comparison_file)
     combined_measure_comp_df = pd.merge(measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
+    patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    nlst_index_df = pd.read_csv(source_file)
-    all_vqas, all_diffusion_prompts = generate_vqa_from_df(nlst_index_df,
-                                                           patient_info_w_combined_measure_comp_df,
-                                                           add_time_delta2=add_time_delta2)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2, embedding_dir=embedding_dir)
     print(f"==========OVERALL==========")
+    print(f"Total VQA pairs generated: {len(all_vqas)}")
     summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
-    with open(save_diff_file, "w") as f:
-        json.dump(all_diffusion_prompts, f, indent=4)
+    #with open(save_file, "r") as f:
+    #    all_vqas = json.load(f)
 
-    filtered_vqas = filter_by_instution(all_vqas, filter_inst)
-    filtered_diffusion_prompts = filter_by_instution(all_diffusion_prompts, filter_inst)
-    print(f"==========FILTERED==========")
-    summarize_vqa(filtered_vqas)
-    with open(filt_save_file, "w") as f:
-        json.dump(filtered_vqas, f, indent=4)
-    with open(filt_save_diff_file, "w") as f:
-        json.dump(filtered_diffusion_prompts, f, indent=4)
-    filtered_pids = sorted({qa["pid"] for qa in filtered_vqas})
-    with open(filt_save_pid_list, "w") as f:
-        json.dump(filtered_pids, f)
+    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid_split_file(all_vqas, pid_split_file=pid_split_file)
 
-    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid(filtered_vqas, val_pct=0.1, test_pct=0.1, seed=0)
-    train_diffusion_prompts, val_diffusion_prompts, test_diffusion_prompts = train_val_test_split_by_pid(filtered_diffusion_prompts,
-                                                                                                         val_pct=0.1,
-                                                                                                         test_pct=0.1,
-                                                                                                         seed=0)
-    print(f"==========TRAIN==========")
-    summarize_vqa(train_vqas)
-    print(f"==========VAL==========")
-    summarize_vqa(val_vqas)
-    print(f"==========TEST==========")
-    summarize_vqa(test_vqas)
+
+    #print(f"==========TRAIN==========")
+    #summarize_vqa(train_vqas)
+    #print(f"==========VAL==========")
+    #summarize_vqa(val_vqas)
+    #print(f"==========TEST==========")
+    #summarize_vqa(test_vqas)
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
@@ -644,10 +532,3 @@ if __name__ == "__main__":
         json.dump(val_vqas, f, indent=4)
     with open(test_save_file, "w") as f:
         json.dump(test_vqas, f, indent=4)
-
-    with open(train_save_diff_file, "w") as f:
-        json.dump(train_diffusion_prompts, f, indent=4)
-    with open(val_save_diff_file, "w") as f:
-        json.dump(val_diffusion_prompts, f, indent=4)
-    with open(test_save_diff_file, "w") as f:
-        json.dump(test_diffusion_prompts, f, indent=4)
