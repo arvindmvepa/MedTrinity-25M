@@ -469,22 +469,26 @@ def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/
 
         # create t0 to t1 questions
         embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
+        print(f"Processing PID {pid} with embedding path: {embedding_path}")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr1_ann_df, time_delta=1, pid=pid, init_study_yr=0, 
             final_study_yr=1, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
+            print(1)
         # create t1 to t2 questions
         embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr1_ann_df, pid_study_yr2_ann_df, time_delta=1, pid=pid,init_study_yr=1, 
             final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
+            print(2)
         # create t0 to t2 questions
         embedding_path = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
         if os.path.exists(embedding_path):
             qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr2_ann_df, time_delta=2, pid=pid, init_study_yr=0, 
             final_study_yr=2, inst=inst, question_index=question_index, embedding_path=embedding_path)
             all_vqas.extend(qas)
+            print(3)
     return all_vqas
 
 
