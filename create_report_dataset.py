@@ -45,7 +45,15 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
+            item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
+            item['answer_vqa'] = []
+            item['label_name'] = "NA"
+            item['type'] = 'report'
+            item['base_type'] = 'report'
+            item['content_type'] = 'report'
+            item['combo'] = []
+            item['answer_vqa_numeric'] = []
             train_reports.append(item)
             previously_seen.add(seg_id)
     val_reports = []
@@ -53,7 +61,15 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
+            item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
+            item['answer_vqa'] = []
+            item['label_name'] = "NA"
+            item['type'] = 'report'
+            item['base_type'] = 'report'
+            item['content_type'] = 'report'
+            item['combo'] = []
+            item['answer_vqa_numeric'] = []
             val_reports.append(item)
             previously_seen.add(seg_id)
     test_reports = []
@@ -61,7 +77,15 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
+            item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
+            item['answer_vqa'] = []
+            item['label_name'] = "NA"
+            item['type'] = 'report'
+            item['base_type'] = 'report'
+            item['content_type'] = 'report'
+            item['combo'] = []
+            item['answer_vqa_numeric'] = []
             test_reports.append(item)
             previously_seen.add(seg_id) 
     print(f"Number of training samples with reports: {len(train_reports)}")
