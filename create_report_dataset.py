@@ -6,10 +6,15 @@ if __name__ == "__main__":
     report_file = "/local2/amvepa91/RadGenome-Brain_MRI/BraTS_MET/impression.json"
 
     subjective_only = True
+    seed = 0
+
     train_vqa_file = "brats_{}_3d_vqa_subj{}_train_updated_{}_multitask_fixed.json"
     val_vqa_file = "brats_{}_3d_vqa_subj{}_val_updated_{}_multitask_fixed.json"
     test_vqa_file = "brats_{}_3d_vqa_subj{}_test_updated_{}_multitask_fixed.json"
-    seed = 0
+
+    train_report_file = "brats_{}_3d_vqa_subj{}_train_updated_{}_report.json"
+    val_report_file = "brats_{}_3d_vqa_subj{}_val_updated_{}_report.json"
+    test_report_file = "brats_{}_3d_vqa_subj{}_test_updated_{}_report.json"
 
     # MET dataset settings
     dataset_type = "met"
@@ -17,6 +22,10 @@ if __name__ == "__main__":
     train_file = train_vqa_file.format(dataset_type, subjective_only, version)
     val_file = val_vqa_file.format(dataset_type, subjective_only, version)
     test_file = test_vqa_file.format(dataset_type, subjective_only, version)
+
+    train_report_file = train_report_file.format(dataset_type, subjective_only, version)
+    val_report_file = val_report_file.format(dataset_type, subjective_only, version)
+    test_report_file = test_report_file.format(dataset_type, subjective_only, version)
 
     with open(report_file, "r") as f:
         report_data = json.load(f)
@@ -57,4 +66,10 @@ if __name__ == "__main__":
             previously_seen.add(seg_id) 
     print(f"Number of training samples with reports: {len(train_reports)}")
     print(f"Number of validation samples with reports: {len(val_reports)}")
-    print(f"Number of test samples with reports: {len(test_reports)}") 
+    print(f"Number of test samples with reports: {len(test_reports)}")
+    with open(train_report_file, "w") as f:
+        json.dump(train_reports, f, indent=4)
+    with open(val_report_file, "w") as f:
+        json.dump(val_reports, f, indent=4)
+    with open(test_report_file, "w") as f:
+        json.dump(test_reports, f, indent=4)
