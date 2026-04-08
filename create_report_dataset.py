@@ -47,13 +47,13 @@ if __name__ == "__main__":
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
-            item['answer_vqa'] = []
+            item['answer_vqa'] = None
             item['label_name'] = "NA"
             item['type'] = 'report'
             item['base_type'] = 'report'
             item['content_type'] = 'report'
             item['combo'] = []
-            item['answer_vqa_numeric'] = []
+            item['answer_vqa_numeric'] = None
             train_reports.append(item)
             previously_seen.add(seg_id)
     val_reports = []
@@ -63,13 +63,13 @@ if __name__ == "__main__":
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
-            item['answer_vqa'] = []
+            item['answer_vqa'] = None
             item['label_name'] = "NA"
             item['type'] = 'report'
             item['base_type'] = 'report'
             item['content_type'] = 'report'
             item['combo'] = []
-            item['answer_vqa_numeric'] = []
+            item['answer_vqa_numeric'] = None
             val_reports.append(item)
             previously_seen.add(seg_id)
     test_reports = []
@@ -79,13 +79,13 @@ if __name__ == "__main__":
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer"] = report_data[seg_id]["impression"]
             item["answer_gen"] = report_data[seg_id]["impression"]
-            item['answer_vqa'] = []
+            item['answer_vqa'] = None
             item['label_name'] = "NA"
             item['type'] = 'report'
             item['base_type'] = 'report'
             item['content_type'] = 'report'
             item['combo'] = []
-            item['answer_vqa_numeric'] = []
+            item['answer_vqa_numeric'] = None
             test_reports.append(item)
             previously_seen.add(seg_id) 
     print(f"Number of training samples with reports: {len(train_reports)}")
