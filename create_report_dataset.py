@@ -46,7 +46,7 @@ if __name__ == "__main__":
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer_gen"] = report_data[seg_id]["impression"]
-            train_reports.append(item["answer_gen"])
+            train_reports.append(item)
             previously_seen.add(seg_id)
     val_reports = []
     for item in val_data:
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer_gen"] = report_data[seg_id]["impression"]
-            val_reports.append(item["answer_gen"])
+            val_reports.append(item)
             previously_seen.add(seg_id)
     test_reports = []
     for item in test_data:
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
             item["answer_gen"] = report_data[seg_id]["impression"]
-            test_reports.append(item["answer_gen"])
+            test_reports.append(item)
             previously_seen.add(seg_id) 
     print(f"Number of training samples with reports: {len(train_reports)}")
     print(f"Number of validation samples with reports: {len(val_reports)}")
