@@ -6,9 +6,9 @@ if __name__ == "__main__":
     report_file = "/local2/amvepa91/RadGenome-Brain_MRI/BraTS_MET/impression.json"
 
     subjective_only = True
-    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_{}_multitask_fixed.json"
-    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_{}_multitask_fixed.json"
-    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_{}_multitask_fixed.json"
+    train_vqa_file = "brats_{}_3d_vqa_subj{}_train_updated_{}_multitask_fixed.json"
+    val_vqa_file = "brats_{}_3d_vqa_subj{}_val_updated_{}_multitask_fixed.json"
+    test_vqa_file = "brats_{}_3d_vqa_subj{}_test_updated_{}_multitask_fixed.json"
     seed = 0
 
     # MET dataset settings
