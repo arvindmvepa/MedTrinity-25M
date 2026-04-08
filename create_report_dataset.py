@@ -45,7 +45,7 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
-            item["answer_gen"] = report_data[seg_id]
+            item["answer_gen"] = report_data[seg_id]["impression"]
             train_reports.append(item["answer_gen"])
             previously_seen.add(seg_id)
     val_reports = []
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
-            item["answer_gen"] = report_data[seg_id]
+            item["answer_gen"] = report_data[seg_id]["impression"]
             val_reports.append(item["answer_gen"])
             previously_seen.add(seg_id)
     test_reports = []
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         seg_id = os.path.basename(item["volume_file_dir"])
         if seg_id in report_data and seg_id not in previously_seen:
             item["question"] = "What is the impression of the radiology report for this MRI scan?"
-            item["answer_gen"] = report_data[seg_id]
+            item["answer_gen"] = report_data[seg_id]["impression"]
             test_reports.append(item["answer_gen"])
             previously_seen.add(seg_id) 
     print(f"Number of training samples with reports: {len(train_reports)}")
