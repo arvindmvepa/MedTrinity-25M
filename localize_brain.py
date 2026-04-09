@@ -215,6 +215,11 @@ _LOBE_TO_ID = {
 }
 _ID_TO_LOBE = {v: k for k, v in _LOBE_TO_ID.items()}
 
+# Dense-region reporting thresholds. These do not affect the original sparse
+# overlap statistic or the original `regions` field.
+DENSE_REGION_MIN_VOXELS = 50
+DENSE_REGION_MIN_PERCENT = 1.0
+
 
 def _squeeze_singleton_4d(img: nib.Nifti1Image) -> nib.Nifti1Image:
     if img.ndim == 4 and img.shape[-1] == 1:
@@ -321,6 +326,19 @@ def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarra
     return overlap_voxels, overlap_dict, sorted(set(region_list))
 
 
+def _threshold_region_list(overlap_dict: dict, min_voxels: int = DENSE_REGION_MIN_VOXELS,
+                           min_percent: float = DENSE_REGION_MIN_PERCENT):
+    """
+    Filter region labels using a minimum voxel threshold and minimum percent
+    threshold. This is only used for the new dense-region reporting path.
+    """
+    kept = []
+    for info in overlap_dict.values():
+        if info["voxels"] >= min_voxels and info["percent"] >= min_percent:
+            kept.append(info["region"])
+    return sorted(set(kept))
+
+
 def load_aal_atlas_label_map(version: str = "SPM12"):
     """
     Load AAL atlas from nilearn and build a mapping from atlas value -> label or lobe.
@@ -356,6 +374,7 @@ def localize_to_brain_regions(
     -------
     results : dict
         Same core structure as the original script, with extra dense-label fields added.
+        The original `regions` field is preserved and new dense fields are added separately.
     """
     # --- 1. resample atlas to tumour space if needed ---------------
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
@@ -418,24 +437,35 @@ def localize_to_brain_regions(
         tumour_mask=tumour_mask,
     )
     dense_overlap_fraction = float(dense_overlap_voxels) / float(total) if total else 0.0
-
-    # The final `regions` field is now based on the dense lobe assignment, but the
-    # returned region strings are exactly the same lobe names as in the original map.
-    final_region_list = dense_region_list if len(dense_region_list) > 0 else sorted(set(sparse_region_list))
+    sparse_region_list = sorted(set(sparse_region_list))
+    dense_region_list = sorted(set(dense_region_list))
+    dense_regions_thresholded = _threshold_region_list(
+        dense_overlap_dict,
+        min_voxels=DENSE_REGION_MIN_VOXELS,
+        min_percent=DENSE_REGION_MIN_PERCENT,
+    )
 
     return {
-        # Original fields preserved
+        # Original fields preserved exactly
         "total_voxels": total,
         "overlap_voxels": overlap_voxels,
         "overlap_fraction": overlap_fraction,
         "overlap": overlap_dict,
-        "regions": final_region_list,
+        "regions": sparse_region_list,
 
-        # Extra fields added for improved reviewer-aligned labeling
-        "sparse_regions": sorted(set(sparse_region_list)),
+        # Explicit sparse alias for readability
+        "sparse_regions": sparse_region_list,
+
+        # Extra fields for dense-lobe reporting
         "dense_overlap_voxels": dense_overlap_voxels,
         "dense_overlap_fraction": dense_overlap_fraction,
         "dense_overlap": dense_overlap_dict,
+        "dense_regions_all": dense_region_list,
+        "dense_regions": dense_regions_thresholded,
+        "dense_region_thresholds": {
+            "min_voxels": DENSE_REGION_MIN_VOXELS,
+            "min_percent": DENSE_REGION_MIN_PERCENT,
+        },
         "reference_path": reference_path,
     }
 
@@ -499,29 +529,46 @@ if __name__ == "__main__":
         for tumor_label, info in summ.items():
             print(f"\nTumor label: {tumor_label}")
             print(f"Total voxels: {info['total_voxels']} | "
-                  f"Atlas-labeled: {info['overlap_voxels']} "
-                  f"({info['overlap_fraction']*100:5.2f}%)")
+                  f"Sparse atlas-labeled: {info['overlap_voxels']} "
+                  f"({info['overlap_fraction']*100:5.2f}%) | "
+                  f"Dense lobe-labeled: {info['dense_overlap_voxels']} "
+                  f"({info['dense_overlap_fraction']*100:5.2f}%)")
             for idx_, info_ in info["overlap"].items():
                 print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
                     f"({info_['percent']:5.2f}%)")
-            print("Regions:", get_region_str(info["regions"]))
+            print("Sparse regions:", get_region_str(info["regions"]))
+            print("Dense regions (all):", get_region_str(info["dense_regions_all"]))
+            print("Dense regions (thresholded):", get_region_str(info["dense_regions"]))
     """
     seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
     #seg_paths = [seg_path for seg_path in seg_paths if "BraTS-GLI-02118-100" in seg_path or "BraTS-GLI-02128-102" in seg_path or "BraTS-GLI-02135-101" in seg_path]
     #seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT*/BraTS-GoAT*seg.nii.gz"))
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
-    atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
+    atlas_overlap_sparse = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
+    atlas_overlap_dense = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
     #tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
-    #atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
-    for seg_path in tqdm(seg_paths[:100]):
+    #atlas_overlap_sparse = {"ET": [], "SNFH": [], "NETC": []}
+    #atlas_overlap_dense = {"ET": [], "SNFH": [], "NETC": []}
+    for seg_path in tqdm(seg_paths[:3]):
         try:
             summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
             for tumor_label, info in summ.items():
                 if info['total_voxels'] > 0:
-                    atlas_overlap[tumor_label].append(info['overlap_fraction']*100)
+                    atlas_overlap_sparse[tumor_label].append(info['overlap_fraction']*100)
+                    atlas_overlap_dense[tumor_label].append(info['dense_overlap_fraction']*100)
         except Exception as e:
             print(f"Error processing {seg_path}: {e}")
-    print("\n\nSummary of atlas overlap percentages (%):")
-    for tumor_label, overlaps in atlas_overlap.items():
-        print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}, #samples: {len(overlaps)}")
+    print("\n\nSummary of overlap percentages (%):")
+    for tumor_label in tumour_labels.keys():
+        sparse_vals = atlas_overlap_sparse[tumor_label]
+        dense_vals = atlas_overlap_dense[tumor_label]
+        if len(sparse_vals) == 0:
+            print(f"{tumor_label}: no samples")
+            continue
+        print(
+            f"{tumor_label}: "
+            f"sparse={np.mean(sparse_vals):.2f} ± {np.std(sparse_vals):.2f}, "
+            f"dense={np.mean(dense_vals):.2f} ± {np.std(dense_vals):.2f}, "
+            f"#samples: {len(sparse_vals)}"
+        )
