@@ -507,14 +507,14 @@ if __name__ == "__main__":
             print("Regions:", get_region_str(info["regions"]))
     """
     seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI*/BraTS-GLI*seg.nii.gz"))
-    seg_paths = [seg_path for seg_path in seg_paths if "BraTS-GLI-02118-100" in seg_path or "BraTS-GLI-02128-102" in seg_path or "BraTS-GLI-02135-101" in seg_path]
+    #seg_paths = [seg_path for seg_path in seg_paths if "BraTS-GLI-02118-100" in seg_path or "BraTS-GLI-02128-102" in seg_path or "BraTS-GLI-02135-101" in seg_path]
     #seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT*/BraTS-GoAT*seg.nii.gz"))
 
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
     atlas_overlap = {"ET": [], "SNFH": [], "NETC": [], "RC": []}
     #tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
     #atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
-    for seg_path in tqdm(seg_paths):
+    for seg_path in tqdm(seg_paths[:100]):
         try:
             summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
             for tumor_label, info in summ.items():
