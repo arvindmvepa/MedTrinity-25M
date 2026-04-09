@@ -6,9 +6,12 @@ from nilearn.datasets import fetch_atlas_aal
 import glob
 import os
 from tqdm import tqdm
+from scipy.ndimage import binary_fill_holes, binary_closing, distance_transform_edt
 
 
 # ---- 1. AAL names and indices  -------------------
+# Kept exactly as in the original script so the final lobe vocabulary and
+# atlas-index -> lobe mapping remain consistent with previously trained models.
 AAL_NAMES = [
     'Precentral_L', 'Precentral_R',
     'Frontal_Sup_L', 'Frontal_Sup_R',
@@ -166,6 +169,7 @@ _CEREBELLUM = {
     'Vermis_9', 'Vermis_10',
 }
 
+
 def _lobe_for_name(name: str) -> str:
     if name in _FRONTAL:
         return "frontal"
@@ -193,24 +197,142 @@ AAL_INDEX_TO_LOBE: dict[int, str] = {
     for name, idx in zip(AAL_NAMES, AAL_INDICES)
 }
 
-
 # add background explicitly
 AAL_INDEX_TO_LOBE[0] = "background"
+
+# internal dense-lobe ids; these are not exposed as final labels
+_LOBE_TO_ID = {
+    "background": 0,
+    "frontal": 1,
+    "parietal": 2,
+    "occipital": 3,
+    "temporal": 4,
+    "limbic": 5,
+    "insula": 6,
+    "subcortical": 7,
+    "cerebellum": 8,
+    "unknown": 9,
+}
+_ID_TO_LOBE = {v: k for k, v in _LOBE_TO_ID.items()}
+
+
+def _squeeze_singleton_4d(img: nib.Nifti1Image) -> nib.Nifti1Image:
+    if img.ndim == 4 and img.shape[-1] == 1:
+        return new_img_like(img, img.get_fdata()[..., 0], img.affine)
+    return img
+
+
+def _as_closest_canonical(path_or_img):
+    img = nib.load(path_or_img) if isinstance(path_or_img, str) else path_or_img
+    img = nib.as_closest_canonical(img)
+    return _squeeze_singleton_4d(img)
+
+
+def _ensure_same_grid(moving_img: nib.Nifti1Image, ref_img: nib.Nifti1Image, interpolation="nearest"):
+    moving_img = _squeeze_singleton_4d(moving_img)
+    ref_img = _squeeze_singleton_4d(ref_img)
+    if moving_img.shape != ref_img.shape or not np.allclose(moving_img.affine, ref_img.affine):
+        moving_img = resample_to_img(moving_img, ref_img, interpolation=interpolation)
+        moving_img = _squeeze_singleton_4d(moving_img)
+    return moving_img
+
+
+def _derive_reference_path(seg_path: str):
+    if seg_path is None:
+        return None
+    suffixes = [
+        "-t1c.nii.gz", "-t1ce.nii.gz", "-t1n.nii.gz", "-t1.nii.gz",
+        "_t1c.nii.gz", "_t1ce.nii.gz", "_t1n.nii.gz", "_t1.nii.gz",
+    ]
+    base = seg_path
+    if base.endswith("-seg.nii.gz"):
+        base = base[:-len("-seg.nii.gz")]
+    elif base.endswith("_seg.nii.gz"):
+        base = base[:-len("_seg.nii.gz")]
+    elif base.endswith(".nii.gz"):
+        base = base[:-len(".nii.gz")]
+
+    for suffix in suffixes:
+        candidate = base + suffix
+        if os.path.exists(candidate):
+            return candidate
+    case_dir = os.path.dirname(seg_path)
+    stem = os.path.basename(base)
+    for suffix in suffixes:
+        candidate = os.path.join(case_dir, stem + suffix)
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _make_brain_mask(reference_img: nib.Nifti1Image):
+    data = reference_img.get_fdata()
+    mask = np.abs(data) > 0
+    mask = binary_fill_holes(mask)
+    mask = binary_closing(mask, iterations=1)
+    return mask.astype(bool)
+
+
+def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
+    sparse_lobe_data = np.zeros_like(atlas_data, dtype=np.int16)
+    unique_indices = np.unique(atlas_data.astype(np.int32))
+    for atlas_idx in unique_indices:
+        atlas_idx = int(atlas_idx)
+        lobe_name = AAL_INDEX_TO_LOBE.get(atlas_idx, "unknown")
+        lobe_id = _LOBE_TO_ID.get(lobe_name, _LOBE_TO_ID["unknown"])
+        if atlas_idx == 0 or lobe_id in (_LOBE_TO_ID["background"], _LOBE_TO_ID["unknown"]):
+            continue
+        sparse_lobe_data[atlas_data == atlas_idx] = lobe_id
+
+    labeled_mask = sparse_lobe_data > 0
+    if not np.any(labeled_mask):
+        return sparse_lobe_data
+
+    fill_mask = brain_mask & (~labeled_mask)
+    if np.any(fill_mask):
+        _, nearest_indices = distance_transform_edt(~labeled_mask, return_indices=True)
+        dense_lobe_data = sparse_lobe_data.copy()
+        dense_lobe_data[fill_mask] = sparse_lobe_data[tuple(nearest_indices[:, fill_mask])]
+    else:
+        dense_lobe_data = sparse_lobe_data
+    return dense_lobe_data.astype(np.int16)
+
+
+def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarray):
+    unique, counts = np.unique(dense_lobe_data[tumour_mask], return_counts=True)
+    total = int(tumour_mask.sum())
+    overlap_dict = {}
+    region_list = []
+    overlap_voxels = 0
+    for idx, cnt in zip(unique, counts):
+        idx = int(idx)
+        if idx <= 0:
+            continue
+        region = _ID_TO_LOBE.get(idx, "unknown")
+        if region == "unknown":
+            continue
+        overlap_dict[idx] = {
+            "region": region,
+            "voxels": int(cnt),
+            "percent": float(cnt) * 100.0 / total if total else 0.0,
+        }
+        region_list.append(region)
+        overlap_voxels += int(cnt)
+    return overlap_voxels, overlap_dict, sorted(set(region_list))
 
 
 def load_aal_atlas_label_map(version: str = "SPM12"):
     """
     Load AAL atlas from nilearn and build a mapping from atlas value -> label or lobe.
 
-    For AAL, the integer values in the atlas image are in `indices`,
-    and the human-readable names are in `labels`. We must use `indices`
-    rather than assuming 1..N.  :contentReference[oaicite:0]{index=0}
+    Kept compatible with the original function and returns the exact same final
+    atlas_label_map vocabulary used before.
     """
     aal = fetch_atlas_aal(version=version)
     atlas_img = nib.load(aal.maps)
     atlas_label_map = AAL_INDEX_TO_LOBE
-
     return atlas_img, atlas_label_map
+
 
 
 def localize_to_brain_regions(
@@ -233,37 +355,29 @@ def localize_to_brain_regions(
     Returns
     -------
     results : dict
-        {
-          'total_voxels': int,
-          'overlap': {
-              atlas_index: {'region': str,
-                            'voxels': int,
-                            'percent': float}
-              ...
-          }
-        }
+        Same core structure as the original script, with extra dense-label fields added.
     """
     # --- 1. resample atlas to tumour space if needed ---------------
-    # (assumes atlas has been registered to the same physical space;
-    #  we already reoriented both to canonical on load)
     if atlas_img.shape != tumour_img.shape or not np.allclose(atlas_img.affine, tumour_img.affine):
         atlas_img = resample_to_img(atlas_img, tumour_img, interpolation="nearest")
 
     # ---- drop trailing singleton dim if present --------------
-    if atlas_img.ndim == 4 and atlas_img.shape[-1] == 1:
-        atlas_img = new_img_like(atlas_img,
-                                 atlas_img.get_fdata()[..., 0],  # squeeze
-                                 atlas_img.affine)
+    atlas_img = _squeeze_singleton_4d(atlas_img)
 
-    # --- 3. compute overlap ---------------------------------------
-    tumour_mask = (tumour_img.get_fdata() == label_index)
-    atlas_data = atlas_img.get_fdata().astype(np.int16)
+    # --- 3. compute original sparse overlap -----------------------
+    tumour_data = tumour_img.get_fdata()
+    tumour_mask = (tumour_data == label_index)
+    atlas_data = np.round(atlas_img.get_fdata()).astype(np.int16)
 
     if debug:
         display = plotting.plot_roi(tumour_img,
                                     bg_img=atlas_img,
                                     title=f"Tumour-Affine Alignment Check Label {label_index}", alpha=0.5)
-        display.savefig(f"tumour_affine_alignment_check_{os.path.basename(seg_path)}_label{label_index}.png")
+        if seg_path is None:
+            save_name = f"tumour_affine_alignment_check_label{label_index}.png"
+        else:
+            save_name = f"tumour_affine_alignment_check_{os.path.basename(seg_path)}_label{label_index}.png"
+        display.savefig(save_name)
         display.close()
 
     overlapped = atlas_data[tumour_mask]
@@ -273,9 +387,8 @@ def localize_to_brain_regions(
     overlap_voxels = int(nonzero.size)
     overlap_fraction = float(overlap_voxels) / float(total) if total else 0.0
 
-    # --- 4. pack results ------------------------------------------
     overlap_dict = {}
-    region_list = []
+    sparse_region_list = []
     for idx, cnt in zip(unique, counts):
         region = atlas_label_map.get(int(idx), "unknown")
         if region != "unknown":
@@ -284,15 +397,48 @@ def localize_to_brain_regions(
                 "voxels": int(cnt),
                 "percent": float(cnt) * 100.0 / total if total else 0.0,
             }
-            region_list.append(region)
+            sparse_region_list.append(region)
+
+    # --- 4. improved dense lobe assignment for final region labels ---
+    reference_path = _derive_reference_path(seg_path)
+    if reference_path is not None:
+        reference_img = _as_closest_canonical(reference_path)
+        reference_img = _ensure_same_grid(reference_img, tumour_img, interpolation="continuous")
+        brain_mask = _make_brain_mask(reference_img)
+    else:
+        # Fallback: allow some spill beyond sparse AAL support without requiring
+        # a reference anatomy. This keeps the function signature unchanged.
+        brain_mask = atlas_data > 0
+        brain_mask = binary_fill_holes(brain_mask)
+        brain_mask = binary_closing(brain_mask, iterations=2)
+
+    dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask)
+    dense_overlap_voxels, dense_overlap_dict, dense_region_list = _dense_overlap_from_mask(
+        dense_lobe_data=dense_lobe_data,
+        tumour_mask=tumour_mask,
+    )
+    dense_overlap_fraction = float(dense_overlap_voxels) / float(total) if total else 0.0
+
+    # The final `regions` field is now based on the dense lobe assignment, but the
+    # returned region strings are exactly the same lobe names as in the original map.
+    final_region_list = dense_region_list if len(dense_region_list) > 0 else sorted(set(sparse_region_list))
 
     return {
+        # Original fields preserved
         "total_voxels": total,
         "overlap_voxels": overlap_voxels,
         "overlap_fraction": overlap_fraction,
         "overlap": overlap_dict,
-        "regions": sorted(set(region_list)),
+        "regions": final_region_list,
+
+        # Extra fields added for improved reviewer-aligned labeling
+        "sparse_regions": sorted(set(sparse_region_list)),
+        "dense_overlap_voxels": dense_overlap_voxels,
+        "dense_overlap_fraction": dense_overlap_fraction,
+        "dense_overlap": dense_overlap_dict,
+        "reference_path": reference_path,
     }
+
 
 
 def get_region_str(region_list):
@@ -310,35 +456,35 @@ def get_region_str(region_list):
         return ", ".join(region_list[:-1]) + " and " + region_list[-1]
 
 
+
 def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00005-100/BraTS-GLI-00005-100-seg.nii.gz",
                                aal_version="SPM12", tumour_labels=None, debug=True):
     """
     seg_path      : path to your multi‑label tumour segmentation (NIfTI)
-    atlas_path    : path to LPBA40 (or other) atlas NIfTI
-    label_txt     : path to text file mapping atlas indices → region names
     tumour_labels : dict like {'ET': 3, 'SNFH': 2, 'NETC': 1, 'RC': 4}
                     (keys = your internal label names, values = voxel values)
     Returns
     -------
     summary : dict keyed by your tumour label
-              e.g. summary['ET']['overlap'][46]['region'] → 'left‑MFG'
+              e.g. summary['ET']['overlap'][46]['region'] -> 'left‑MFG'
+
+    Signature and summary structure are kept compatible with the original script.
     """
     tumour_img = nib.as_closest_canonical(nib.load(seg_path))
+    tumour_img = _squeeze_singleton_4d(tumour_img)
     atlas_img, atlas_label_map = load_aal_atlas_label_map(version=aal_version)
     atlas_img = nib.as_closest_canonical(atlas_img)
+    atlas_img = _squeeze_singleton_4d(atlas_img)
 
     summary = {}
     for name, label_index in tumour_labels.items():
         summary[name] = localize_to_brain_regions(tumour_img=tumour_img, atlas_img=atlas_img,
                                                   atlas_label_map=atlas_label_map,
-                                                  label_index=label_index, debug=debug, 
+                                                  label_index=label_index, debug=debug,
                                                   seg_path=seg_path)
 
     return summary
 
-
-# --------------------------------------------------------------------
-# 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
     """
     seg_paths = ["/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-00063-101/BraTS-GLI-00063-101-seg.nii.gz", 
