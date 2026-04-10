@@ -199,7 +199,7 @@ def main():
         return
     
     try:
-        combine_predictions(args.model1, args.model2, args.output_basename, args.user_study)
+        combine_predictions(model1_file=args.model1, model2_file=args.model2, output_basename=args.output, user_study_file=args.user_study)
     except Exception as e:
         print(f"Error: {e}")
         import traceback
