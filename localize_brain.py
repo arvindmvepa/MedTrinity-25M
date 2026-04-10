@@ -284,20 +284,18 @@ def localize_to_brain_regions(
             }
             sparse_region_list.append(region)
 
-    # --- 4. improved dense lobe assignment for final region labels ---
+    # --- 4. dense post-processing using the same idea as the prior script ---
     reference_path = _derive_reference_path(seg_path)
     if reference_path is not None:
         reference_img = _as_closest_canonical(reference_path)
         reference_img = _ensure_same_grid(reference_img, tumour_img, interpolation="continuous")
         brain_mask = _make_brain_mask(reference_img)
     else:
-        # Fallback: allow some spill beyond sparse AAL support without requiring
-        # a reference anatomy. This keeps the function signature unchanged.
         brain_mask = atlas_data > 0
         brain_mask = binary_fill_holes(brain_mask)
         brain_mask = binary_closing(brain_mask, iterations=2)
 
-    dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask)
+    dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask, atlas_label_map)
     dense_overlap_voxels, dense_overlap_dict, dense_region_list = _dense_overlap_from_mask(
         dense_lobe_data=dense_lobe_data,
         tumour_mask=tumour_mask,
@@ -312,17 +310,17 @@ def localize_to_brain_regions(
     )
 
     return {
-        # Original fields preserved exactly
+        # Original sparse outputs preserved
         "total_voxels": total,
         "overlap_voxels": overlap_voxels,
         "overlap_fraction": overlap_fraction,
         "overlap": overlap_dict,
-        "regions": dense_regions_thresholded,
+        "regions": sparse_region_list,
 
         # Explicit sparse alias for readability
         "sparse_regions": sparse_region_list,
 
-        # Extra fields for dense-lobe reporting
+        # Dense post-processing outputs
         "dense_overlap_voxels": dense_overlap_voxels,
         "dense_overlap_fraction": dense_overlap_fraction,
         "dense_overlap": dense_overlap_dict,
