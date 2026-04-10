@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 Combine predictions from two models into a single JSON and CSV file.
-Model 1 format: List with model_answer field
-Model 2 format: List with pred field
+Questions are loaded from a single groundtruth file and matched with model predictions by order.
 """
 
 import json
@@ -28,8 +27,8 @@ def extract_volume_basename(volume_file_dir):
         return ""
     return Path(volume_file_dir).name
 
-def load_user_study_volumes(user_study_file):
-    """Load volume names from user study JSON file"""
+def load_user_study_data(user_study_file):
+    """Load volume/question combinations from user study JSON file"""
     if not user_study_file:
         return None
     
@@ -37,40 +36,86 @@ def load_user_study_volumes(user_study_file):
     with open(user_study_file, 'r') as f:
         user_study_data = json.load(f)
     
-    # Extract unique volume names from user study
-    volumes = set()
+    # Extract unique volume/question combinations from user study
+    volume_question_pairs = set()
     for entry in user_study_data:
-        if 'volume' in entry and entry['volume']:
-            volumes.add(entry['volume'])
+        if 'volume' in entry and entry['volume'] and 'question' in entry and entry['question']:
+            volume = entry['volume']
+            question = clean_question(entry['question'])
+            volume_question_pairs.add((volume, question))
     
-    print(f"Found {len(volumes)} unique volumes in user study")
-    return volumes
+    print(f"Found {len(volume_question_pairs)} unique volume/question pairs in user study")
+    return volume_question_pairs
 
-def create_volume_to_predictions_map(predictions, source_name):
-    """Create a mapping from volume name to predictions for that volume"""
-    volume_map = {}
+def load_groundtruth_data(gt_file):
+    """Load groundtruth data with questions and volumes"""
+    if not gt_file:
+        return []
     
-    for pred in predictions:
-        # Extract volume basename
+    print(f"Loading groundtruth file: {gt_file}")
+    with open(gt_file, 'r') as f:
+        gt_data = json.load(f)
+    
+    print(f"Loaded {len(gt_data)} entries from groundtruth")
+    return gt_data
+
+def match_predictions_with_groundtruth(gt_data, model_predictions, model_name):
+    """Match model predictions with groundtruth questions by order"""
+    matched_data = []
+    
+    if not model_predictions:
+        print(f"{model_name}: No predictions provided")
+        return matched_data
+    
+    print(f"{model_name}: Matching {len(model_predictions)} predictions with {len(gt_data)} groundtruth entries")
+    
+    for i, gt_entry in enumerate(gt_data):
+        # Extract volume from groundtruth
         volume = ""
-        if 'volume_file_dir' in pred and pred['volume_file_dir']:
-            volume = extract_volume_basename(pred['volume_file_dir'])
-        elif 'seg_file' in pred and pred['seg_file']:
-            volume = extract_volume_basename(str(Path(pred['seg_file']).parent))
+        if 'volume_file_dir' in gt_entry and gt_entry['volume_file_dir']:
+            volume = extract_volume_basename(gt_entry['volume_file_dir'])
+        elif 'seg_file' in gt_entry and gt_entry['seg_file']:
+            volume = extract_volume_basename(str(Path(gt_entry['seg_file']).parent))
         
-        if volume:
-            if volume not in volume_map:
-                volume_map[volume] = []
-            volume_map[volume].append(pred)
+        # Extract question from groundtruth
+        question = ""
+        if 'orig_question' in gt_entry:
+            question = clean_question(gt_entry['orig_question'])
+        elif 'question' in gt_entry:
+            question = clean_question(gt_entry['question'])
+        
+        # Get corresponding model prediction (same index)
+        model_answer = None
+        if i < len(model_predictions):
+            pred = model_predictions[i]
+            # Try different field names for model answer
+            for field in ['model_answer', 'pred', 'prediction', 'answer', 'response']:
+                if field in pred and pred[field] is not None:
+                    model_answer = pred[field]
+                    break
+            if model_answer is None:
+                model_answer = ""
+        
+        matched_entry = {
+            'volume': volume,
+            'question': question,
+            'model_answer': model_answer,
+            'gt_index': i
+        }
+        
+        matched_data.append(matched_entry)
     
-    print(f"{source_name}: Found predictions for {len(volume_map)} volumes")
-    return volume_map
+    print(f"{model_name}: Successfully matched {len(matched_data)} entries")
+    return matched_data
 
-def combine_predictions(model1_file, model2_file, output_basename, user_study_file=None):
-    """Combine predictions from two models into JSON and CSV files"""
+def combine_predictions(model1_file, model2_file, gt_file, output_basename, user_study_file=None):
+    """Combine predictions from two models using groundtruth file for questions"""
     
-    # Load user study volumes if provided
-    filter_volumes = load_user_study_volumes(user_study_file) if user_study_file else None
+    # Load user study volume/question pairs if provided
+    filter_pairs = load_user_study_data(user_study_file) if user_study_file else None
+    
+    # Load groundtruth data
+    gt_data = load_groundtruth_data(gt_file)
     
     # Load model predictions
     model1_predictions = []
@@ -92,59 +137,43 @@ def combine_predictions(model1_file, model2_file, output_basename, user_study_fi
     else:
         print("Model 2 file not provided - will use null values")
     
-    # Create volume-to-predictions mappings
-    model1_map = create_volume_to_predictions_map(model1_predictions, "Model 1") if model1_predictions else {}
-    model2_map = create_volume_to_predictions_map(model2_predictions, "Model 2") if model2_predictions else {}
+    # Match predictions with groundtruth
+    model1_matched = match_predictions_with_groundtruth(gt_data, model1_predictions, "Model 1")
+    model2_matched = match_predictions_with_groundtruth(gt_data, model2_predictions, "Model 2")
     
-    # Get all volumes to process
-    if filter_volumes:
-        # Use only volumes from user study
-        volumes_to_process = filter_volumes
-        print(f"Processing {len(volumes_to_process)} volumes from user study")
+    # Create mappings from (volume, question) to prediction
+    model1_map = {(entry['volume'], entry['question']): entry for entry in model1_matched}
+    model2_map = {(entry['volume'], entry['question']): entry for entry in model2_matched}
+    
+    # Get all volume/question pairs to process
+    if filter_pairs:
+        # Use only pairs from user study
+        pairs_to_process = filter_pairs
+        print(f"Processing {len(pairs_to_process)} volume/question pairs from user study")
     else:
-        # Use all volumes from both models
-        volumes_to_process = set(model1_map.keys()) | set(model2_map.keys())
-        print(f"Processing {len(volumes_to_process)} volumes from all model predictions")
+        # Use all pairs from groundtruth
+        pairs_to_process = {(entry['volume'], entry['question']) for entry in model1_matched + model2_matched if entry['volume'] and entry['question']}
+        print(f"Processing {len(pairs_to_process)} volume/question pairs from groundtruth")
     
     # Combine predictions
     combined_data = []
     
-    for volume in sorted(volumes_to_process):
-        model1_preds = model1_map.get(volume, [])
-        model2_preds = model2_map.get(volume, [])
+    for volume, question in sorted(pairs_to_process):
+        model1_entry = model1_map.get((volume, question))
+        model2_entry = model2_map.get((volume, question))
         
-        # Get the maximum number of predictions for this volume
-        max_preds = max(len(model1_preds), len(model2_preds), 1)
+        model1_answer = model1_entry['model_answer'] if model1_entry else None
+        model2_answer = model2_entry['model_answer'] if model2_entry else None
         
-        for i in range(max_preds):
-            # Get predictions for this index, or None if not available
-            model1_pred = model1_preds[i] if i < len(model1_preds) else None
-            model2_pred = model2_preds[i] if i < len(model2_preds) else None
-            
-            # Extract question (prefer model1, then model2)
-            question = ""
-            if model1_pred and 'orig_question' in model1_pred:
-                question = clean_question(model1_pred['orig_question'])
-            elif model1_pred and 'question' in model1_pred:
-                question = clean_question(model1_pred['question'])
-            elif model2_pred and 'orig_question' in model2_pred:
-                question = clean_question(model2_pred['orig_question'])
-            elif model2_pred and 'question' in model2_pred:
-                question = clean_question(model2_pred['question'])
-            
-            # Extract model answers
-            model1_answer = model1_pred.get('model_answer', '') if model1_pred else None
-            model2_answer = model2_pred.get('pred', '') if model2_pred else None
-            
-            # Create combined entry
-            combined_entry = {
-                'volume': volume,
-                'question': question,
-                'model_1_answer': model1_answer,
-                'model_2_answer': model2_answer
-            }
-            
-            combined_data.append(combined_entry)
+        # Create combined entry
+        combined_entry = {
+            'volume': volume,
+            'question': question,
+            'model_1_answer': model1_answer,
+            'model_2_answer': model2_answer
+        }
+        
+        combined_data.append(combined_entry)
     
     # Save JSON file
     json_filename = f"{output_basename}.json"
@@ -167,11 +196,10 @@ def combine_predictions(model1_file, model2_file, output_basename, user_study_fi
     print(f"✓ Successfully combined {len(combined_data)} predictions")
     
     # Show statistics
-    if filter_volumes:
-        volumes_with_model1 = sum(1 for entry in combined_data if entry['model_1_answer'] is not None)
-        volumes_with_model2 = sum(1 for entry in combined_data if entry['model_2_answer'] is not None)
-        print(f"  - Entries with Model 1 predictions: {volumes_with_model1}")
-        print(f"  - Entries with Model 2 predictions: {volumes_with_model2}")
+    non_null_model1 = sum(1 for entry in combined_data if entry['model_1_answer'] is not None and entry['model_1_answer'] != "")
+    non_null_model2 = sum(1 for entry in combined_data if entry['model_2_answer'] is not None and entry['model_2_answer'] != "")
+    print(f"  - Entries with Model 1 predictions: {non_null_model1}")
+    print(f"  - Entries with Model 2 predictions: {non_null_model2}")
     
     # Show sample entries
     if combined_data:
@@ -185,11 +213,12 @@ def combine_predictions(model1_file, model2_file, output_basename, user_study_fi
 
 def main():
     """Main function"""
-    parser = argparse.ArgumentParser(description='Combine predictions from two models')
+    parser = argparse.ArgumentParser(description='Combine predictions from two models using groundtruth file for questions')
     parser.add_argument('--model1', help='Path to model 1 predictions JSON file (optional)')
     parser.add_argument('--model2', help='Path to model 2 predictions JSON file (optional)')
-    parser.add_argument('--user-study', help='Path to user study JSON file to filter volumes (optional)')
-    parser.add_argument('--output', help='Output file basename (without .json/.csv extension)')
+    parser.add_argument('--gt', required=True, help='Path to groundtruth JSON file with questions')
+    parser.add_argument('--user-study', help='Path to user study JSON file to filter volume/question pairs (optional)')
+    parser.add_argument('--output', required=True, help='Output file basename (without .json/.csv extension)')
     
     args = parser.parse_args()
     
@@ -199,7 +228,13 @@ def main():
         return
     
     try:
-        combine_predictions(model1_file=args.model1, model2_file=args.model2, output_basename=args.output, user_study_file=args.user_study)
+        combine_predictions(
+            model1_file=args.model1, 
+            model2_file=args.model2, 
+            gt_file=args.gt,
+            output_basename=args.output, 
+            user_study_file=args.user_study
+        )
     except Exception as e:
         print(f"Error: {e}")
         import traceback
