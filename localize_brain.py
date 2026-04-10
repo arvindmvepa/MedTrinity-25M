@@ -29,20 +29,32 @@ LOBE_MAP = {
     "subcortical": {161, 162, 163, 164},
     "cerebellum": {181},
     "brainstem": {182},
-    "background": {0},        # keep 0 → background
+    "background": {0},
 }
 
-
-# Build a quick reverse look‑up once so the function stays O(1)
+# Sparse atlas index -> lobe name lookup used by the original overlap path.
 _ID_TO_LOBE = {
     idx: lobe for lobe, indices in LOBE_MAP.items() for idx in indices
 }
-_LOBE_TO_ID = {
-    lobe: idx for idx, lobe in _ID_TO_LOBE.items()
+
+# Internal dense ids for the post-sparse dense-lobe fill path.
+_DENSE_LOBE_TO_ID = {
+    "background": 0,
+    "frontal": 1,
+    "parietal": 2,
+    "occipital": 3,
+    "temporal": 4,
+    "limbic": 5,
+    "insula": 6,
+    "subcortical": 7,
+    "cerebellum": 8,
+    "brainstem": 9,
+    "unknown": 10,
 }
+_DENSE_ID_TO_LOBE = {v: k for k, v in _DENSE_LOBE_TO_ID.items()}
 
 # Dense-region reporting thresholds. These do not affect the original sparse
-# overlap statistic or the original `regions` field.
+# overlap statistic.
 DENSE_REGION_MIN_VOXELS = 50
 DENSE_REGION_MIN_PERCENT = 1.0
 
@@ -104,14 +116,14 @@ def _make_brain_mask(reference_img: nib.Nifti1Image):
     return mask.astype(bool)
 
 
-def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
+def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray, atlas_label_map: dict[int, str]) -> np.ndarray:
     sparse_lobe_data = np.zeros_like(atlas_data, dtype=np.int16)
     unique_indices = np.unique(atlas_data.astype(np.int32))
     for atlas_idx in unique_indices:
         atlas_idx = int(atlas_idx)
-        lobe_name = AAL_INDEX_TO_LOBE.get(atlas_idx, "unknown")
-        lobe_id = _LOBE_TO_ID.get(lobe_name, _LOBE_TO_ID["unknown"])
-        if atlas_idx == 0 or lobe_id in (_LOBE_TO_ID["background"], _LOBE_TO_ID["unknown"]):
+        lobe_name = atlas_label_map.get(atlas_idx, "unknown")
+        lobe_id = _DENSE_LOBE_TO_ID.get(lobe_name, _DENSE_LOBE_TO_ID["unknown"])
+        if atlas_idx == 0 or lobe_id in (_DENSE_LOBE_TO_ID["background"], _DENSE_LOBE_TO_ID["unknown"]):
             continue
         sparse_lobe_data[atlas_data == atlas_idx] = lobe_id
 
@@ -139,7 +151,7 @@ def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarra
         idx = int(idx)
         if idx <= 0:
             continue
-        region = _ID_TO_LOBE.get(idx, "unknown")
+        region = _DENSE_ID_TO_LOBE.get(idx, "unknown")
         if region == "unknown":
             continue
         overlap_dict[idx] = {
@@ -154,10 +166,6 @@ def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarra
 
 def _threshold_region_list(overlap_dict: dict, min_voxels: int = DENSE_REGION_MIN_VOXELS,
                            min_percent: float = DENSE_REGION_MIN_PERCENT):
-    """
-    Filter region labels using a minimum voxel threshold and minimum percent
-    threshold. This is only used for the new dense-region reporting path.
-    """
     kept = []
     for info in overlap_dict.values():
         if info["voxels"] >= min_voxels and info["percent"] >= min_percent:
@@ -172,13 +180,13 @@ def load_atlas_label_map(label_txt_path, use_lobes=True):
             if not line.strip():
                 continue
             idx, name = line.strip().split(maxsplit=1)
+            idx = int(idx)
             if use_lobes:
-                idx = int(idx)
-                mapping[idx] = _ID_TO_LOBE[idx]
+                mapping[idx] = _ID_TO_LOBE.get(idx, "unknown")
             else:
                 name = name.split("\t")[0]
                 name = name.replace('"', "")
-                mapping[int(idx)] = name
+                mapping[idx] = name
     return mapping
 
 
@@ -189,7 +197,7 @@ def _squeeze_to_3d(img):
     if img.ndim == 3:
         return img
     if img.ndim == 4 and img.shape[-1] == 1:
-        data3d = img.get_fdata()[..., 0]          # drop t‑dim
+        data3d = img.get_fdata()[..., 0]
         return new_img_like(img, data3d, img.affine, copy_header=True)
     raise ValueError(
         f'Expected 3‑D or 4‑D with singleton 4th dim; got shape={img.shape}'
@@ -200,8 +208,9 @@ def localize_to_brain_regions(
     tumour_img: nib.Nifti1Image,
     atlas_img: nib.Nifti1Image,
     atlas_label_map,
-    label_index = 1,
-    debug=False
+    label_index=1,
+    debug=False,
+    seg_path=None,
 ):
     """
     Parameters
@@ -229,7 +238,7 @@ def localize_to_brain_regions(
     # --- 0. make both images canonical RAS+, 1 mm³ --------------------------
     tumor_img = _squeeze_to_3d(tumour_img)
     atlas_img = _squeeze_to_3d(atlas_img)
-    tumour_img = nib_processing.conform(tumour_img)  # isotropic, RAS
+    tumour_img = nib_processing.conform(tumor_img)  # isotropic, RAS
     atlas_img = nib_processing.conform(atlas_img)
 
     # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
@@ -250,7 +259,7 @@ def localize_to_brain_regions(
     # ---- NEW: drop trailing singleton dim if present --------------
     if atlas_img.ndim == 4 and atlas_img.shape[-1] == 1:
         atlas_img = new_img_like(atlas_img,
-                                 atlas_img.get_fdata()[..., 0],  # squeeze
+                                 atlas_img.get_fdata()[..., 0],
                                  atlas_img.affine)
 
     # --- 3. compute overlap ---------------------------------------
@@ -263,7 +272,6 @@ def localize_to_brain_regions(
                                     title=f"Tumour-Affine Alignment Check Label", alpha=0.5)
         display.savefig(f"tumour_affine_alignment_check.png")
         display.close()
-
 
     overlapped = atlas_data[tumour_mask]
     nonzero = overlapped[overlapped > 0]
@@ -345,7 +353,6 @@ def get_region_str(region_list):
     elif len(region_list) == 2:
         return f"{region_list[0]} and {region_list[1]}"
     else:
-        # For more than two regions, join them with commas and 'and'
         return ", ".join(region_list[:-1]) + " and " + region_list[-1]
 
 
@@ -370,38 +377,22 @@ def analyze_label_localization(seg_path="/local2/shared_data/BraTS2024-BraTS-GLI
 
     summary = {}
     for name, label_index in tumour_labels.items():
-        summary[name] = localize_to_brain_regions(tumour_img=tumour_img, atlas_img=atlas_img,
-                                                  atlas_label_map=atlas_label_map,
-                                                  label_index=label_index, debug=debug)
+        summary[name] = localize_to_brain_regions(
+            tumour_img=tumour_img,
+            atlas_img=atlas_img,
+            atlas_label_map=atlas_label_map,
+            label_index=label_index,
+            debug=debug,
+            seg_path=seg_path,
+        )
 
     return summary
 
 
-# --------------------------------------------------------------------
-# 4)  Minimal CLI test (optional) -----------------------------------
 if __name__ == "__main__":
-    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/BraTS-GLI-03027-101/BraTS-GLI-03027-101-seg.nii.gz"
-    seg_path ="/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET-00759-000/BraTS-MET-00759-000-seg.nii.gz"
-    #seg_path = "/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/BraTS-GoAT-02235/BraTS-GoAT-02235-seg.nii.gz"
+    seg_path = "/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET-00759-000/BraTS-MET-00759-000-seg.nii.gz"
     atlas_path = "/local2/amvepa91/sri24/lpba40.nii"
-    #atlas_path = "/local2/amvepa91/sri24/tzo116plus.nii"
     label_txt = "/local2/amvepa91/sri24/LPBA40-labels.txt"
-    #label_txt = "/local2/amvepa91/sri24/SRI24-tzo116plus.txt"
-    
-    """
-    tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1, "RC": 4}
-
-    summ = analyze_label_localization(seg_path=seg_path, atlas_path=atlas_path, label_txt=label_txt,
-                                      tumour_labels=tumour_labels)
-
-    for tumor_label, info in summ.items():
-        print(f"\nTumor label: {tumor_label}")
-        print("Total voxels:", info["total_voxels"])
-        for idx_, info_ in info["overlap"].items():
-            print(f"{idx_:3d} {info_['region']:<30} {info_['voxels']:6d} "
-                  f"({info_['percent']:5.2f}%)")
-        print("Regions:", get_region_str(info["regions"]))
-    """
 
     seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET*/BraTS-MET*seg.nii.gz"))
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
@@ -409,11 +400,17 @@ if __name__ == "__main__":
     atlas_overlap_dense = {"ET": [], "SNFH": [], "NETC": []}
     for seg_path in tqdm(seg_paths[:3]):
         try:
-            summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
+            summ = analyze_label_localization(
+                seg_path=seg_path,
+                atlas_path=atlas_path,
+                label_txt=label_txt,
+                tumour_labels=tumour_labels,
+                debug=False,
+            )
             for tumor_label, info in summ.items():
                 if info['total_voxels'] > 0:
-                    atlas_overlap_sparse[tumor_label].append(info['overlap_fraction']*100)
-                    atlas_overlap_dense[tumor_label].append(info['dense_overlap_fraction']*100)
+                    atlas_overlap_sparse[tumor_label].append(info['overlap_fraction'] * 100)
+                    atlas_overlap_dense[tumor_label].append(info['dense_overlap_fraction'] * 100)
         except Exception as e:
             print(f"Error processing {seg_path}: {e}")
     print("\n\nSummary of overlap percentages (%):")
@@ -429,4 +426,3 @@ if __name__ == "__main__":
             f"dense={np.mean(dense_vals):.2f} ± {np.std(dense_vals):.2f}, "
             f"#samples: {len(sparse_vals)}"
         )
-
