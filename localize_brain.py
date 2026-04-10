@@ -112,16 +112,38 @@ def _derive_reference_path(seg_path: str):
 
 
 def _make_brain_mask_on_tumour_grid(reference_path: str, tumour_img: nib.Nifti1Image):
+    """
+    Build a brain mask for the already-final tumour/atlas array grid without
+    changing any of the original sparse-overlap alignment logic.
+
+    Important: do NOT resample the reference image onto ``tumour_img`` here.
+    In this LPBA40 pipeline, ``tumour_img`` may have had its affine translation
+    modified purely to match the atlas before sparse overlap is computed.
+    Asking nilearn to resample another image onto that adjusted affine can
+    produce empty FOV slices like (0, 0, Z) for some cases. We only need a mask
+    array on the same voxel grid for post-processing, so the safest path is:
+      1) conform the reference image the same way as the tumour image,
+      2) use it directly when the conformed shapes match,
+      3) otherwise fall back to the atlas-support mask later.
+    """
     if reference_path is None:
         return None
-    reference_img = nib.load(reference_path)
-    reference_img = _squeeze_to_3d(reference_img)
-    reference_img = nib_processing.conform(reference_img)
-    reference_img = resample_to_img(reference_img, tumour_img, interpolation="continuous")
+
+    try:
+        reference_img = nib.load(reference_path)
+        reference_img = _squeeze_to_3d(reference_img)
+        reference_img = nib_processing.conform(reference_img)
+    except Exception:
+        return None
+
+    if reference_img.shape != tumour_img.shape:
+        return None
+
     ref_data = reference_img.get_fdata()
     brain_mask = np.abs(ref_data) > 0
     brain_mask = binary_fill_holes(brain_mask)
     brain_mask = binary_closing(brain_mask, iterations=1)
+
     if brain_mask.shape != tumour_img.shape:
         return None
     return brain_mask.astype(bool)
