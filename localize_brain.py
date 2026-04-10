@@ -6,6 +6,7 @@ from nilearn.image import resample_to_img, new_img_like
 from tqdm import tqdm
 import glob
 import nilearn
+import os
 
 
 LOBE_MAP = {
