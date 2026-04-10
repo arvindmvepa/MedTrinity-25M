@@ -28,13 +28,27 @@ def extract_volume_basename(volume_file_dir):
     return Path(volume_file_dir).name
 
 def load_user_study_data(user_study_file):
-    """Load volume/question combinations from user study JSON file"""
+    """Load volume/question combinations from user study JSON or CSV file"""
     if not user_study_file:
         return None
     
     print(f"Loading user study file: {user_study_file}")
-    with open(user_study_file, 'r') as f:
-        user_study_data = json.load(f)
+    
+    # Determine file format based on extension
+    file_path = Path(user_study_file)
+    if file_path.suffix.lower() == '.csv':
+        # Load CSV file
+        user_study_data = []
+        with open(user_study_file, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                user_study_data.append(row)
+        print(f"Loaded {len(user_study_data)} entries from CSV file")
+    else:
+        # Load JSON file
+        with open(user_study_file, 'r') as f:
+            user_study_data = json.load(f)
+        print(f"Loaded {len(user_study_data)} entries from JSON file")
     
     # Extract unique volume/question combinations from user study
     # Only include entries where "Model 1 answer sufficient? (Y/N)" has an answer
@@ -44,7 +58,11 @@ def load_user_study_data(user_study_file):
     for entry in user_study_data:
         if 'volume' in entry and entry['volume'] and 'question' in entry and entry['question']:
             # Check if "Model 1 answer sufficient? (Y/N)" field has an answer
-            model1_sufficient_field = entry.get("Model 1 answer sufficient? (Y/N)", "").strip()
+            model1_sufficient_field = entry.get("Model 1 answer sufficient? (Y/N)", "")
+            if isinstance(model1_sufficient_field, str):
+                model1_sufficient_field = model1_sufficient_field.strip()
+            else:
+                model1_sufficient_field = str(model1_sufficient_field).strip()
             
             if model1_sufficient_field and model1_sufficient_field != "":
                 volume = entry['volume']
