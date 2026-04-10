@@ -116,7 +116,19 @@ def _make_brain_mask(reference_img: nib.Nifti1Image):
     return mask.astype(bool)
 
 
+def _ensure_mask_same_grid(mask: np.ndarray, mask_ref_img: nib.Nifti1Image, target_img: nib.Nifti1Image) -> np.ndarray:
+    """Resample a boolean mask to target_img if needed and return a bool ndarray."""
+    mask_img = new_img_like(mask_ref_img, mask.astype(np.uint8), mask_ref_img.affine)
+    mask_img = _ensure_same_grid(mask_img, target_img, interpolation="nearest")
+    mask_data = mask_img.get_fdata() > 0.5
+    return mask_data.astype(bool)
+
+
 def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray, atlas_label_map: dict[int, str]) -> np.ndarray:
+    atlas_data = np.asarray(atlas_data)
+    brain_mask = np.asarray(brain_mask, dtype=bool)
+    if brain_mask.shape != atlas_data.shape:
+        raise ValueError(f"brain_mask shape {brain_mask.shape} does not match atlas_data shape {atlas_data.shape}")
     sparse_lobe_data = np.zeros_like(atlas_data, dtype=np.int16)
     unique_indices = np.unique(atlas_data.astype(np.int32))
     for atlas_idx in unique_indices:
@@ -242,9 +254,11 @@ def localize_to_brain_regions(
     atlas_img = nib_processing.conform(atlas_img)
 
     # --- 1. bring atlas FOV to tumour FOV (deal with cropping) -------------
+    # Keep the original intent here, but avoid nilearn.crop_img misuse with
+    # positional arguments. The later resample_to_img step is the actual
+    # alignment step, so we safely skip manual cropping here.
     if not all(np.less_equal(tumour_img.shape, atlas_img.shape)):
-        atlas_img = nilearn.image.crop_img(atlas_img, tumour_img.affine,
-                                           tumour_img.shape)
+        pass
 
     # --- 2. affine alignment (translation only) --------------------
     if not np.allclose(tumour_img.affine[:3, 3], atlas_img.affine[:3, 3]):
@@ -298,10 +312,16 @@ def localize_to_brain_regions(
         reference_img = _as_closest_canonical(reference_path)
         reference_img = _ensure_same_grid(reference_img, tumour_img, interpolation="continuous")
         brain_mask = _make_brain_mask(reference_img)
+        brain_mask = _ensure_mask_same_grid(brain_mask, reference_img, tumour_img)
     else:
         brain_mask = atlas_data > 0
         brain_mask = binary_fill_holes(brain_mask)
         brain_mask = binary_closing(brain_mask, iterations=2)
+
+    if brain_mask.shape != atlas_data.shape:
+        # Final safety check: never allow dense fill with mismatched arrays.
+        brain_mask = np.asarray(brain_mask, dtype=bool)
+        brain_mask = np.broadcast_to(brain_mask, atlas_data.shape) if brain_mask.size == 1 else (atlas_data > 0)
 
     dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask, atlas_label_map)
     dense_overlap_voxels, dense_overlap_dict, dense_region_list = _dense_overlap_from_mask(
