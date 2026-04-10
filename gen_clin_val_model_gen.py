@@ -37,14 +37,24 @@ def load_user_study_data(user_study_file):
         user_study_data = json.load(f)
     
     # Extract unique volume/question combinations from user study
+    # Only include entries where "Model 1 answer sufficient? (Y/N)" has an answer
     volume_question_pairs = set()
+    filtered_count = 0
+    
     for entry in user_study_data:
         if 'volume' in entry and entry['volume'] and 'question' in entry and entry['question']:
-            volume = entry['volume']
-            question = clean_question(entry['question'])
-            volume_question_pairs.add((volume, question))
+            # Check if "Model 1 answer sufficient? (Y/N)" field has an answer
+            model1_sufficient_field = entry.get("Model 1 answer sufficient? (Y/N)", "").strip()
+            
+            if model1_sufficient_field and model1_sufficient_field != "":
+                volume = entry['volume']
+                question = clean_question(entry['question'])
+                volume_question_pairs.add((volume, question))
+            else:
+                filtered_count += 1
     
     print(f"Found {len(volume_question_pairs)} unique volume/question pairs in user study")
+    print(f"Filtered out {filtered_count} entries without 'Model 1 answer sufficient?' responses")
     return volume_question_pairs
 
 def load_groundtruth_data(gt_file):
