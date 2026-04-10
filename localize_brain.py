@@ -35,6 +35,132 @@ LOBE_MAP = {
 _ID_TO_LOBE = {
     idx: lobe for lobe, indices in LOBE_MAP.items() for idx in indices
 }
+_LOBE_TO_ID = {
+    lobe: idx for idx, lobe in _ID_TO_LOBE.items()
+}
+
+# Dense-region reporting thresholds. These do not affect the original sparse
+# overlap statistic or the original `regions` field.
+DENSE_REGION_MIN_VOXELS = 50
+DENSE_REGION_MIN_PERCENT = 1.0
+
+
+def _squeeze_singleton_4d(img: nib.Nifti1Image) -> nib.Nifti1Image:
+    if img.ndim == 4 and img.shape[-1] == 1:
+        return new_img_like(img, img.get_fdata()[..., 0], img.affine)
+    return img
+
+
+def _as_closest_canonical(path_or_img):
+    img = nib.load(path_or_img) if isinstance(path_or_img, str) else path_or_img
+    img = nib.as_closest_canonical(img)
+    return _squeeze_singleton_4d(img)
+
+
+def _ensure_same_grid(moving_img: nib.Nifti1Image, ref_img: nib.Nifti1Image, interpolation="nearest"):
+    moving_img = _squeeze_singleton_4d(moving_img)
+    ref_img = _squeeze_singleton_4d(ref_img)
+    if moving_img.shape != ref_img.shape or not np.allclose(moving_img.affine, ref_img.affine):
+        moving_img = resample_to_img(moving_img, ref_img, interpolation=interpolation)
+        moving_img = _squeeze_singleton_4d(moving_img)
+    return moving_img
+
+
+def _derive_reference_path(seg_path: str):
+    if seg_path is None:
+        return None
+    suffixes = [
+        "-t1c.nii.gz", "-t1ce.nii.gz", "-t1n.nii.gz", "-t1.nii.gz",
+        "_t1c.nii.gz", "_t1ce.nii.gz", "_t1n.nii.gz", "_t1.nii.gz",
+    ]
+    base = seg_path
+    if base.endswith("-seg.nii.gz"):
+        base = base[:-len("-seg.nii.gz")]
+    elif base.endswith("_seg.nii.gz"):
+        base = base[:-len("_seg.nii.gz")]
+    elif base.endswith(".nii.gz"):
+        base = base[:-len(".nii.gz")]
+
+    for suffix in suffixes:
+        candidate = base + suffix
+        if os.path.exists(candidate):
+            return candidate
+    case_dir = os.path.dirname(seg_path)
+    stem = os.path.basename(base)
+    for suffix in suffixes:
+        candidate = os.path.join(case_dir, stem + suffix)
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _make_brain_mask(reference_img: nib.Nifti1Image):
+    data = reference_img.get_fdata()
+    mask = np.abs(data) > 0
+    mask = binary_fill_holes(mask)
+    mask = binary_closing(mask, iterations=1)
+    return mask.astype(bool)
+
+
+def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
+    sparse_lobe_data = np.zeros_like(atlas_data, dtype=np.int16)
+    unique_indices = np.unique(atlas_data.astype(np.int32))
+    for atlas_idx in unique_indices:
+        atlas_idx = int(atlas_idx)
+        lobe_name = AAL_INDEX_TO_LOBE.get(atlas_idx, "unknown")
+        lobe_id = _LOBE_TO_ID.get(lobe_name, _LOBE_TO_ID["unknown"])
+        if atlas_idx == 0 or lobe_id in (_LOBE_TO_ID["background"], _LOBE_TO_ID["unknown"]):
+            continue
+        sparse_lobe_data[atlas_data == atlas_idx] = lobe_id
+
+    labeled_mask = sparse_lobe_data > 0
+    if not np.any(labeled_mask):
+        return sparse_lobe_data
+
+    fill_mask = brain_mask & (~labeled_mask)
+    if np.any(fill_mask):
+        _, nearest_indices = distance_transform_edt(~labeled_mask, return_indices=True)
+        dense_lobe_data = sparse_lobe_data.copy()
+        dense_lobe_data[fill_mask] = sparse_lobe_data[tuple(nearest_indices[:, fill_mask])]
+    else:
+        dense_lobe_data = sparse_lobe_data
+    return dense_lobe_data.astype(np.int16)
+
+
+def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarray):
+    unique, counts = np.unique(dense_lobe_data[tumour_mask], return_counts=True)
+    total = int(tumour_mask.sum())
+    overlap_dict = {}
+    region_list = []
+    overlap_voxels = 0
+    for idx, cnt in zip(unique, counts):
+        idx = int(idx)
+        if idx <= 0:
+            continue
+        region = _ID_TO_LOBE.get(idx, "unknown")
+        if region == "unknown":
+            continue
+        overlap_dict[idx] = {
+            "region": region,
+            "voxels": int(cnt),
+            "percent": float(cnt) * 100.0 / total if total else 0.0,
+        }
+        region_list.append(region)
+        overlap_voxels += int(cnt)
+    return overlap_voxels, overlap_dict, sorted(set(region_list))
+
+
+def _threshold_region_list(overlap_dict: dict, min_voxels: int = DENSE_REGION_MIN_VOXELS,
+                           min_percent: float = DENSE_REGION_MIN_PERCENT):
+    """
+    Filter region labels using a minimum voxel threshold and minimum percent
+    threshold. This is only used for the new dense-region reporting path.
+    """
+    kept = []
+    for info in overlap_dict.values():
+        if info["voxels"] >= min_voxels and info["percent"] >= min_percent:
+            kept.append(info["region"])
+    return sorted(set(kept))
 
 
 def load_atlas_label_map(label_txt_path, use_lobes=True):
@@ -137,14 +263,15 @@ def localize_to_brain_regions(
         display.close()
 
 
-
     overlapped = atlas_data[tumour_mask]
-    unique, counts = np.unique(overlapped[overlapped > 0], return_counts=True)
+    nonzero = overlapped[overlapped > 0]
+    unique, counts = np.unique(nonzero, return_counts=True)
     total = int(tumour_mask.sum())
+    overlap_voxels = int(nonzero.size)
+    overlap_fraction = float(overlap_voxels) / float(total) if total else 0.0
 
-    # --- 4. pack results ------------------------------------------
     overlap_dict = {}
-    region_list = []
+    sparse_region_list = []
     for idx, cnt in zip(unique, counts):
         region = atlas_label_map.get(int(idx), "unknown")
         if region != "unknown":
@@ -153,9 +280,58 @@ def localize_to_brain_regions(
                 "voxels": int(cnt),
                 "percent": float(cnt) * 100.0 / total if total else 0.0,
             }
-            region_list.append(region)
+            sparse_region_list.append(region)
 
-    return {"total_voxels": total, "overlap": overlap_dict, "regions": sorted(set(region_list))}
+    # --- 4. improved dense lobe assignment for final region labels ---
+    reference_path = _derive_reference_path(seg_path)
+    if reference_path is not None:
+        reference_img = _as_closest_canonical(reference_path)
+        reference_img = _ensure_same_grid(reference_img, tumour_img, interpolation="continuous")
+        brain_mask = _make_brain_mask(reference_img)
+    else:
+        # Fallback: allow some spill beyond sparse AAL support without requiring
+        # a reference anatomy. This keeps the function signature unchanged.
+        brain_mask = atlas_data > 0
+        brain_mask = binary_fill_holes(brain_mask)
+        brain_mask = binary_closing(brain_mask, iterations=2)
+
+    dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask)
+    dense_overlap_voxels, dense_overlap_dict, dense_region_list = _dense_overlap_from_mask(
+        dense_lobe_data=dense_lobe_data,
+        tumour_mask=tumour_mask,
+    )
+    dense_overlap_fraction = float(dense_overlap_voxels) / float(total) if total else 0.0
+    sparse_region_list = sorted(set(sparse_region_list))
+    dense_region_list = sorted(set(dense_region_list))
+    dense_regions_thresholded = _threshold_region_list(
+        dense_overlap_dict,
+        min_voxels=DENSE_REGION_MIN_VOXELS,
+        min_percent=DENSE_REGION_MIN_PERCENT,
+    )
+
+    return {
+        # Original fields preserved exactly
+        "total_voxels": total,
+        "overlap_voxels": overlap_voxels,
+        "overlap_fraction": overlap_fraction,
+        "overlap": overlap_dict,
+        "regions": dense_regions_thresholded,
+
+        # Explicit sparse alias for readability
+        "sparse_regions": sparse_region_list,
+
+        # Extra fields for dense-lobe reporting
+        "dense_overlap_voxels": dense_overlap_voxels,
+        "dense_overlap_fraction": dense_overlap_fraction,
+        "dense_overlap": dense_overlap_dict,
+        "dense_regions_all": dense_region_list,
+        "dense_regions": dense_regions_thresholded,
+        "dense_region_thresholds": {
+            "min_voxels": DENSE_REGION_MIN_VOXELS,
+            "min_percent": DENSE_REGION_MIN_PERCENT,
+        },
+        "reference_path": reference_path,
+    }
 
 
 def get_region_str(region_list):
@@ -230,15 +406,26 @@ if __name__ == "__main__":
     seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET*/BraTS-MET*seg.nii.gz"))
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
     atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
-    for seg_path in tqdm(seg_paths):
-        summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
-        for tumor_label, info in summ.items():
-            if info['total_voxels'] > 0:
-                total_percent = 0.0
-                for idx_, info_ in info["overlap"].items():
-                    total_percent += info_['percent']
-                atlas_overlap[tumor_label].append(total_percent)
-    print("\n\nSummary of atlas overlap percentages (%):")
-    for tumor_label, overlaps in atlas_overlap.items():
-        print(f"{tumor_label}: {np.mean(overlaps):.2f} ± {np.std(overlaps):.2f}, #samples: {len(overlaps)}")
+    for seg_path in tqdm(seg_paths[:3]):
+        try:
+            summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
+            for tumor_label, info in summ.items():
+                if info['total_voxels'] > 0:
+                    atlas_overlap_sparse[tumor_label].append(info['overlap_fraction']*100)
+                    atlas_overlap_dense[tumor_label].append(info['dense_overlap_fraction']*100)
+        except Exception as e:
+            print(f"Error processing {seg_path}: {e}")
+    print("\n\nSummary of overlap percentages (%):")
+    for tumor_label in tumour_labels.keys():
+        sparse_vals = atlas_overlap_sparse[tumor_label]
+        dense_vals = atlas_overlap_dense[tumor_label]
+        if len(sparse_vals) == 0:
+            print(f"{tumor_label}: no samples")
+            continue
+        print(
+            f"{tumor_label}: "
+            f"sparse={np.mean(sparse_vals):.2f} ± {np.std(sparse_vals):.2f}, "
+            f"dense={np.mean(dense_vals):.2f} ± {np.std(dense_vals):.2f}, "
+            f"#samples: {len(sparse_vals)}"
+        )
 

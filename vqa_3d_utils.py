@@ -828,12 +828,33 @@ def compute_shape_descriptors(mask, voxel_spacing=(1., 1., 1.)):
     desc["satellite_ratio"] = max(0, num_cc - 1) / num_cc
 
     # satellite label
-    if num_cc == 1:
+    # Updated logic: ignore trivial components for labeling only, while leaving
+    # all other calculations unchanged.
+    min_cc_mm3 = 30.0
+    min_rel_cc = 0.01
+
+    significant = (cc_sizes >= min_cc_mm3) | (cc_sizes >= (min_rel_cc * total_V))
+    sig_sizes = np.sort(cc_sizes[significant])[::-1]
+
+    if len(sig_sizes) == 0:
+        sig_sizes = np.array([core_vol], dtype=float)
+
+    num_sig = len(sig_sizes)
+
+    if num_sig == 1:
         desc["satellite_interp"] = "single lesion"
-    elif core_fraction >= 0.85:
-        desc["satellite_interp"] = "core with satellite lesions"
     else:
-        desc["satellite_interp"] = "scattered lesions"
+        sig_total = sig_sizes.sum()
+        core_fraction_sig = sig_sizes[0] / sig_total
+        satellite_burden_sig = 1.0 - core_fraction_sig
+        largest_satellite_fraction = sig_sizes[1] / sig_total
+
+        if satellite_burden_sig <= 0.10 and largest_satellite_fraction <= 0.10:
+            desc["satellite_interp"] = "single lesion"
+        elif core_fraction_sig >= 0.70 and largest_satellite_fraction <= 0.25:
+            desc["satellite_interp"] = "core with satellite lesions"
+        else:
+            desc["satellite_interp"] = "scattered lesions"
 
     # ------------------------------------------------------------------
     # Metric extraction: use core OR mean of all components
