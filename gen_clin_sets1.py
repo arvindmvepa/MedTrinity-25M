@@ -9,7 +9,7 @@ from pathlib import Path
 if __name__ == "__main__":
     seed = 42
     #output_dir = "./clinical_samples"
-    output_dir = ./clinical_samples1
+    output_dir = "./clinical_samples1"
     #zip_filename = "clinical_samples.zip"
     zip_filename = "clinical_samples1.zip"
 
