@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     # GoAT dataset settings
     #dataset_type = "goat"
-    #version = f"updated_v11_seed{seed}"
+    #version = f"updated_v13_seed{seed}"
     #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
     #labels_order = (1, 2, 3)
     #pediatric = False

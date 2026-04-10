@@ -137,28 +137,28 @@ if __name__ == "__main__":
 
     # GLI dataset settings
     #dataset_type = "gli"
-    #version = f"updated_v10_seed{seed}"
+    #version = f"updated_v13_seed{seed}"
     #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GLI/training_data1_v2/*')))
     #labels_order = (1, 2, 3, 4)
     #pediatric = False
     #goat = False
 
     # MET dataset settings
-    #dataset_type = "met"
-    #version = f"updated_v11_seed{seed}"
-    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
-    #labels_order = (1, 2, 3)
-    #pediatric = False
-    #goat = False
+    dataset_type = "met"
+    version = f"updated_v13_seed{seed}"
+    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/*')))
+    labels_order = (1, 2, 3)
+    pediatric = False
+    goat = False
     
 
     # GoAT dataset settings
-    dataset_type = "goat"
-    version = f"updated_v11_seed{seed}"
-    volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
-    labels_order = (1, 2, 3)
-    pediatric = False
-    goat = True
+    #dataset_type = "goat"
+    #version = f"updated_v13_seed{seed}"
+    #volume_file_dirs = sorted(list(glob(f'/local2/shared_data/BraTS2024-BraTS-GoAT/MICCAI2024-BraTS-GoAT-TrainingData-With-GroundTruth/*')))
+    #labels_order = (1, 2, 3)
+    #pediatric = False
+    #goat = True
 
     train_file = train_file.format(dataset_type, subjective_only, version)
     train_aux_file = train_aux_file.format(dataset_type, subjective_only, version)
