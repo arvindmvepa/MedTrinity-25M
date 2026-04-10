@@ -7,6 +7,7 @@ from tqdm import tqdm
 import glob
 import nilearn
 import os
+from scipy.ndimage import binary_fill_holes, binary_closing, distance_transform_edt
 
 
 LOBE_MAP = {
