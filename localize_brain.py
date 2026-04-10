@@ -326,7 +326,7 @@ def localize_to_brain_regions(
         # original return fields preserved
         "total_voxels": total,
         "overlap": overlap_dict,
-        "regions": sparse_region_list,
+        "regions": dense_regions_thresholded,
 
         # extra sparse stats
         "overlap_voxels": overlap_voxels,
