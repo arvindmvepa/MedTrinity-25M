@@ -219,6 +219,9 @@ _ID_TO_LOBE = {v: k for k, v in _LOBE_TO_ID.items()}
 # overlap statistic or the original `regions` field.
 DENSE_REGION_MIN_VOXELS = 50
 DENSE_REGION_MIN_PERCENT = 1.0
+DENSE_REGION_SECONDARY_RELATIVE_TO_PRIMARY = 0.20
+DENSE_REGION_SECONDARY_MIN_PERCENT_OVERRIDE = 5.0
+
 
 
 def _squeeze_singleton_4d(img: nib.Nifti1Image) -> nib.Nifti1Image:
@@ -272,35 +275,44 @@ def _derive_reference_path(seg_path: str):
 
 def _make_brain_mask(reference_img: nib.Nifti1Image):
     data = reference_img.get_fdata()
-    mask = np.abs(data) > 0
+    mask = np.isfinite(data) & (np.abs(data) > 1e-6)
     mask = binary_fill_holes(mask)
     mask = binary_closing(mask, iterations=1)
     return mask.astype(bool)
 
 
-def _build_dense_lobe_data(atlas_data: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
-    sparse_lobe_data = np.zeros_like(atlas_data, dtype=np.int16)
-    unique_indices = np.unique(atlas_data.astype(np.int32))
-    for atlas_idx in unique_indices:
+def _build_dense_parcel_data(atlas_data: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
+    """Fill unlabeled in-brain voxels at the original atlas-parcel level first,
+    then collapse to lobes later. This preserves more anatomical detail during
+    dense filling than filling after lobe collapse."""
+    atlas_int = atlas_data.astype(np.int32)
+    valid_parcel_mask = (atlas_int > 0) & np.isin(atlas_int, list(AAL_INDEX_TO_LOBE.keys()))
+    dense_parcel_data = np.where(valid_parcel_mask, atlas_int, 0).astype(np.int32)
+
+    if not np.any(valid_parcel_mask):
+        return dense_parcel_data
+
+    atlas_support = binary_fill_holes(valid_parcel_mask)
+    atlas_support = binary_closing(atlas_support, iterations=1)
+    fill_mask = (brain_mask | atlas_support) & (~valid_parcel_mask)
+    if np.any(fill_mask):
+        _, nearest_indices = distance_transform_edt(~valid_parcel_mask, return_indices=True)
+        dense_parcel_data[fill_mask] = dense_parcel_data[tuple(nearest_indices[:, fill_mask])]
+    return dense_parcel_data.astype(np.int32)
+
+
+def _collapse_dense_parcel_to_lobe(dense_parcel_data: np.ndarray) -> np.ndarray:
+    dense_lobe_data = np.zeros_like(dense_parcel_data, dtype=np.int16)
+    for atlas_idx in np.unique(dense_parcel_data):
         atlas_idx = int(atlas_idx)
+        if atlas_idx <= 0:
+            continue
         lobe_name = AAL_INDEX_TO_LOBE.get(atlas_idx, "unknown")
         lobe_id = _LOBE_TO_ID.get(lobe_name, _LOBE_TO_ID["unknown"])
-        if atlas_idx == 0 or lobe_id in (_LOBE_TO_ID["background"], _LOBE_TO_ID["unknown"]):
+        if lobe_id in (_LOBE_TO_ID["background"], _LOBE_TO_ID["unknown"]):
             continue
-        sparse_lobe_data[atlas_data == atlas_idx] = lobe_id
-
-    labeled_mask = sparse_lobe_data > 0
-    if not np.any(labeled_mask):
-        return sparse_lobe_data
-
-    fill_mask = brain_mask & (~labeled_mask)
-    if np.any(fill_mask):
-        _, nearest_indices = distance_transform_edt(~labeled_mask, return_indices=True)
-        dense_lobe_data = sparse_lobe_data.copy()
-        dense_lobe_data[fill_mask] = sparse_lobe_data[tuple(nearest_indices[:, fill_mask])]
-    else:
-        dense_lobe_data = sparse_lobe_data
-    return dense_lobe_data.astype(np.int16)
+        dense_lobe_data[dense_parcel_data == atlas_idx] = lobe_id
+    return dense_lobe_data
 
 
 def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarray):
@@ -316,7 +328,7 @@ def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarra
         region = _ID_TO_LOBE.get(idx, "unknown")
         if region == "unknown":
             continue
-        overlap_dict[idx] = {
+        overlap_dict[region] = {
             "region": region,
             "voxels": int(cnt),
             "percent": float(cnt) * 100.0 / total if total else 0.0,
@@ -327,15 +339,29 @@ def _dense_overlap_from_mask(dense_lobe_data: np.ndarray, tumour_mask: np.ndarra
 
 
 def _threshold_region_list(overlap_dict: dict, min_voxels: int = DENSE_REGION_MIN_VOXELS,
-                           min_percent: float = DENSE_REGION_MIN_PERCENT):
+                           min_percent: float = DENSE_REGION_MIN_PERCENT,
+                           min_relative_to_primary: float = DENSE_REGION_SECONDARY_RELATIVE_TO_PRIMARY,
+                           min_percent_override: float = DENSE_REGION_SECONDARY_MIN_PERCENT_OVERRIDE):
     """
-    Filter region labels using a minimum voxel threshold and minimum percent
-    threshold. This is only used for the new dense-region reporting path.
+    Keep the dominant dense lobe, then keep secondary lobes only when they have
+    enough absolute support and are not negligible relative to the dominant one.
+    This is more stable for final region-set extraction than fixed cutoffs alone.
     """
-    kept = []
-    for info in overlap_dict.values():
-        if info["voxels"] >= min_voxels and info["percent"] >= min_percent:
+    if not overlap_dict:
+        return []
+
+    ordered = sorted(overlap_dict.values(), key=lambda x: (-x["voxels"], x["region"]))
+    primary = ordered[0]
+    primary_voxels = max(primary["voxels"], 1)
+    kept = [primary["region"]]
+
+    for info in ordered[1:]:
+        abs_ok = info["voxels"] >= min_voxels and info["percent"] >= min_percent
+        rel_ok = info["voxels"] >= int(np.ceil(primary_voxels * min_relative_to_primary))
+        percent_override_ok = info["percent"] >= min_percent_override
+        if abs_ok and (rel_ok or percent_override_ok):
             kept.append(info["region"])
+
     return sorted(set(kept))
 
 
@@ -431,7 +457,8 @@ def localize_to_brain_regions(
         brain_mask = binary_fill_holes(brain_mask)
         brain_mask = binary_closing(brain_mask, iterations=2)
 
-    dense_lobe_data = _build_dense_lobe_data(atlas_data, brain_mask)
+    dense_parcel_data = _build_dense_parcel_data(atlas_data, brain_mask)
+    dense_lobe_data = _collapse_dense_parcel_to_lobe(dense_parcel_data)
     dense_overlap_voxels, dense_overlap_dict, dense_region_list = _dense_overlap_from_mask(
         dense_lobe_data=dense_lobe_data,
         tumour_mask=tumour_mask,
@@ -465,6 +492,8 @@ def localize_to_brain_regions(
         "dense_region_thresholds": {
             "min_voxels": DENSE_REGION_MIN_VOXELS,
             "min_percent": DENSE_REGION_MIN_PERCENT,
+            "min_relative_to_primary": DENSE_REGION_SECONDARY_RELATIVE_TO_PRIMARY,
+            "min_percent_override": DENSE_REGION_SECONDARY_MIN_PERCENT_OVERRIDE,
         },
         "reference_path": reference_path,
     }
