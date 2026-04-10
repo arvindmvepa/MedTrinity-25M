@@ -405,7 +405,8 @@ if __name__ == "__main__":
 
     seg_paths = sorted(glob.glob("/local2/shared_data/BraTS2024-BraTS-MET/MICCAI-BraTS2024-MET-Challenge-Training_overall/BraTS-MET*/BraTS-MET*seg.nii.gz"))
     tumour_labels = {"ET": 3, "SNFH": 2, "NETC": 1}
-    atlas_overlap = {"ET": [], "SNFH": [], "NETC": []}
+    atlas_overlap_sparse = {"ET": [], "SNFH": [], "NETC": []}
+    atlas_overlap_dense = {"ET": [], "SNFH": [], "NETC": []}
     for seg_path in tqdm(seg_paths[:3]):
         try:
             summ = analyze_label_localization(seg_path=seg_path, tumour_labels=tumour_labels, debug=False)
