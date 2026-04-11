@@ -117,12 +117,12 @@ def match_predictions_with_groundtruth(gt_data, model_predictions, model_name):
         if i < len(model_predictions):
             pred = model_predictions[i]
             # Try different field names for model answer
-            for field in ['model_answer', 'pred', 'prediction', 'answer', 'response']:
+            for field in ['model_answer', 'pred']:
                 if field in pred and pred[field] is not None:
                     model_answer = pred[field]
                     break
             if model_answer is None:
-                model_answer = ""
+                raise ValueError(f"{model_name}: No valid answer field found in prediction at index {i}")
         
         matched_entry = {
             'volume': volume,
@@ -197,8 +197,10 @@ def combine_predictions(model1_file, model2_file, gt_file, output_basename, user
         combined_entry = {
             'volume': volume,
             'question': question,
+            'Model 1 answer sufficient? (Y/N)': "",
             'model_1_answer': model1_answer,
-            'model_2_answer': model2_answer
+            'model_2_answer': model2_answer,
+            'Model 2 answer sufficient? (Y/N)': "",
         }
         
         combined_data.append(combined_entry)
@@ -214,7 +216,7 @@ def combine_predictions(model1_file, model2_file, gt_file, output_basename, user
     print(f"Saving combined CSV to: {csv_filename}")
     
     if combined_data:
-        fieldnames = ['volume', 'question', 'model_1_answer', 'model_2_answer']
+        fieldnames = ['volume', 'question', 'Model 1 answer sufficient? (Y/N)', 'model_1_answer', 'model_2_answer', 'Model 2 answer sufficient? (Y/N)']
         
         with open(csv_filename, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
