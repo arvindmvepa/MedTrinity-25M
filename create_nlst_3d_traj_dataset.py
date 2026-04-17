@@ -352,7 +352,7 @@ def get_questions(
     rows_ts1 = rows_ts1.loc[rows_ts1["sct_ab_code"] == 51]
     rows_ts2 = rows_ts2.loc[rows_ts2["sct_ab_code"] == 51]
 
-    cancyr = pid_ann_df["cancyr"].iloc[0]
+    cancyr = rows_ts0["cancyr"].iloc[0]
     has_cancer = False
     if not pd.isna(cancyr):
         has_cancer = True
