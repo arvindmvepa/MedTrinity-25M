@@ -337,6 +337,12 @@ def get_questions(
     na_string="NA",
 ):
     q_list = []
+    
+    cancyr = rows_ts0["cancyr"].iloc[0]
+    has_cancer = False
+    if not pd.isna(cancyr):
+        has_cancer = True
+
     # initially sort the next_rows by sct_ab_code, then largest nodule to smallest nodule (cur_rows only for determining if there is a current nodule)
     rows_ts0 = rows_ts0.sort_values(
         by=["sct_ab_code", "sct_long_dia"], ascending=[False, False], kind="mergesort"
@@ -351,11 +357,6 @@ def get_questions(
     rows_ts0 = rows_ts0.loc[rows_ts0["sct_ab_code"] == 51]
     rows_ts1 = rows_ts1.loc[rows_ts1["sct_ab_code"] == 51]
     rows_ts2 = rows_ts2.loc[rows_ts2["sct_ab_code"] == 51]
-
-    cancyr = rows_ts0["cancyr"].iloc[0]
-    has_cancer = False
-    if not pd.isna(cancyr):
-        has_cancer = True
 
     qa_margin_answers = [
         get_string_from_item_lst(
