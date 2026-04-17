@@ -485,6 +485,7 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
     """
     all_vqas = []
     question_index = 0
+    print(ann_df["pid"].nunique())
     for pid, pid_ann_df in tqdm(ann_df.groupby("pid")):
         inst = pid_ann_df["cen"].iloc[0]
 
