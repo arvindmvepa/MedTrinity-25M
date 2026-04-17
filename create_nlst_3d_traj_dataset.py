@@ -486,6 +486,7 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
     all_vqas = []
     question_index = 0
     print(ann_df["pid"].nunique())
+    valid_df_count = 0
     for pid, pid_ann_df in tqdm(ann_df.groupby("pid")):
         inst = pid_ann_df["cen"].iloc[0]
 
@@ -510,6 +511,8 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
                 embedding_path_ts2=embedding_path_ts2,
             )
             all_vqas.extend(qas)
+            valid_df_count += 1
+    print(f"Total valid PIDs with all 3 time points: {valid_df_count}")
     return all_vqas
 
 
