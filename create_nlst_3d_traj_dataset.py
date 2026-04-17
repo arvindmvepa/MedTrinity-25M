@@ -539,15 +539,20 @@ if __name__ == "__main__":
     embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
 
     measure_df = pd.read_csv(measurement_file)
+    print(f"measure_df (pids): {measure_df['pid'].nunique()}")
     compare_df = pd.read_csv(comparison_file)
+    print(f"compare_df (pids): {compare_df['pid'].nunique()}")
     combined_measure_comp_df = pd.merge(
         measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner"
     )
+    print(f"combined_measure_comp_df (pids): {combined_measure_comp_df['pid'].nunique()}")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
+    print(f"patient_df (pids): {patient_df['pid'].nunique()}")
     patient_df["pid"] = patient_df["pid"].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(
         patient_df, combined_measure_comp_df, on="pid", how="left"
     )
+    print(f"patient_info_w_combined_measure_comp_df (pids): {patient_info_w_combined_measure_comp_df['pid'].nunique()}")
     all_vqas = generate_vqa_from_df(
         patient_info_w_combined_measure_comp_df, embedding_dir=embedding_dir
     )
