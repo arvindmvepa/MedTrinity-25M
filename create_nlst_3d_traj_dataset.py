@@ -278,7 +278,7 @@ def get_questions(rows_ts0, rows_ts1, rows_ts2, pid, inst, question_index, embed
     return q_list, question_index
 
 
-def generate_vqa_from_df(ann_df, add_time_delta2=False, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
+def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
     """
     Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -327,7 +327,7 @@ if __name__ == "__main__":
     patient_df['pid'] = patient_df['pid'].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(patient_df,
                                                        combined_measure_comp_df, on="pid", how="left")
-    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, add_time_delta2=add_time_delta2, embedding_dir=embedding_dir)
+    all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, embedding_dir=embedding_dir)
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     summarize_vqa(all_vqas)
