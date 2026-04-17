@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import random
 import os
+import numpy as np
 
 
 sct_ab_code_dict = {
@@ -83,6 +84,61 @@ sct_ab_preexist_dict = {
     9: "Unable to determine",
     # .M => "Missing"
 }
+
+
+def generate_train_val_test_split(
+    all_vqa_questions,
+    question_key="pid",
+    seed=0,
+    train_pid_ids=None,
+    val_pid_ids=None,
+    test_pid_ids=None,
+    train_frac=0.8,
+    val_frac=0.1,
+):
+    if (
+        (train_pid_ids is not None)
+        and (val_pid_ids is not None)
+        and (test_pid_ids is not None)
+    ):
+        train_questions = [
+            q for q in all_vqa_questions if q[question_key] in train_pid_ids
+        ]
+        val_questions = [q for q in all_vqa_questions if q[question_key] in val_pid_ids]
+        test_questions = [
+            q for q in all_vqa_questions if q[question_key] in test_pid_ids
+        ]
+        train_pids = list({q["pid"] for q in train_questions})
+        val_pids = list({q["pid"] for q in val_questions})
+        test_pids = list({q["pid"] for q in test_questions})
+    else:
+        random_state = np.random.RandomState(seed)
+        all_pids = sorted(list({q["pid"] for q in all_vqa_questions}))
+        random_state.shuffle(all_pids)
+        total_pids = len(all_pids)
+        train_end = int(total_pids * train_frac)
+        val_end = int(total_pids * (train_frac + val_frac))
+        train_pids = all_pids[:train_end]
+        val_pids = all_pids[train_end:val_end]
+        test_pids = all_pids[val_end:]
+        train_questions = [q for q in all_vqa_questions if q["pid"] in train_pids]
+        val_questions = [q for q in all_vqa_questions if q["pid"] in val_pids]
+        test_questions = [q for q in all_vqa_questions if q["pid"] in test_pids]
+    print(
+        f"Train PIDs: {len(train_pids)}, Val PIDs: {len(val_pids)}, Test PIDs: {len(test_pids)}"
+    )
+    print(
+        f"Train questions: {len(train_questions)}, Val questions: {len(val_questions)}, Test questions: {len(test_questions)}"
+    )
+
+    with open(train_file, "w") as f:
+        json.dump(train_questions, f, indent=2)
+    with open(val_file, "w") as f:
+        json.dump(val_questions, f, indent=2)
+    with open(test_file, "w") as f:
+        json.dump(test_questions, f, indent=2)
+
+    return train_questions, val_questions, test_questions
 
 
 def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
@@ -279,8 +335,6 @@ def get_questions(
     embedding_path_ts1,
     embedding_path_ts2,
     na_string="NA",
-    nan_string="nan",
-    sep_string="|",
 ):
     q_list = []
     # initially sort the next_rows by sct_ab_code, then largest nodule to smallest nodule (cur_rows only for determining if there is a current nodule)
@@ -399,14 +453,7 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
         embedding_path_ts1 = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
         embedding_path_ts2 = os.path.join(embedding_dir, f"pid{pid}_ts2.st")
 
-        if (
-            os.path.exists(embedding_path_ts0)
-            and os.path.exists(embedding_path_ts1)
-            and os.path.exists(embedding_path_ts2)
-            and len(pid_study_yr0_ann_df) > 0
-            and len(pid_study_yr1_ann_df) > 0
-            and len(pid_study_yr2_ann_df) > 0
-        ):
+        if len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0:
             qas, question_index = get_questions(
                 pid_study_yr0_ann_df,
                 pid_study_yr1_ann_df,
@@ -434,12 +481,13 @@ if __name__ == "__main__":
     measurement_file = "nlst_780_ctab_idc_20210527.csv"
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
+    seed = 0
     tag = "traj_v0"
 
     save_file = f"nlst_vqa_add_{tag}.json"
-    train_save_file = f"nlst_train_vqa_{tag}.json"
-    val_save_file = f"nlst_val_vqa_{tag}.json"
-    test_save_file = f"nlst_test_vqa_{tag}.json"
+    train_save_file = f"nlst_train_vqa_{tag}_seed{seed}.json"
+    val_save_file = f"nlst_val_vqa_{tag}_seed{seed}.json"
+    test_save_file = f"nlst_test_vqa_{tag}_seed{seed}.json"
     pid_split_file = "/home/avepa/Sybil/pid2split.csv"
     embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
 
@@ -460,9 +508,7 @@ if __name__ == "__main__":
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
-    train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid_split_file(
-        all_vqas, pid_split_file=pid_split_file
-    )
+    train_vqas, val_vqas, test_vqas = generate_train_val_test_split(all_vqas, seed=seed)
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
