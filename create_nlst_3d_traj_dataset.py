@@ -281,38 +281,66 @@ def create_trajectory_question(
         topics_str = " and ".join(long_topics)
         question = f"Predict the patient's trajectory of {topics_str} over the next {num_timesteps} years?"
 
-        topic_answer_pairs = [
-            f"{topic}: {', '.join(answer)}"
-            for topic, answer in zip(long_topics, long_answers)
-        ]
-        answer = (
-            f"The predicted trajectory is as follows: {' ; '.join(topic_answer_pairs)}."
-        )
+        # Format trajectory answers with clear year labels
+        trajectory_parts = []
+        for topic, answer_list in zip(long_topics, long_answers):
+            # Split the answer by separators and assign to years
+            year_values = answer_list[0].split("|") if answer_list else ["NA", "NA", "NA"]
+            year_parts = []
+            for i, value in enumerate(year_values):
+                year_parts.append(f"Year {i}: {value}")
+            trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
+        
+        answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}."
 
     elif long_topics is None and short_topics is not None:
         topics_str = " and ".join(short_topics)
         question = f"What will be the eventual patient status for {topics_str}?"
 
-        topic_answer_pairs = [
-            f"{topic}: {', '.join(answer)}"
-            for topic, answer in zip(short_topics, short_answers)
-        ]
-        answer = (
-            f"The patient status will be as follows: {' ; '.join(topic_answer_pairs)}."
-        )
+        # Format short answers as natural statements
+        status_parts = []
+        for topic, answer_list in zip(short_topics, short_answers):
+            answer_value = answer_list[0] if answer_list else "unknown"
+            if topic.lower() == "cancer":
+                if answer_value.lower() == "yes":
+                    status_parts.append("the patient will develop cancer")
+                elif answer_value.lower() == "no":
+                    status_parts.append("the patient will not develop cancer")
+                else:
+                    status_parts.append(f"cancer status is {answer_value}")
+            else:
+                status_parts.append(f"{topic} will be {answer_value}")
+        
+        answer = f"The eventual patient status: {', '.join(status_parts)}."
 
     else:
         long_topics_str = " and ".join(long_topics)
         short_topics_str = " and ".join(short_topics)
         question = f"Predict the patient's trajectory of {long_topics_str} over the next {num_timesteps} years and the eventual status of {short_topics_str}?"
 
-        all_topics = long_topics + short_topics
-        all_answers = long_answers + short_answers
-        topic_answer_pairs = [
-            f"{topic}: {', '.join(answer)}"
-            for topic, answer in zip(all_topics, all_answers)
-        ]
-        answer = f"The predicted trajectory and eventual status are as follows: {' ; '.join(topic_answer_pairs)}."
+        # Combine both trajectory and status formatting
+        trajectory_parts = []
+        for topic, answer_list in zip(long_topics, long_answers):
+            year_values = answer_list[0].split("|") if answer_list else ["NA", "NA", "NA"]
+            year_parts = []
+            for i, value in enumerate(year_values):
+                year_parts.append(f"Year {i}: {value}")
+            trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
+        
+        status_parts = []
+        for topic, answer_list in zip(short_topics, short_answers):
+            answer_value = answer_list[0] if answer_list else "unknown"
+            if topic.lower() == "cancer":
+                if answer_value.lower() == "yes":
+                    status_parts.append("the patient will develop cancer")
+                elif answer_value.lower() == "no":
+                    status_parts.append("the patient will not develop cancer")
+                else:
+                    status_parts.append(f"cancer status is {answer_value}")
+            else:
+                status_parts.append(f"{topic} will be {answer_value}")
+        
+        answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}. The eventual status: {', '.join(status_parts)}."
 
     return question, answer
 
