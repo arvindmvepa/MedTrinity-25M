@@ -131,13 +131,6 @@ def generate_train_val_test_split(
         f"Train questions: {len(train_questions)}, Val questions: {len(val_questions)}, Test questions: {len(test_questions)}"
     )
 
-    with open(train_file, "w") as f:
-        json.dump(train_questions, f, indent=2)
-    with open(val_file, "w") as f:
-        json.dump(val_questions, f, indent=2)
-    with open(test_file, "w") as f:
-        json.dump(test_questions, f, indent=2)
-
     return train_questions, val_questions, test_questions
 
 
@@ -337,7 +330,7 @@ def get_questions(
     na_string="NA",
 ):
     q_list = []
-    
+
     cancyr = rows_ts0["cancyr"].iloc[0]
     has_cancer = False
     if not pd.isna(cancyr):
