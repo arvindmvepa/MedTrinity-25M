@@ -180,14 +180,18 @@ def train_val_test_split_by_pid(final_vqa, val_pct=0.1, test_pct=0.1, seed=0):
     return train_list, val_list, test_list
 
 
-def build_question(question, answer, long_topics, long_answers, short_topics, short_answers, pid, inst, embedding_path, question_index, content_type):
+def build_question(question, answer, long_topics, long_answers, short_topics, short_answers, 
+pid, inst, embedding_path_ts0, embedding_path_ts1, embedding_path_ts2, question_index, 
+content_type):
     """
     Build a single Q–A dictionary with the relevant fields.
     """
     return {
         "pid": pid,
         "inst": inst,
-        "embedding_path": embedding_path,
+        "embedding_path_ts0": embedding_path_ts0,
+        "embedding_path_ts1": embedding_path_ts1,
+        "embedding_path_ts2": embedding_path_ts2,
         "question": question,
         "answer": answer,
         "long_topics": long_topics,
@@ -229,7 +233,9 @@ def create_trajectory_question(long_topics, long_answers, short_topics, short_an
 
 
 
-def get_questions(rows_ts0, rows_ts1, rows_ts2, pid, inst, question_index, embedding_path, na_string="NA", nan_string="nan", sep_string="|"):
+def get_questions(rows_ts0, rows_ts1, rows_ts2, pid, inst, question_index, 
+                  embedding_path_ts0, embedding_path_ts1, embedding_path_ts2, na_string="NA", 
+                  nan_string="nan", sep_string="|"):
     q_list = []
     # initially sort the next_rows by sct_ab_code, then largest nodule to smallest nodule (cur_rows only for determining if there is a current nodule)
     rows_ts0 = rows_ts0.sort_values(by=["sct_ab_code", "sct_long_dia"],
@@ -245,10 +251,6 @@ def get_questions(rows_ts0, rows_ts1, rows_ts2, pid, inst, question_index, embed
     rows_ts0 = rows_ts0.loc[rows_ts0["sct_ab_code"] == 51]
     rows_ts1 = rows_ts1.loc[rows_ts1["sct_ab_code"] == 51]
     rows_ts2 = rows_ts2.loc[rows_ts2["sct_ab_code"] == 51]
-
-    ts0_is_lung_nodule = len(rows_ts0) > 0
-    ts1_is_lung_nodule = len(rows_ts1) > 0
-    ts2_is_lung_nodule = len(rows_ts2) > 0
 
     cancyr = pid_ann_df['cancyr'].iloc[0]
     has_cancer = False
@@ -266,13 +268,29 @@ def get_questions(rows_ts0, rows_ts1, rows_ts2, pid, inst, question_index, embed
             if short_topics_answers_ is None and long_topics_answers_ is None:
                 continue
             else:
-                long_topics_ = [topic for topic, _ in long_topics_answers_] if long_topics_answers_ is not None else None
-                short_topics_ = [topic for topic, _ in short_topics_answers_] if short_topics_answers_ is not None else None
-                long_answers_ = [answer for _, answer in long_topics_answers_] if long_topics_answers_ is not None else None
-                short_answers_ = [answer for _, answer in short_topics_answers_] if short_topics_answers_ is not None else None
+                long_topics_ = [topic for topic, _ in long_topics_answers_] 
+                if long_topics_answers_ is not None else None
+                short_topics_ = [topic for topic, _ in short_topics_answers_] 
+                if short_topics_answers_ is not None else None
+                long_answers_ = [answer for _, answer in long_topics_answers_] 
+                if long_topics_answers_ is not None else None
+                short_answers_ = [answer for _, answer in short_topics_answers_] 
+                if short_topics_answers_ is not None else None
 
-                traj_q, traj_a = create_trajectory_question(long_topics=long_topics_, short_topics=short_topics_, long_answers=long_answers_, short_answers=short_answers_)
-                q_list.append(build_question(question=traj_q, answer=traj_a, long_topics=long_topics_, long_answers=long_answers_, short_topics=short_topics_, short_answers=short_answers_, pid=pid, inst=inst, embedding_path=embedding_path, question_index=question_index, content_type="trajectory"))
+                traj_q, traj_a = create_trajectory_question(long_topics=long_topics_,
+                                                            short_topics=short_topics_, 
+                                                            long_answers=long_answers_, 
+                                                            short_answers=short_answers_)
+                q_list.append(build_question(question=traj_q, answer=traj_a, 
+                                             long_topics=long_topics_, 
+                                             long_answers=long_answers_, 
+                                             short_topics=short_topics_, 
+                                             short_answers=short_answers_, pid=pid, 
+                                             inst=inst, embedding_path_ts0=embedding_path_ts0, 
+                                             embedding_path_ts1=embedding_path_ts1, 
+                                             embedding_path_ts2=embedding_path_ts2, 
+                                             question_index=question_index, 
+                                             content_type="trajectory"))
                 question_index += 1
 
     return q_list, question_index
@@ -292,9 +310,19 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
-        if os.path.exists(embedding_path) and len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0:
-            qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr1_ann_df, pid_study_yr2_ann_df, pid=pid, inst=inst, 
-            question_index=question_index, embedding_path=embedding_path)
+        embedding_path_ts0 = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
+        embedding_path_ts1 = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
+        embedding_path_ts2 = os.path.join(embedding_dir, f"pid{pid}_ts2.st")
+
+        if os.path.exists(embedding_path_ts0) and os.path.exists(embedding_path_ts1) and \
+        os.path.exists(embedding_path_ts2) and len(pid_study_yr0_ann_df) > 0 and \
+        len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0:
+            qas, question_index = get_questions(pid_study_yr0_ann_df, pid_study_yr1_ann_df, 
+                                                pid_study_yr2_ann_df, pid=pid, inst=inst, 
+                                                question_index=question_index, 
+                                                embedding_path_ts0=embedding_path_ts0, 
+                                                embedding_path_ts1=embedding_path_ts1, 
+                                                embedding_path_ts2=embedding_path_ts2)
             all_vqas.extend(qas)
     return all_vqas
 
@@ -330,19 +358,9 @@ if __name__ == "__main__":
     all_vqas = generate_vqa_from_df(patient_info_w_combined_measure_comp_df, embedding_dir=embedding_dir)
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
-    summarize_vqa(all_vqas)
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
-
     train_vqas, val_vqas, test_vqas = train_val_test_split_by_pid_split_file(all_vqas, pid_split_file=pid_split_file)
-
-
-    #print(f"==========TRAIN==========")
-    #summarize_vqa(train_vqas)
-    #print(f"==========VAL==========")
-    #summarize_vqa(val_vqas)
-    #print(f"==========TEST==========")
-    #summarize_vqa(test_vqas)
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
