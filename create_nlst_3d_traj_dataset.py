@@ -284,11 +284,10 @@ def create_trajectory_question(
         # Format trajectory answers with clear year labels
         trajectory_parts = []
         for topic, answer_list in zip(long_topics, long_answers):
-            # Split the answer by separators and assign to years
-            year_values = answer_list[0].split("|") if answer_list else ["NA", "NA", "NA"]
+            # answer_list contains 3 strings (one for each year)
             year_parts = []
-            for i, value in enumerate(year_values):
-                year_parts.append(f"Year {i}: {value}")
+            for i, year_answer in enumerate(answer_list):
+                year_parts.append(f"Year {i}: {year_answer}")
             trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
         
         answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}."
@@ -321,10 +320,10 @@ def create_trajectory_question(
         # Combine both trajectory and status formatting
         trajectory_parts = []
         for topic, answer_list in zip(long_topics, long_answers):
-            year_values = answer_list[0].split("|") if answer_list else ["NA", "NA", "NA"]
+            # answer_list contains 3 strings (one for each year)
             year_parts = []
-            for i, value in enumerate(year_values):
-                year_parts.append(f"Year {i}: {value}")
+            for i, year_answer in enumerate(answer_list):
+                year_parts.append(f"Year {i}: {year_answer}")
             trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
         
         status_parts = []
