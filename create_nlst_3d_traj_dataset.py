@@ -370,11 +370,9 @@ def get_questions(
         for rows in [rows_ts0, rows_ts1, rows_ts2]
     ]
 
-    long_topics_answers = ("margins for the nodule", qa_margin_answers), (
-        "predominant attenuation for the nodule",
-        qa_pre_att_answers,
-    )
-    short_topics_answers = ("cancer", ["yes" if has_cancer else "no"])
+    long_topics_answers = [("margins for the nodule", qa_margin_answers), 
+                           ("predominant attenuation for the nodule", qa_pre_att_answers)]
+    short_topics_answers = short_topics_answers = [("cancer", ["yes" if has_cancer else "no"])]
 
     for short_topics_answers_ in [None, short_topics_answers]:
         for long_topics_answers_ in [
