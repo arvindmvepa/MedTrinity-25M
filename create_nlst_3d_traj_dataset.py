@@ -246,6 +246,8 @@ def build_question(
     long_answers,
     short_topics,
     short_answers,
+    question_template,
+    answer_template,
     pid,
     inst,
     embedding_path_ts0,
@@ -271,77 +273,97 @@ def build_question(
         "short_answers": short_answers,
         "qid": question_index,
         "content_type": content_type,
+        "question_template": question_template,
+        "answer_template": answer_template,
     }
+
+
+def format_long_topic_only_qa(long_topics, long_answers, num_timesteps=2):
+    topics_str = " and ".join(long_topics)
+    question = f"Predict the patient's trajectory of {topics_str} over the next {num_timesteps} years?"
+    question_template = "Predict the patient's trajectory of {} over the next {} years?"
+
+    # Format trajectory answers with clear year labels
+    trajectory_parts = []
+    for topic, answer_list in zip(long_topics, long_answers):
+        # answer_list contains 3 strings (one for each year)
+        year_parts = []
+        for i, year_answer in enumerate(answer_list):
+            year_parts.append(f"Year {i}: {year_answer}")
+        trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
+    
+    answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}."
+    answer_template = "The predicted trajectory for {}."
+    return question, answer, question_template, answer_template
+
+
+def format_short_topic_only_qa(short_topics, short_answers):
+    topics_str = " and ".join(short_topics)
+    question = f"What will be the eventual patient status for {topics_str}?"
+    question_template = "What will be the eventual patient status for {}?"
+
+    # Format short answers as natural statements
+    status_parts = []
+    for topic, answer_list in zip(short_topics, short_answers):
+        answer_value = answer_list[0] if answer_list else "unknown"
+        if topic.lower() == "cancer":
+            if answer_value.lower() == "yes":
+                status_parts.append("the patient will develop cancer")
+            elif answer_value.lower() == "no":
+                status_parts.append("the patient will not develop cancer")
+            else:
+                status_parts.append(f"cancer status is {answer_value}")
+        else:
+            status_parts.append(f"{topic} will be {answer_value}")
+    
+    answer = f"The eventual patient status: {', '.join(status_parts)}."
+    answer_template = "The eventual patient status: {}."
+    return question, answer, question_template, answer_template
+
+
+def format_long_and_short_topic_qa(long_topics, long_answers, short_topics, short_answers, num_timesteps=2):
+    long_topics_str = " and ".join(long_topics)
+    short_topics_str = " and ".join(short_topics)
+    question = f"Predict the patient's trajectory of {long_topics_str} over the next {num_timesteps} years and the eventual status of {short_topics_str}?"
+    question_template = "Predict the patient's trajectory of {} over the next {} years and the eventual status of {}?"
+
+    # Combine both trajectory and status formatting
+    trajectory_parts = []
+    for topic, answer_list in zip(long_topics, long_answers):
+        # answer_list contains 3 strings (one for each year)
+        year_parts = []
+        for i, year_answer in enumerate(answer_list):
+            year_parts.append(f"Year {i}: {year_answer}")
+        trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
+    
+    status_parts = []
+    for topic, answer_list in zip(short_topics, short_answers):
+        answer_value = answer_list[0] if answer_list else "unknown"
+        if topic.lower() == "cancer":
+            if answer_value.lower() == "yes":
+                status_parts.append("the patient will develop cancer")
+            elif answer_value.lower() == "no":
+                status_parts.append("the patient will not develop cancer")
+            else:
+                status_parts.append(f"cancer status is {answer_value}")
+        else:
+            status_parts.append(f"{topic} will be {answer_value}")
+    
+    answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}. The eventual status: {', '.join(status_parts)}."
+    answer_template = "The predicted trajectory for {}. The eventual status: {}."
+
+    return question, answer, question_template, answer_template
 
 
 def create_trajectory_question(
     long_topics, long_answers, short_topics, short_answers, num_timesteps=2
 ):
     if long_topics is not None and short_topics is None:
-        topics_str = " and ".join(long_topics)
-        question = f"Predict the patient's trajectory of {topics_str} over the next {num_timesteps} years?"
-
-        # Format trajectory answers with clear year labels
-        trajectory_parts = []
-        for topic, answer_list in zip(long_topics, long_answers):
-            # answer_list contains 3 strings (one for each year)
-            year_parts = []
-            for i, year_answer in enumerate(answer_list):
-                year_parts.append(f"Year {i}: {year_answer}")
-            trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
-        
-        answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}."
-
+        return format_long_topic_only_qa(long_topics, long_answers, num_timesteps=num_timesteps)
     elif long_topics is None and short_topics is not None:
-        topics_str = " and ".join(short_topics)
-        question = f"What will be the eventual patient status for {topics_str}?"
-
-        # Format short answers as natural statements
-        status_parts = []
-        for topic, answer_list in zip(short_topics, short_answers):
-            answer_value = answer_list[0] if answer_list else "unknown"
-            if topic.lower() == "cancer":
-                if answer_value.lower() == "yes":
-                    status_parts.append("the patient will develop cancer")
-                elif answer_value.lower() == "no":
-                    status_parts.append("the patient will not develop cancer")
-                else:
-                    status_parts.append(f"cancer status is {answer_value}")
-            else:
-                status_parts.append(f"{topic} will be {answer_value}")
-        
-        answer = f"The eventual patient status: {', '.join(status_parts)}."
-
+        return format_short_topic_only_qa(short_topics, short_answers)
     else:
-        long_topics_str = " and ".join(long_topics)
-        short_topics_str = " and ".join(short_topics)
-        question = f"Predict the patient's trajectory of {long_topics_str} over the next {num_timesteps} years and the eventual status of {short_topics_str}?"
-
-        # Combine both trajectory and status formatting
-        trajectory_parts = []
-        for topic, answer_list in zip(long_topics, long_answers):
-            # answer_list contains 3 strings (one for each year)
-            year_parts = []
-            for i, year_answer in enumerate(answer_list):
-                year_parts.append(f"Year {i}: {year_answer}")
-            trajectory_parts.append(f"{topic} - {', '.join(year_parts)}")
-        
-        status_parts = []
-        for topic, answer_list in zip(short_topics, short_answers):
-            answer_value = answer_list[0] if answer_list else "unknown"
-            if topic.lower() == "cancer":
-                if answer_value.lower() == "yes":
-                    status_parts.append("the patient will develop cancer")
-                elif answer_value.lower() == "no":
-                    status_parts.append("the patient will not develop cancer")
-                else:
-                    status_parts.append(f"cancer status is {answer_value}")
-            else:
-                status_parts.append(f"{topic} will be {answer_value}")
-        
-        answer = f"The predicted trajectory for {' and '.join(trajectory_parts)}. The eventual status: {', '.join(status_parts)}."
-
-    return question, answer
+        return format_long_and_short_topic_qa(long_topics, long_answers, short_topics, short_answers, num_timesteps=num_timesteps)
 
 
 def get_questions(
@@ -426,7 +448,7 @@ def get_questions(
                     else None
                 )
 
-                traj_q, traj_a = create_trajectory_question(
+                traj_q, traj_a, templ_q, templ_a = create_trajectory_question(
                     long_topics=long_topics_,
                     short_topics=short_topics_,
                     long_answers=long_answers_,
@@ -436,6 +458,8 @@ def get_questions(
                     build_question(
                         question=traj_q,
                         answer=traj_a,
+                        question_template=templ_q,
+                        answer_template=templ_a,
                         long_topics=long_topics_,
                         long_answers=long_answers_,
                         short_topics=short_topics_,
