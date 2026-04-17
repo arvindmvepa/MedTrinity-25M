@@ -201,14 +201,29 @@ def build_question(question, answer, long_topics, long_answers, short_topics, sh
 
 def create_trajectory_question(long_topics, long_answers, short_topics, short_answers, num_timesteps=2):
     if long_topics is not None and short_topics is None:
-        question = f"Predict the patient's trajectory of {" and ".join(long_topics)} over the next {num_timesteps} years?"
-        answer = f"The predicted trajectory is as follows: {" ; ".join([f"{topic}: {", ".join(answer)}" for topic, answer in zip(long_topics, long_answers)])}."
+        topics_str = " and ".join(long_topics)
+        question = f"Predict the patient's trajectory of {topics_str} over the next {num_timesteps} years?"
+        
+        topic_answer_pairs = [f"{topic}: {', '.join(answer)}" for topic, answer in zip(long_topics, long_answers)]
+        answer = f"The predicted trajectory is as follows: {' ; '.join(topic_answer_pairs)}."
+        
     elif long_topics is None and short_topics is not None:
-        question = f"What will be the eventual patient status for {" and ".join(short_topics)}?"
-        answer = f"The patient status will be as follows: {" ; ".join([f"{topic}: {", ".join(answer)}" for topic, answer in zip(short_topics, short_answers)])}."
+        topics_str = " and ".join(short_topics)
+        question = f"What will be the eventual patient status for {topics_str}?"
+        
+        topic_answer_pairs = [f"{topic}: {', '.join(answer)}" for topic, answer in zip(short_topics, short_answers)]
+        answer = f"The patient status will be as follows: {' ; '.join(topic_answer_pairs)}."
+        
     else:
-        question = f"Predict the patient's trajectory of {" and ".join(long_topics)} over the next {num_timesteps} years and the eventual status of {" and ".join(short_topics)}?"
-        answer = f"The predicted trajectory and eventual status are as follows: {" ; ".join([f"{topic}: {", ".join(answer)}" for topic, answer in zip(long_topics + short_topics, long_answers + short_answers)])}."
+        long_topics_str = " and ".join(long_topics)
+        short_topics_str = " and ".join(short_topics)
+        question = f"Predict the patient's trajectory of {long_topics_str} over the next {num_timesteps} years and the eventual status of {short_topics_str}?"
+        
+        all_topics = long_topics + short_topics
+        all_answers = long_answers + short_answers
+        topic_answer_pairs = [f"{topic}: {', '.join(answer)}" for topic, answer in zip(all_topics, all_answers)]
+        answer = f"The predicted trajectory and eventual status are as follows: {' ; '.join(topic_answer_pairs)}."
+        
     return question, answer
 
 
