@@ -552,6 +552,10 @@ if __name__ == "__main__":
     patient_info_w_combined_measure_comp_df = pd.merge(
         patient_df, combined_measure_comp_df, on="pid", how="left"
     )
+    patient_info_w_combined_measure_comp_df_ = pd.merge(
+        patient_df, combined_measure_comp_df, on="pid", how="inner"
+    )
+    print(f"patient_info_w_combined_measure_comp_df_ (pids): {patient_info_w_combined_measure_comp_df_['pid'].nunique()}")
     print(f"patient_info_w_combined_measure_comp_df (pids): {patient_info_w_combined_measure_comp_df['pid'].nunique()}")
     all_vqas = generate_vqa_from_df(
         patient_info_w_combined_measure_comp_df, embedding_dir=embedding_dir
