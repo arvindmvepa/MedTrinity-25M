@@ -554,7 +554,6 @@ if __name__ == "__main__":
     print(f"combined_measure_comp_df (study_yr): {combined_measure_comp_df['study_yr'].nunique()}")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
     print(f"patient_df (pids): {patient_df['pid'].nunique()}")
-    print(f"patient_df (study_yr): {patient_df['study_yr'].nunique()}")
     patient_df["pid"] = patient_df["pid"].astype(int)
     patient_info_w_combined_measure_comp_df = pd.merge(
         patient_df, combined_measure_comp_df, on="pid", how="left"
