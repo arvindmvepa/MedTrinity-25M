@@ -545,26 +545,21 @@ if __name__ == "__main__":
 
     measure_df = pd.read_csv(measurement_file)
     print(f"measure_df (pids): {measure_df['pid'].nunique()}")
-    compare_df = pd.read_csv(comparison_file)
-    print(f"compare_df (pids): {compare_df['pid'].nunique()}")
-    combined_measure_comp_df = pd.merge(
-        measure_df, compare_df, on=["pid", "study_yr", "sct_ab_num"], how="inner"
-    )
-    print(f"combined_measure_comp_df (pids): {combined_measure_comp_df['pid'].nunique()}")
-    print(f"combined_measure_comp_df (study_yr): {combined_measure_comp_df['study_yr'].nunique()}")
+    print(f"measure_df (pids): {measure_df['pid'].nunique()}")
+    print(f"measure_df (study_yr): {measure_df['study_yr'].nunique()}")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
     print(f"patient_df (pids): {patient_df['pid'].nunique()}")
     patient_df["pid"] = patient_df["pid"].astype(int)
-    patient_info_w_combined_measure_comp_df = pd.merge(
-        patient_df, combined_measure_comp_df, on="pid", how="left"
+    patient_info_w_measure_df = pd.merge(
+        patient_df, measure_df, on="pid", how="left"
     )
-    patient_info_w_combined_measure_comp_df_ = pd.merge(
-        patient_df, combined_measure_comp_df, on="pid", how="inner"
+    patient_info_w_measure_df_ = pd.merge(
+        patient_df, measure_df, on="pid", how="inner"
     )
-    print(f"patient_info_w_combined_measure_comp_df_ (pids): {patient_info_w_combined_measure_comp_df_['pid'].nunique()}")
-    print(f"patient_info_w_combined_measure_comp_df (pids): {patient_info_w_combined_measure_comp_df['pid'].nunique()}")
+    print(f"patient_info_w_measure_df_ (pids): {patient_info_w_measure_df_['pid'].nunique()}")
+    print(f"patient_info_w_measure_df (pids): {patient_info_w_measure_df['pid'].nunique()}")
     all_vqas = generate_vqa_from_df(
-        patient_info_w_combined_measure_comp_df, embedding_dir=embedding_dir
+        patient_info_w_measure_df, embedding_dir=embedding_dir
     )
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
