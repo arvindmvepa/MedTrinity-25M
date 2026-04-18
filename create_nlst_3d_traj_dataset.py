@@ -35,6 +35,17 @@ sct_margins_dict = {
     # .N => "Not applicable", etc.
 }
 
+sct_pre_att_dict = {
+    1: "Soft Tissue",
+    2: "Ground glass",
+    3: "Mixed",
+    4: "Fluid/water",
+    6: "Fat",
+    7: "Other",
+    9: "Unable to determine"
+    # .M => "Missing", .N => "Not applicable", etc.
+}
+
 def generate_train_val_test_split(
     all_vqa_questions,
     question_key="pid",
