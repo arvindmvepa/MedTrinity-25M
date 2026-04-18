@@ -445,7 +445,6 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
     """
     all_vqas = []
     question_index = 0
-    print(ann_df["pid"].nunique())
     valid_df_count = 0
     print("Number of unique pids with timepoint 0: ", ann_df.loc[ann_df['study_yr'] == 0]['pid'].nunique())
     print("Number of unique pids with timepoint 1: ", ann_df.loc[ann_df['study_yr'] == 1]['pid'].nunique())
