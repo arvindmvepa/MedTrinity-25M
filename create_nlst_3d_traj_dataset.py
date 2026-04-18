@@ -504,11 +504,10 @@ if __name__ == "__main__":
     embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
 
     measure_df = pd.read_csv(measurement_file)
-    print(f"measure_df (pids): {measure_df['pid'].nunique()}")
-    print(f"measure_df (pids): {measure_df['pid'].nunique()}")
-    print(f"measure_df (study_yr): {measure_df['study_yr'].nunique()}")
+    print(f"Number of unique pids in measurement file: {measure_df['pid'].nunique()}")
+    print(f"Number of unique study years in measurement file: {measure_df['study_yr'].nunique()}")
     (patient_df, _) = pyreadstat.read_sas7bdat(patient_file)
-    print(f"patient_df (pids): {patient_df['pid'].nunique()}")
+    print(f"Number of unique pids in patient file: {patient_df['pid'].nunique()}")
     patient_df["pid"] = patient_df["pid"].astype(int)
     patient_info_w_measure_df = pd.merge(
         patient_df, measure_df, on="pid", how="left"
@@ -516,8 +515,7 @@ if __name__ == "__main__":
     patient_info_w_measure_df_ = pd.merge(
         patient_df, measure_df, on="pid", how="inner"
     )
-    print(f"patient_info_w_measure_df_ (pids): {patient_info_w_measure_df_['pid'].nunique()}")
-    print(f"patient_info_w_measure_df (pids): {patient_info_w_measure_df['pid'].nunique()}")
+    print(f"Number of unique pids in merged patient df and measurement df: {patient_info_w_measure_df_['pid'].nunique()}")
     all_vqas = generate_vqa_from_df(
         patient_info_w_measure_df, embedding_dir=embedding_dir
     )
