@@ -513,7 +513,7 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
             all_vqas.extend(qas)
             valid_df_count += 1
         else:
-            print(f"PID {pid} does not have all 3 time points. {pid_ann_df["study_yr"]}")
+            print(f"PID {pid} does not have all 3 time points. {pid_ann_df['study_yr'].tolist()}")
     print(f"Total valid PIDs with all 3 time points: {valid_df_count}")
     return all_vqas
 
