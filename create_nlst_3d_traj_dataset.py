@@ -484,8 +484,6 @@ def generate_vqa_from_df(ann_df, train_pids, val_pids, test_pids, embedding_dir=
         embedding_path_ts1 = os.path.join(embedding_pid_dir, f"pid{pid}_ts1.st")
         embedding_path_ts2 = os.path.join(embedding_pid_dir, f"pid{pid}_ts2.st")
 
-        print(f"{embedding_path_ts0}: {os.path.exists(embedding_path_ts0)}")
-
         if len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0 and \
             os.path.exists(embedding_path_ts0):
             qas, question_index = get_questions(
