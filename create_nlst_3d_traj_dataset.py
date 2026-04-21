@@ -556,6 +556,8 @@ if __name__ == "__main__":
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
+    
+    print(f"VQA pairs generated for train {len(train_vqas)}, val {len(val_vqas)}, and test {len(test_vqas)}")
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
