@@ -94,14 +94,22 @@ def generate_train_val_test_split(
     return train_questions, val_questions, test_questions
 
 
-def get_npy_path(volume_path, img_root="/local/amvepa91/nlst_npy"):
-    volume_name = os.path.basename(volume_path)
-    time_point_dir = os.path.basename(os.path.dirname(volume_path))
-    pid_dir = os.path.basename(os.path.dirname(os.path.dirname(volume_path)))
-    volume_path_npy = os.path.join(
-        img_root, pid_dir, time_point_dir, volume_name + ".npy"
-    )
-    return volume_path_npy
+def train_val_test_pids(pid_split_file):
+    """
+    Splits a list of VQA dicts into train, val, and test sets based on a PID split file.
+    The PID split file should have columns 'pid' and 'split' with values 'train', 'val', or 'test'.
+
+    - final_vqa: list of dictionaries, each must have 'pid' key
+    - pid_split_file: path to CSV file containing PID splits
+
+    Returns: (train_list, val_list, test_list)
+    """
+    pid_df = pd.read_csv(pid_split_file)
+    train_pids = set(pid_df[pid_df['SPLIT'] == 'train']['PID'])
+    val_pids = set(pid_df[pid_df['SPLIT'] == 'dev']['PID'])
+    test_pids = set(pid_df[pid_df['SPLIT'] == 'test']['PID'])
+
+    return train_pids, val_pids, test_pids
 
 
 # A small helper to handle "code not found in dict" => "missing"
@@ -438,7 +446,7 @@ def get_questions(
     return q_list, question_index
 
 
-def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embeddings"):
+def generate_vqa_from_df(ann_df, train_pids, val_pids, test_pids, embedding_dir="/hsuraid/avepa/m3fm_embeddings"):
     """
     Main function: iterates over the next_rows of 'df' and
     creates VQA Q–A pairs in a modular way.
@@ -449,18 +457,32 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
     print("Number of unique pids with timepoint 0: ", ann_df.loc[ann_df['study_yr'] == 0]['pid'].nunique())
     print("Number of unique pids with timepoint 1: ", ann_df.loc[ann_df['study_yr'] == 1]['pid'].nunique())
     print("Number of unique pids with timepoint 2: ", ann_df.loc[ann_df['study_yr'] == 2]['pid'].nunique())
+    split = None
     for pid, pid_ann_df in tqdm(ann_df.groupby("pid")):
+        if pid in train_pids:
+            embedding_pid_dir = os.path.join(embedding_dir, "train")
+            split = "train"
+        elif pid in val_pids:
+            embedding_pid_dir = os.path.join(embedding_dir, "val")
+            split = "val"
+        elif pid in test_pids:
+            embedding_pid_dir = os.path.join(embedding_dir, "test")
+            split = "test"
+        else:
+            split = None
+            continue
         inst = pid_ann_df["cen"].iloc[0]
 
         pid_study_yr0_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 0]
         pid_study_yr1_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 1]
         pid_study_yr2_ann_df = pid_ann_df.loc[pid_ann_df["study_yr"] == 2]
 
-        embedding_path_ts0 = os.path.join(embedding_dir, f"pid{pid}_ts0.st")
-        embedding_path_ts1 = os.path.join(embedding_dir, f"pid{pid}_ts1.st")
-        embedding_path_ts2 = os.path.join(embedding_dir, f"pid{pid}_ts2.st")
+        embedding_path_ts0 = os.path.join(embedding_pid_dir, f"pid{pid}_ts0.st")
+        embedding_path_ts1 = os.path.join(embedding_pid_dir, f"pid{pid}_ts1.st")
+        embedding_path_ts2 = os.path.join(embedding_pid_dir, f"pid{pid}_ts2.st")
 
-        if len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0:
+        if len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0 and \
+            os.path.exists(embedding_path_ts0) and os.path.exists(embedding_path_ts1) and os.path.exists(embedding_path_ts2):
             qas, question_index = get_questions(
                 pid_study_yr0_ann_df,
                 pid_study_yr1_ann_df,
@@ -473,11 +495,19 @@ def generate_vqa_from_df(ann_df, embedding_dir="/hsuraid/avepa/nlst_sybil_embedd
                 embedding_path_ts2=embedding_path_ts2,
             )
             all_vqas.extend(qas)
+            if split == "train":
+                train_vqas.extend(qas)
+            elif split == "val":
+                val_vqas.extend(qas)
+            elif split == "test":
+                test_vqas.extend(qas)
+            else:
+                raise ValueError(f"split is missing! for pid {pid}")
             valid_df_count += 1
         #else:
         #    print(f"PID {pid} does not have all 3 time points. {pid_ann_df['study_yr'].tolist()}")
     print(f"Total valid PIDs with all 3 time points: {valid_df_count}")
-    return all_vqas
+    return all_vqas, train_vqas, val_vqas, test_vqas
 
 
 def filter_by_instution(all_vqas, inst_list):
@@ -493,14 +523,14 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     seed = 0
-    tag = "traj_v0"
+    tag = "traj_v1"
 
     save_file = f"nlst_vqa_add_{tag}.json"
     train_save_file = f"nlst_train_vqa_{tag}_seed{seed}.json"
     val_save_file = f"nlst_val_vqa_{tag}_seed{seed}.json"
     test_save_file = f"nlst_test_vqa_{tag}_seed{seed}.json"
     pid_split_file = "/home/avepa/Sybil/pid2split.csv"
-    embedding_dir = "/hsuraid/avepa/nlst_sybil_embeddings"
+    embedding_dir = "/hsuraid/avepa/m3fm_embeddings"
 
     measure_df = pd.read_csv(measurement_file)
     print(f"Number of unique pids in measurement file: {measure_df['pid'].nunique()}")
@@ -515,14 +545,14 @@ if __name__ == "__main__":
         patient_df, measure_df, on="pid", how="inner"
     )
     print(f"Number of unique pids in merged patient df and measurement df: {patient_info_w_measure_df_['pid'].nunique()}")
-    all_vqas = generate_vqa_from_df(
-        patient_info_w_measure_df, embedding_dir=embedding_dir
+    train_pids, val_pids, test_pids = train_val_test_pids(pid_split_file)
+    all_vqas, train_vqas, val_vqas, test_vqas = generate_vqa_from_df(
+        patient_info_w_measure_df, embedding_dir=embedding_dir, train_pids=train_pids, val_pids=val_pids, test_pids=test_pids
     )
     print(f"==========OVERALL==========")
     print(f"Total VQA pairs generated: {len(all_vqas)}")
     with open(save_file, "w") as f:
         json.dump(all_vqas, f, indent=4)
-    train_vqas, val_vqas, test_vqas = generate_train_val_test_split(all_vqas, seed=seed)
 
     with open(train_save_file, "w") as f:
         json.dump(train_vqas, f, indent=4)
