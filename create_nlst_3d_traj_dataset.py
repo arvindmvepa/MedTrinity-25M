@@ -452,6 +452,9 @@ def generate_vqa_from_df(ann_df, train_pids, val_pids, test_pids, embedding_dir=
     creates VQA Q–A pairs in a modular way.
     """
     all_vqas = []
+    train_vqas = []
+    val_vqas = []
+    test_vqas = []
     question_index = 0
     valid_df_count = 0
     print("Number of unique pids with timepoint 0: ", ann_df.loc[ann_df['study_yr'] == 0]['pid'].nunique())
@@ -480,6 +483,10 @@ def generate_vqa_from_df(ann_df, train_pids, val_pids, test_pids, embedding_dir=
         embedding_path_ts0 = os.path.join(embedding_pid_dir, f"pid{pid}_ts0.st")
         embedding_path_ts1 = os.path.join(embedding_pid_dir, f"pid{pid}_ts1.st")
         embedding_path_ts2 = os.path.join(embedding_pid_dir, f"pid{pid}_ts2.st")
+
+        print(f"{embedding_path_ts0}: {os.path.exists(embedding_path_ts0)}")
+        print(f"{embedding_path_ts1}: {os.path.exists(embedding_path_ts1)}")
+        print(f"{embedding_path_ts2}: {os.path.exists(embedding_path_ts2)}")
 
         if len(pid_study_yr0_ann_df) > 0 and len(pid_study_yr1_ann_df) > 0 and len(pid_study_yr2_ann_df) > 0 and \
             os.path.exists(embedding_path_ts0) and os.path.exists(embedding_path_ts1) and os.path.exists(embedding_path_ts2):
