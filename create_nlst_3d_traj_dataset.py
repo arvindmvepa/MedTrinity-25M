@@ -124,22 +124,18 @@ def get_numeric_value(numeric_value, missing_val=-1):
         return str(numeric_value)
 
 
-def get_string_from_item_lst(next_rows, key, key_dict, na_string="NA", sep_string="|"):
-    if len(next_rows) == 0:
+def get_string_from_item_lst(rows, key, key_dict, na_string="NA"):
+    if len(rows) == 0:
         return na_string
-    return sep_string.join(
-        [get_dict_value(key_dict, row[key]) for _, row in next_rows.iterrows()]
-    )
+    # only return the value for the first row
+    return get_dict_value(key_dict, rows.iloc[0][key])
 
 
-def get_string_from_numeric_lst(
-    next_rows, key, nan_string="0", missing_val=-1, sep_string="|"
-):
-    if len(next_rows) == 0:
+def get_string_from_numeric_lst(rows, key, nan_string="0", missing_val=-1):
+    if len(rows) == 0:
         return nan_string
-    return sep_string.join(
-        [get_numeric_value(row[key], missing_val) for _, row in next_rows.iterrows()]
-    )
+    # only return the value for the first row
+    return get_numeric_value(rows.iloc[0][key], missing_val)
 
 
 def train_val_test_split_by_pid_split_file(final_vqa, pid_split_file):
@@ -526,7 +522,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     seed = 0
-    tag = "traj_v1"
+    tag = "traj_v2"
 
     save_file = f"nlst_vqa_add_{tag}.json"
     train_save_file = f"nlst_train_vqa_{tag}_seed{seed}.json"
