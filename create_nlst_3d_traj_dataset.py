@@ -53,7 +53,7 @@ sct_pre_att_dict = {
     9: "Unable to determine"
     # .M => "Missing", .N => "Not applicable", etc.
 }
-sct_margins_numeric = {
+sct_pre_att_numeric = {
     "NA": 1,
     "Soft Tissue": 2,
     "Ground glass": 3,
@@ -353,17 +353,17 @@ def get_numeric_answer_from_string(long_topics, long_answers, short_topics, shor
     else:
         for topic, answer_list in zip(long_topics, long_answers):
             if topic == "margins for the nodule":
-                numeric_answers["margins_ts0"] = answer_list[0]
-                numeric_answers["margins_ts1"] = answer_list[1]
-                numeric_answers["margins_ts2"] = answer_list[2]
+                numeric_answers["margins_ts0"] = sct_margins_numeric[answer_list[0]]
+                numeric_answers["margins_ts1"] = sct_margins_numeric[answer_list[1]]
+                numeric_answers["margins_ts2"] = sct_margins_numeric[answer_list[2]]
             else:
                 numeric_answers["margins_ts0"] = 0
                 numeric_answers["margins_ts1"] = 0
                 numeric_answers["margins_ts2"] = 0
             if topic == "predominant attenuation for the nodule":
-                numeric_answers["att_ts0"] = answer_list[0]
-                numeric_answers["att_ts1"] = answer_list[1]
-                numeric_answers["att_ts2"] = answer_list[2]
+                numeric_answers["att_ts0"] = sct_pre_att_numeric[answer_list[0]]
+                numeric_answers["att_ts1"] = sct_pre_att_numeric[answer_list[1]]
+                numeric_answers["att_ts2"] = sct_pre_att_numeric[answer_list[2]]
             else:
                 numeric_answers["att_ts0"] = 0
                 numeric_answers["att_ts1"] = 0
@@ -373,7 +373,7 @@ def get_numeric_answer_from_string(long_topics, long_answers, short_topics, shor
     else:
         for topic, answer_list in zip(short_topics, short_answers):
             if topic == "cancer":
-                numeric_answers["cancer"] = answer_list[0]
+                numeric_answers["cancer"] = sct_cancer_numeric[answer_list[0]]
             else:
                 numeric_answers["cancer"] = 0
     return numeric_answers
