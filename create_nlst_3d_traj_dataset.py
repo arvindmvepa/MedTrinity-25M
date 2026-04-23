@@ -356,26 +356,27 @@ def get_numeric_answer_from_string(long_topics, long_answers, short_topics, shor
                 numeric_answers["margins_ts0"] = sct_margins_numeric[answer_list[0]]
                 numeric_answers["margins_ts1"] = sct_margins_numeric[answer_list[1]]
                 numeric_answers["margins_ts2"] = sct_margins_numeric[answer_list[2]]
-            else:
-                numeric_answers["margins_ts0"] = 0
-                numeric_answers["margins_ts1"] = 0
-                numeric_answers["margins_ts2"] = 0
             if topic == "predominant attenuation for the nodule":
                 numeric_answers["att_ts0"] = sct_pre_att_numeric[answer_list[0]]
                 numeric_answers["att_ts1"] = sct_pre_att_numeric[answer_list[1]]
                 numeric_answers["att_ts2"] = sct_pre_att_numeric[answer_list[2]]
-            else:
+        if "margins_ts0" not in numeric_answers:
+                numeric_answers["margins_ts0"] = 0
+                numeric_answers["margins_ts1"] = 0
+                numeric_answers["margins_ts2"] = 0
+        if "att_ts0" not in numeric_answers:
                 numeric_answers["att_ts0"] = 0
                 numeric_answers["att_ts1"] = 0
                 numeric_answers["att_ts2"] = 0
+
     if short_topics is None:
         numeric_answers["cancer"] = 0
     else:
         for topic, answer_list in zip(short_topics, short_answers):
             if topic == "cancer":
                 numeric_answers["cancer"] = sct_cancer_numeric[answer_list[0]]
-            else:
-                numeric_answers["cancer"] = 0
+        if "cancer" not in numeric_answers:
+            numeric_answers["cancer"] = 0
     return numeric_answers
 
 
