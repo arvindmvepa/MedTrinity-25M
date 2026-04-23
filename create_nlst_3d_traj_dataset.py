@@ -34,6 +34,14 @@ sct_margins_dict = {
     9: "Unable to determine",
     # .N => "Not applicable", etc.
 }
+sct_margins_numeric = {
+    "NA": 1,
+    "Spiculated (Stellate)": 2,
+    "Smooth": 3,
+    "Poorly defined": 4,
+    "Unable to determine": 5,
+    # .N => "Not applicable", etc.
+}
 
 sct_pre_att_dict = {
     1: "Soft Tissue",
@@ -45,6 +53,18 @@ sct_pre_att_dict = {
     9: "Unable to determine"
     # .M => "Missing", .N => "Not applicable", etc.
 }
+sct_margins_numeric = {
+    "NA": 1,
+    "Soft Tissue": 2,
+    "Ground glass": 3,
+    "Mixed": 4,
+    "Fluid/water": 5,
+    "Fat": 6,
+    "Other": 7,
+    "Unable to determine": 8
+    # .M => "Missing", .N => "Not applicable", etc.
+}
+sct_cancer_numeric = { "NA": 1, "yes": 1, "no": 2 }
 
 def generate_train_val_test_split(
     all_vqa_questions,
@@ -210,6 +230,7 @@ def build_question(
     long_answers,
     short_topics,
     short_answers,
+    numeric_answers,
     question_template,
     answer_template,
     pid,
@@ -235,6 +256,7 @@ def build_question(
         "long_answers": long_answers,
         "short_topics": short_topics,
         "short_answers": short_answers,
+        "numeric_answers": numeric_answers,
         "qid": question_index,
         "content_type": content_type,
         "question_template": question_template,
@@ -317,6 +339,33 @@ def format_long_and_short_topic_qa(long_topics, long_answers, short_topics, shor
     answer_template = "The predicted trajectory for {}. The eventual status: {}."
 
     return question, answer, question_template, answer_template
+
+
+def get_numeric_answer_from_string(long_topics, long_answers, short_topics, short_answers):
+    numeric_answers = {}
+    for topic, answer_list in zip(long_topics, long_answers):
+        if topic == "margins for the nodule":
+            numeric_answers["margins_ts0"] = answer_list[0]
+            numeric_answers["margins_ts1"] = answer_list[1]
+            numeric_answers["margins_ts2"] = answer_list[2]
+        else:
+            numeric_answers["margins_ts0"] = 0
+            numeric_answers["margins_ts1"] = 0
+            numeric_answers["margins_ts2"] = 0
+        if topic == "predominant attenuation for the nodule":
+            numeric_answers["att_ts0"] = answer_list[0]
+            numeric_answers["att_ts1"] = answer_list[1]
+            numeric_answers["att_ts2"] = answer_list[2]
+        else:
+            numeric_answers["att_ts0"] = 0
+            numeric_answers["att_ts1"] = 0
+            numeric_answers["att_ts2"] = 0
+    for topic, answer_list in zip(short_topics, short_answers):
+        if topic == "cancer":
+            numeric_answers["cancer"] = answer_list[0]
+        else:
+            numeric_answers["cancer"] = 0
+    return numeric_answers
 
 
 def create_trajectory_question(
@@ -412,6 +461,13 @@ def get_questions(
                     else None
                 )
 
+                numeric_answers = get_numeric_answer_from_string(
+                    long_topics=long_topics_,
+                    long_answers=long_answers_,
+                    short_topics=short_topics_,
+                    short_answers=short_answers_
+                )
+
                 traj_q, traj_a, templ_q, templ_a = create_trajectory_question(
                     long_topics=long_topics_,
                     short_topics=short_topics_,
@@ -428,6 +484,7 @@ def get_questions(
                         long_answers=long_answers_,
                         short_topics=short_topics_,
                         short_answers=short_answers_,
+                        numeric_answers=numeric_answers,
                         pid=pid,
                         inst=inst,
                         embedding_path_ts0=embedding_path_ts0,
@@ -522,7 +579,7 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     seed = 0
-    tag = "traj_v2"
+    tag = "traj_v3"
 
     save_file = f"nlst_vqa_add_{tag}.json"
     train_save_file = f"nlst_train_vqa_{tag}_seed{seed}.json"
