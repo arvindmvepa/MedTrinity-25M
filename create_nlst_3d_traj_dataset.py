@@ -256,7 +256,7 @@ def build_question(
         "long_answers": long_answers,
         "short_topics": short_topics,
         "short_answers": short_answers,
-        "numeric_answers": numeric_answers,
+        "answer_vqa_numeric": numeric_answers,
         "qid": question_index,
         "content_type": content_type,
         "question_template": question_template,
