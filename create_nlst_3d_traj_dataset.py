@@ -343,6 +343,13 @@ def format_long_and_short_topic_qa(long_topics, long_answers, short_topics, shor
 
 def get_numeric_answer_from_string(long_topics, long_answers, short_topics, short_answers):
     numeric_answers = {}
+    if long_topics is None:
+        numeric_answers["margins_ts0"] = 0
+        numeric_answers["margins_ts1"] = 0
+        numeric_answers["margins_ts2"] = 0
+        numeric_answers["att_ts0"] = 0
+        numeric_answers["att_ts1"] = 0
+        numeric_answers["att_ts2"] = 0
     for topic, answer_list in zip(long_topics, long_answers):
         if topic == "margins for the nodule":
             numeric_answers["margins_ts0"] = answer_list[0]
@@ -360,6 +367,8 @@ def get_numeric_answer_from_string(long_topics, long_answers, short_topics, shor
             numeric_answers["att_ts0"] = 0
             numeric_answers["att_ts1"] = 0
             numeric_answers["att_ts2"] = 0
+    if short_topics is None:
+        numeric_answers["cancer"] = 0
     for topic, answer_list in zip(short_topics, short_answers):
         if topic == "cancer":
             numeric_answers["cancer"] = answer_list[0]
