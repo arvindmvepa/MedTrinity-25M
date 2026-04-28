@@ -1,12 +1,5 @@
-import pyreadstat
-from collections import defaultdict
 import json
 from tqdm import tqdm
-import pandas as pd
-import random
-import os
-import numpy as np
-
 
 
 def build_gt_lookup(vqa_questions):
@@ -19,7 +12,7 @@ def build_gt_lookup(vqa_questions):
         answer_vqa_numeric = entry["answer_vqa_numeric"]
         key = pid
         value = (embedding_path_ts0, embedding_path_ts1, embedding_path_ts2, [answer_vqa_numeric])
-        if key in gt_lookup[key]:
+        if key in gt_lookup:
             gt_lookup[key][3].append(answer_vqa_numeric)
         else:
             gt_lookup[key] = [value]
@@ -40,7 +33,7 @@ def build_aux_tasks(all_vqa_questions):
 
     # 5) Build the final list of rows
     aux_lst = []
-    for pid in sorted(pid_set):
+    for pid in tqdm(sorted(pid_set)):
             key = pid
             if key in gt_lookup:
                 embedding_path_ts0, embedding_path_ts1, embedding_path_ts2, answer_vqa_numeric_lst = gt_lookup[key]
