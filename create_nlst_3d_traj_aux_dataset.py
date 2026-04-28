@@ -15,7 +15,7 @@ def build_gt_lookup(vqa_questions):
         if key in gt_lookup:
             gt_lookup[key][3].append(answer_vqa_numeric)
         else:
-            gt_lookup[key] = [value]
+            gt_lookup[key] = value
     return gt_lookup
 
 
