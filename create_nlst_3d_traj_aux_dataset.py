@@ -79,6 +79,10 @@ if __name__ == "__main__":
     val_vqa_aux_data = build_aux_tasks(val_vqa_data)
     test_vqa_aux_data = build_aux_tasks(test_vqa_data)
 
+    print(f"Number of train samples: {len(train_vqa_aux_data)}")
+    print(f"Number of val samples: {len(val_vqa_aux_data)}")
+    print(f"Number of test samples: {len(val_vqa_aux_data)}")
+
     with open(train_aux_file, "w") as f:
         json.dump(train_vqa_aux_data, f, indent=4)
     with open(val_aux_file, "w") as f:
