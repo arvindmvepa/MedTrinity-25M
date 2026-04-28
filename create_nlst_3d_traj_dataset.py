@@ -64,7 +64,7 @@ sct_pre_att_numeric = {
     "Unable to determine": 8
     # .M => "Missing", .N => "Not applicable", etc.
 }
-sct_cancer_numeric = { "NA": 1, "yes": 1, "no": 2 }
+sct_cancer_numeric = {"yes": 1, "no": 2 }
 
 def generate_train_val_test_split(
     all_vqa_questions,
