@@ -57,7 +57,7 @@ def build_aux_tasks(all_vqa_questions):
 
 if __name__ == "__main__":
     seed = 0
-    tag = "traj_v3"
+    tag = "traj_v5"
 
     save_file = f"nlst_vqa_add_{tag}.json"
     train_file = f"nlst_train_vqa_{tag}_seed{seed}.json"

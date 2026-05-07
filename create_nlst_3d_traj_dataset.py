@@ -591,14 +591,14 @@ if __name__ == "__main__":
     comparison_file = "nlst_780_ctabc_idc_20210527.csv"
     patient_file = "participant_d100814.sas7bdat"
     seed = 0
-    tag = "traj_v4"
+    tag = "traj_v5"
 
     save_file = f"nlst_vqa_add_{tag}.json"
     train_save_file = f"nlst_train_vqa_{tag}_seed{seed}.json"
     val_save_file = f"nlst_val_vqa_{tag}_seed{seed}.json"
     test_save_file = f"nlst_test_vqa_{tag}_seed{seed}.json"
     pid_split_file = "/home/avepa/Sybil/pid2split.csv"
-    embedding_dir = "/hsuraid/avepa/m3fm_embeddings1"
+    embedding_dir = "/hsuraid/avepa/m3fm_embeddings2"
 
     measure_df = pd.read_csv(measurement_file)
     print(f"Number of unique pids in measurement file: {measure_df['pid'].nunique()}")
